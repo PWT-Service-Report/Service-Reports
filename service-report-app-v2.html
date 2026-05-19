@@ -388,9 +388,7 @@ body { font-family: 'IBM Plex Sans', sans-serif; background: var(--surface); col
 const APPS_SCRIPT_URL  = 'https://script.google.com/macros/s/AKfycbzdUP8GcjMrK760rnypaAQ-sqZygdAVF-KPOmQArDkfZFIXSRJQXMItoZr-MxtH1-UXkg/exec';
 const SERVICE_DB       = 'service';
 const MANAGEMENT_EMAIL = 'ahmed.atef@pwtinternational.com';
-const EMAILJS_KEY      = 'ZqqYCta5qvMAbTsEv';
-const EMAILJS_SVC      = 'service_ovot8uz';
-const EMAILJS_TPL      = 'template_n2iyh4b';
+const MAKE_WEBHOOK     = 'https://hook.eu1.make.com/gwrnm3s85y48lnxits7cb4ahqkcfn8uw';
 
 // ══════════════════════════════════════════
 // STATE
@@ -930,25 +928,38 @@ async function submitReport() {
     // Build email body
     const emailBody = buildEmailBody(systemsData, visitType, visitNotes, prospectName, prospectContact, prospectPhone);
 
-    showLoading('Sending reports...');
-    emailjs.init(EMAILJS_KEY);
+    showLoading('Sending to Make.com...');
 
-    const base = {
-      report_ref:    state.reportRef,
-      client_name:   state.client?.name || prospectName || 'Free Visit',
-      engineer_name: state.engineer?.name || '',
-      visit_date:    state.timestamp,
-      report_body:   emailBody,
+    // Send to Make.com webhook
+    const payload = {
+      report_ref:      state.reportRef,
+      timestamp:       state.timestamp,
+      visit_mode:      state.visitMode,
+      visit_type:      visitType,
+      visit_notes:     visitNotes,
+      client_code:     state.client?.code  || 'FREE',
+      client_name:     state.client?.name  || prospectName || 'Free Visit',
+      client_region:   state.client?.region|| '',
+      client_email:    clientEmail,
+      engineer_code:   state.engineer?.code || '',
+      engineer_name:   state.engineer?.name || '',
+      engineer_email:  engEmail,
+      management_email: MANAGEMENT_EMAIL,
+      prospect_name:   prospectName,
+      prospect_contact: prospectContact,
+      prospect_phone:  prospectPhone,
+      systems:         systemsData,
+      email_body:      emailBody,
+      pdf_base64:      pdfUri.split(',')[1],
     };
 
-    // 1. Office
-    await emailjs.send(EMAILJS_SVC, EMAILJS_TPL, { ...base, to_email: MANAGEMENT_EMAIL });
-    // 2. Client
-    if (clientEmail) await emailjs.send(EMAILJS_SVC, EMAILJS_TPL, { ...base, to_email: clientEmail });
-    // 3. Engineer
-    if (engEmail && engEmail !== MANAGEMENT_EMAIL) await emailjs.send(EMAILJS_SVC, EMAILJS_TPL, { ...base, to_email: engEmail });
+    await fetch(MAKE_WEBHOOK, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
 
-    // Download PDF
+    // Download PDF on device
     downloadPDF(pdfUri, state.reportRef);
 
     hideLoading();
