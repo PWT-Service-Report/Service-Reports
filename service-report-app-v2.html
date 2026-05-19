@@ -1014,36 +1014,48 @@ function buildEmailBody(systemsData, visitType, visitNotes, prospectName, prospe
   }
 
   systemsData.forEach(sys => {
-    body += `<div style="margin-bottom:18px;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden">`;
-    body += `<div style="font-size:13px;font-weight:700;color:#fff;padding:9px 14px;background:#1a56db">${sys.stype.icon} ${sys.name}</div>`;
-
     const def = PARAMS[sys.type];
+    if (!def) return;
 
-    // Render each section separately
+    body += `<div style="margin-bottom:18px;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden">`;
+    body += `<div style="font-size:13px;font-weight:700;color:#fff;padding:9px 14px;background:#1a56db">${def.icon} ${sys.name}</div>`;
+
+    // Always iterate through DEFINED sections in order — for each section, find params that have values
     def.sections.forEach(sec => {
-      const secData = sys.sections ? sys.sections[sec.title] : null;
-      const rows = sec.params.filter(p => {
-        const v = secData ? secData[p.label] : sys.readings[p.label];
-        return v !== undefined && v !== '' && v !== null;
+      // Collect rows for this section
+      const rows = [];
+      sec.params.forEach(p => {
+        // Try sections object first (new format), then readings (flat)
+        let v;
+        if (sys.sections && sys.sections[sec.title] && sys.sections[sec.title][p.label] !== undefined) {
+          v = sys.sections[sec.title][p.label];
+        } else if (sys.readings && sys.readings[p.label] !== undefined) {
+          v = sys.readings[p.label];
+        }
+        if (v !== undefined && v !== '' && v !== null) {
+          rows.push({ p, v });
+        }
       });
+
       if (rows.length === 0) return;
 
       // Section sub-header
-      body += `<div style="background:#f1f5f9;padding:5px 12px;font-size:9px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.6px;border-top:1px solid #e2e8f0">${sec.title}</div>`;
+      body += `<div style="background:#f1f5f9;padding:6px 14px;font-size:10px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.8px;border-top:1px solid #e2e8f0">${sec.title}</div>`;
 
       // Table
       body += `<table style="width:100%;border-collapse:collapse">`;
-      rows.forEach((p, i) => {
-        const v    = secData ? secData[p.label] : sys.readings[p.label];
+      rows.forEach((row, i) => {
+        const p = row.p;
+        const v = row.v;
         const numV = parseFloat(v);
         const statusColor = !isNaN(numV) ? (p.calc ? '#3b82f6' : (numV >= p.min && numV <= p.max ? '#10b981' : '#ef4444')) : '#94a3b8';
         const bg = i % 2 === 0 ? '#ffffff' : '#f8fafc';
         body += `<tr style="background:${bg}">
-          <td style="padding:6px 12px;font-size:12px;color:#334155;border-top:1px solid #e2e8f0;width:55%">${p.label}</td>
-          <td style="padding:6px 12px;font-size:12px;font-weight:700;color:#0a1628;border-top:1px solid #e2e8f0;font-family:monospace">${v}</td>
-          <td style="padding:6px 12px;font-size:10px;color:#94a3b8;border-top:1px solid #e2e8f0;font-family:monospace">${p.unit}</td>
-          <td style="padding:6px 8px;border-top:1px solid #e2e8f0;text-align:center;width:24px">
-            <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${statusColor}"></span>
+          <td style="padding:7px 14px;font-size:12px;color:#334155;border-top:1px solid #e2e8f0;width:50%">${p.label}</td>
+          <td style="padding:7px 12px;font-size:12px;font-weight:700;color:#0a1628;border-top:1px solid #e2e8f0;font-family:monospace">${v}</td>
+          <td style="padding:7px 12px;font-size:10px;color:#94a3b8;border-top:1px solid #e2e8f0;font-family:monospace">${p.unit}</td>
+          <td style="padding:7px 10px;border-top:1px solid #e2e8f0;text-align:center;width:30px">
+            <span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${statusColor}"></span>
           </td>
         </tr>`;
       });
@@ -1051,7 +1063,7 @@ function buildEmailBody(systemsData, visitType, visitNotes, prospectName, prospe
     });
 
     if (sys.recommendations) {
-      body += `<div style="padding:9px 14px;background:#eff6ff;border-top:1px solid #bfdbfe;font-size:12px;color:#1e3a5f"><strong>Recommendations:</strong> ${sys.recommendations}</div>`;
+      body += `<div style="padding:10px 14px;background:#eff6ff;border-top:1px solid #bfdbfe;font-size:12px;color:#1e3a5f"><strong>Recommendations:</strong> ${sys.recommendations}</div>`;
     }
     body += `</div>`;
   });
