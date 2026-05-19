@@ -817,14 +817,25 @@ function collectSystems() {
     const def     = PARAMS[sys.type];
     const name    = document.getElementById(`sysname-${sys.id}`)?.value || def.label;
     const rec     = document.getElementById(`rec-${sys.id}`)?.value || '';
-    const readings = {};
+    // Collect readings per section to avoid mixing
+    const sections = {};
     def.sections.forEach(sec => {
+      const secReadings = {};
       sec.params.forEach(p => {
-        const v = document.getElementById(`inp-${sys.id}-${p.id}`)?.value;
-        if (v !== '' && v !== undefined) readings[p.label] = v;
+        const el = document.getElementById(`inp-${sys.id}-${p.id}`);
+        const v  = el?.value;
+        if (v !== '' && v !== undefined && v !== null) {
+          secReadings[p.label] = v;
+        }
       });
+      if (Object.keys(secReadings).length > 0) {
+        sections[sec.title] = secReadings;
+      }
     });
-    return { id: sys.id, type: sys.type, stype: def, name, readings, recommendations: rec };
+    // Flatten for email/sheets compatibility
+    const readings = {};
+    Object.values(sections).forEach(sr => Object.assign(readings, sr));
+    return { id: sys.id, type: sys.type, stype: def, name, sections, readings, recommendations: rec };
   });
 }
 
@@ -1111,17 +1122,27 @@ async function generatePDF(systemsData, visitType, visitNotes, prospectName, pro
     doc.rect(M, y, CW, 8, 'F');
     doc.setTextColor(255,255,255);
     doc.setFont('helvetica','bold'); doc.setFontSize(9);
-    doc.text(`${sys.name}`, M+3, y+5.5);
+    doc.text(sys.name, M+3, y+5.5);
     y += 11;
 
-    // All sections with readings
+    // Use sections if available, else fallback
     const def = PARAMS[sys.type];
+    const sectionsToRender = sys.sections || {};
+
     def.sections.forEach(sec => {
+      // Get readings for this specific section only
+      const secData = sys.sections ? sys.sections[sec.title] : null;
       const rows = sec.params.filter(p => {
-        const v = sys.readings[p.label];
-        return v !== undefined && v !== '';
+        if (secData) {
+          return secData[p.label] !== undefined && secData[p.label] !== '';
+        } else {
+          const v = sys.readings[p.label];
+          return v !== undefined && v !== '';
+        }
       });
       if (rows.length === 0) return;
+
+      if (y > 255) { doc.addPage(); y = 16; }
 
       // Section sub-header
       doc.setFillColor(241,245,249);
@@ -1145,11 +1166,13 @@ async function generatePDF(systemsData, visitType, visitNotes, prospectName, pro
         doc.setDrawColor(226,232,240);
         doc.line(M, y+6, M+CW, y+6);
 
+        // Get value from correct section
+        const v = secData ? secData[p.label] : sys.readings[p.label];
+        const numV = parseFloat(v);
+
         doc.setTextColor(51,65,85); doc.setFont('helvetica','normal'); doc.setFontSize(8);
         doc.text(p.label, M+3, y+4.5);
 
-        const v    = sys.readings[p.label];
-        const numV = parseFloat(v);
         doc.setFont('helvetica','bold'); doc.setTextColor(10,22,40);
         doc.text(String(v), M+100, y+4.5);
 
