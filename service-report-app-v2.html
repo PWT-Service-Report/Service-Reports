@@ -1,0 +1,1264 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>PWT — Service Report v2</title>
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --navy:    #0a1628;
+  --blue:    #1a56db;
+  --sky:     #3b82f6;
+  --cyan:    #06b6d4;
+  --slate:   #334155;
+  --muted:   #64748b;
+  --border:  #e2e8f0;
+  --surface: #f8fafc;
+  --white:   #ffffff;
+  --green:   #10b981;
+  --amber:   #f59e0b;
+  --red:     #ef4444;
+  --radius:  12px;
+  --shadow:  0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.06);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+body { font-family: 'IBM Plex Sans', sans-serif; background: var(--surface); color: var(--navy); min-height: 100vh; max-width: 500px; margin: 0 auto; }
+
+/* APP BAR */
+.app-bar { background: var(--navy); padding: 14px 18px; position: sticky; top: 0; z-index: 50; display: flex; align-items: center; gap: 12px; }
+.app-bar-logo { width: 36px; height: 36px; background: linear-gradient(135deg, var(--sky), var(--cyan)); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; color: white; flex-shrink: 0; }
+.app-bar-info { flex: 1; }
+.app-bar-info h1 { color: white; font-size: 15px; font-weight: 600; }
+.app-bar-info p { color: rgba(255,255,255,0.5); font-size: 11px; }
+.app-bar-time { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--cyan); text-align: right; line-height: 1.5; }
+
+/* SCREENS */
+.screen { display: none; padding: 18px; animation: fadeUp 0.2s ease; }
+.screen.active { display: block; }
+@keyframes fadeUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+
+/* PROGRESS */
+.progress-wrap { margin-bottom: 18px; }
+.progress-steps { display: flex; gap: 5px; }
+.progress-step { flex: 1; height: 3px; background: var(--border); border-radius: 3px; transition: background 0.3s; }
+.progress-step.done { background: var(--sky); }
+.progress-step.active { background: var(--cyan); }
+.progress-label { font-size: 10px; color: var(--muted); margin-top: 5px; font-weight: 500; }
+
+/* SECTION LABEL */
+.section-label { font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; margin-top: 20px; }
+.section-label:first-child { margin-top: 0; }
+
+/* CARD */
+.card { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); margin-bottom: 12px; }
+.card-body { padding: 14px; }
+
+/* ENGINEER GRID */
+.eng-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 7px; }
+.eng-btn { padding: 9px 10px; border: 1.5px solid var(--border); border-radius: 8px; background: var(--white); font-family: 'IBM Plex Sans', sans-serif; font-size: 12px; font-weight: 500; color: var(--slate); cursor: pointer; transition: all 0.15s; text-align: center; }
+.eng-btn:active, .eng-btn.selected { background: var(--sky); border-color: var(--sky); color: white; }
+
+/* CLIENT LIST */
+.search-wrap { position: relative; margin-bottom: 10px; }
+.search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 14px; pointer-events: none; }
+.search-input { width: 100%; padding: 11px 12px 11px 36px; border: 1.5px solid var(--border); border-radius: var(--radius); font-family: 'IBM Plex Sans', sans-serif; font-size: 14px; background: var(--white); color: var(--navy); outline: none; }
+.search-input:focus { border-color: var(--sky); }
+.client-list { display: flex; flex-direction: column; gap: 7px; }
+.client-item { background: var(--white); border: 1.5px solid var(--border); border-radius: var(--radius); padding: 12px 14px; display: flex; align-items: center; gap: 10px; cursor: pointer; transition: all 0.15s; box-shadow: var(--shadow); }
+.client-item:active { border-color: var(--sky); background: #eff6ff; }
+.client-avatar { width: 38px; height: 38px; border-radius: 9px; background: linear-gradient(135deg, var(--navy), var(--blue)); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; color: white; flex-shrink: 0; }
+.client-info { flex: 1; min-width: 0; }
+.client-name { font-weight: 600; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.client-meta { font-size: 10px; color: var(--muted); margin-top: 2px; font-family: 'IBM Plex Mono', monospace; }
+
+/* REPORT HERO */
+.report-hero { background: linear-gradient(135deg, var(--navy), #1e3a5f); padding: 18px; margin: -18px -18px 18px; }
+.report-hero-title { color: white; font-size: 17px; font-weight: 700; }
+.report-hero-sub { color: rgba(255,255,255,0.55); font-size: 11px; margin-top: 3px; font-family: 'IBM Plex Mono', monospace; }
+.report-hero-badges { display: flex; gap: 6px; margin-top: 12px; flex-wrap: wrap; }
+.hero-badge { background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2); color: white; padding: 3px 9px; border-radius: 20px; font-size: 10px; font-weight: 500; }
+
+/* SYSTEM TABS */
+.sys-tabs { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; margin-bottom: 14px; scrollbar-width: none; }
+.sys-tabs::-webkit-scrollbar { display: none; }
+.sys-tab { flex-shrink: 0; padding: 6px 13px; border-radius: 20px; border: 1.5px solid var(--border); background: var(--white); font-family: 'IBM Plex Sans', sans-serif; font-size: 11px; font-weight: 600; color: var(--muted); cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+.sys-tab.active { background: var(--navy); border-color: var(--navy); color: white; }
+.sys-panel { display: none; }
+.sys-panel.active { display: block; }
+
+/* SUBSECTION */
+.subsection { background: var(--surface); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; border: 1px solid var(--border); }
+.subsection-title { font-size: 10px; font-weight: 700; color: var(--sky); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+.subsection-title::after { content:''; flex:1; height:1px; background: var(--border); }
+
+/* PARAM ROW */
+.param-row { display: flex; align-items: center; gap: 8px; padding: 7px 0; border-bottom: 1px solid var(--border); }
+.param-row:last-child { border-bottom: none; padding-bottom: 0; }
+.param-label { flex: 1; font-size: 12px; font-weight: 500; color: var(--slate); }
+.param-unit { font-size: 9px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; min-width: 30px; text-align: center; }
+.param-input { width: 78px; padding: 6px 8px; border: 1.5px solid var(--border); border-radius: 7px; font-family: 'IBM Plex Mono', monospace; font-size: 13px; font-weight: 500; color: var(--navy); text-align: center; background: var(--white); outline: none; transition: border-color 0.15s; -moz-appearance: textfield; }
+.param-input::-webkit-outer-spin-button, .param-input::-webkit-inner-spin-button { -webkit-appearance: none; }
+.param-input:focus { border-color: var(--sky); }
+.param-input.out-of-range { border-color: var(--red); background: #fef2f2; color: var(--red); }
+.param-input.in-range { border-color: var(--green); }
+.param-input[readonly] { background: #f0f7ff; color: var(--blue); border-color: #bfdbfe; font-weight: 700; }
+.status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--border); flex-shrink: 0; transition: background 0.2s; }
+.status-dot.ok { background: var(--green); }
+.status-dot.bad { background: var(--red); }
+.status-dot.calc { background: var(--blue); }
+
+/* FORM */
+.form-row { margin-bottom: 12px; }
+.form-label { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 5px; display: block; }
+.form-input, .form-select { width: 100%; padding: 10px 12px; border: 1.5px solid var(--border); border-radius: var(--radius); font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; color: var(--navy); background: var(--white); outline: none; transition: border-color 0.2s; appearance: none; }
+.form-input:focus, .form-select:focus { border-color: var(--sky); }
+.rec-textarea { width: 100%; min-height: 80px; padding: 10px 12px; border: 1.5px solid var(--border); border-radius: var(--radius); font-family: 'IBM Plex Sans', sans-serif; font-size: 12px; color: var(--navy); background: var(--white); outline: none; resize: vertical; line-height: 1.6; }
+.rec-textarea:focus { border-color: var(--sky); }
+
+/* BUTTONS */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 12px 18px; border-radius: var(--radius); border: none; font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.15s; width: 100%; }
+.btn-primary { background: var(--blue); color: white; box-shadow: 0 4px 12px rgba(26,86,219,0.3); }
+.btn-secondary { background: var(--surface); color: var(--slate); border: 1.5px solid var(--border); }
+.btn-success { background: var(--green); color: white; box-shadow: 0 4px 12px rgba(16,185,129,0.3); font-size: 15px; padding: 14px; }
+.btn-danger { background: #fee2e2; color: var(--red); border: 1.5px solid #fca5a5; }
+.btn-sm { padding: 7px 12px; font-size: 11px; width: auto; border-radius: 8px; }
+.btn-row { display: flex; gap: 8px; }
+.btn-row .btn { flex: 1; }
+
+/* ADD SYSTEM */
+.add-sys-row { display: flex; gap: 7px; flex-wrap: wrap; margin-top: 10px; }
+.add-sys-btn { padding: 6px 11px; border: 1.5px dashed var(--border); border-radius: 20px; background: transparent; font-family: 'IBM Plex Sans', sans-serif; font-size: 10px; font-weight: 600; color: var(--muted); cursor: pointer; transition: all 0.15s; }
+.add-sys-btn:hover { border-color: var(--sky); color: var(--sky); border-style: solid; }
+
+/* FREE VISIT BADGE */
+.free-visit-badge { background: linear-gradient(135deg, #f59e0b, #f97316); color: white; padding: 3px 10px; border-radius: 20px; font-size: 10px; font-weight: 700; }
+
+/* LOADING */
+.loading-overlay { display: none; position: fixed; inset: 0; background: rgba(10,22,40,0.6); z-index: 200; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
+.loading-overlay.show { display: flex; }
+.loading-box { background: white; border-radius: 16px; padding: 28px 36px; text-align: center; }
+.spinner { width: 36px; height: 36px; border: 3px solid var(--border); border-top-color: var(--sky); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 12px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-text { font-size: 12px; color: var(--muted); font-weight: 500; }
+
+/* TOAST */
+.toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--navy); color: white; padding: 10px 18px; border-radius: 100px; font-size: 12px; font-weight: 500; z-index: 300; white-space: nowrap; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+.toast.show { opacity: 1; }
+.toast.success { background: var(--green); }
+.toast.error { background: var(--red); }
+
+/* SUCCESS */
+.success-icon { width: 68px; height: 68px; background: linear-gradient(135deg, var(--green), #34d399); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 30px; margin: 0 auto 18px; box-shadow: 0 8px 24px rgba(16,185,129,0.3); }
+.success-title { font-size: 20px; font-weight: 700; text-align: center; }
+.success-sub { font-size: 12px; color: var(--muted); text-align: center; margin-top: 6px; line-height: 1.6; }
+.success-ref { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 16px; margin: 18px 0; font-family: 'IBM Plex Mono', monospace; font-size: 12px; text-align: center; font-weight: 500; }
+.email-sent-row { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: #d1fae5; border-radius: 8px; font-size: 11px; color: #065f46; font-weight: 500; margin-bottom: 6px; }
+
+/* MODAL BOTTOM SHEET */
+.bottom-sheet { display: none; position: fixed; inset: 0; background: rgba(10,22,40,0.5); z-index: 150; align-items: flex-end; }
+.bottom-sheet.show { display: flex; }
+.bottom-sheet-box { background: white; width: 100%; border-radius: 20px 20px 0 0; padding: 22px 18px; max-height: 85vh; overflow-y: auto; }
+.bottom-sheet-handle { width: 36px; height: 4px; background: var(--border); border-radius: 2px; margin: 0 auto 18px; }
+.bottom-sheet-title { font-size: 16px; font-weight: 700; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; }
+.close-btn { border: none; background: var(--surface); color: var(--muted); width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; }
+
+/* CHIP */
+.chip-pending { background: #fef3c7; color: #92400e; padding: 3px 9px; border-radius: 20px; font-size: 10px; font-weight: 600; }
+
+.divider { height: 1px; background: var(--border); margin: 14px 0; }
+</style>
+</head>
+<body>
+
+<!-- APP BAR -->
+<div class="app-bar">
+  <div class="app-bar-logo">PWT</div>
+  <div class="app-bar-info">
+    <h1>Service Report <span style="font-size:10px;background:rgba(255,255,255,0.15);padding:2px 7px;border-radius:10px;margin-right:4px">v2</span></h1>
+    <p>PWT International</p>
+  </div>
+  <div class="app-bar-time" id="appBarTime"></div>
+</div>
+
+<!-- ══════════ SCREEN 1: SELECT ══════════ -->
+<div class="screen active" id="screen-client">
+  <div class="progress-wrap">
+    <div class="progress-steps">
+      <div class="progress-step active"></div>
+      <div class="progress-step"></div>
+      <div class="progress-step"></div>
+    </div>
+    <div class="progress-label">Step 1 of 3 — Select Engineer & Client</div>
+  </div>
+
+  <div class="section-label">Select Engineer</div>
+  <div class="card">
+    <div class="card-body">
+      <div class="eng-grid" id="engGrid">
+        <div style="color:var(--muted);font-size:12px;grid-column:1/-1;text-align:center;padding:12px">Loading engineers...</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-label">Visit Type</div>
+  <div class="card">
+    <div class="card-body" style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-primary btn-sm" style="width:auto;flex:1" onclick="setVisitMode('service')">🔧 Service Visit</button>
+      <button class="btn btn-sm" id="freeVisitBtn" style="width:auto;flex:1;background:#fff8e1;color:#92400e;border:1.5px solid #fde68a" onclick="setVisitMode('free')">🆓 Free Water Analysis</button>
+    </div>
+  </div>
+
+  <div class="section-label">Select Client</div>
+  <div class="search-wrap">
+    <span class="search-icon">🔍</span>
+    <input type="text" class="search-input" id="clientSearch" placeholder="Search client name or code..." oninput="filterClients()">
+  </div>
+  <div class="client-list" id="clientList">
+    <div style="text-align:center;padding:28px;color:var(--muted);font-size:12px">Loading clients...</div>
+  </div>
+  <div style="margin-top:12px">
+    <button class="btn btn-secondary btn-sm" onclick="showSheet('addClientSheet')">+ Add New Client</button>
+  </div>
+</div>
+
+<!-- ══════════ SCREEN 2: REPORT ══════════ -->
+<div class="screen" id="screen-report">
+  <div class="progress-wrap">
+    <div class="progress-steps">
+      <div class="progress-step done"></div>
+      <div class="progress-step active"></div>
+      <div class="progress-step"></div>
+    </div>
+    <div class="progress-label">Step 2 of 3 — Fill Report</div>
+  </div>
+
+  <div class="report-hero" id="reportHero"></div>
+
+  <div class="section-label">Visit Details</div>
+  <div class="card">
+    <div class="card-body">
+      <div class="form-row">
+        <label class="form-label">Visit Type</label>
+        <select class="form-select" id="visitType">
+          <option>Monthly Follow-up</option>
+          <option>Bi-monthly Follow-up</option>
+          <option>Emergency Visit</option>
+          <option>Quarterly Review</option>
+          <option>Free Water Analysis</option>
+        </select>
+      </div>
+      <div class="form-row" style="margin-bottom:0">
+        <label class="form-label">Notes</label>
+        <input type="text" class="form-input" id="visitNotes" placeholder="Optional visit notes...">
+      </div>
+    </div>
+  </div>
+
+  <!-- FREE VISIT SECTION -->
+  <div id="freeVisitSection" style="display:none">
+    <div class="section-label">Prospect Details <span class="free-visit-badge">Free Visit</span></div>
+    <div class="card">
+      <div class="card-body">
+        <div class="form-row">
+          <label class="form-label">Prospect Company Name</label>
+          <input type="text" class="form-input" id="prospectName" placeholder="e.g. Al Ahram Beverages">
+        </div>
+        <div class="form-row">
+          <label class="form-label">Contact Person</label>
+          <input type="text" class="form-input" id="prospectContact" placeholder="Name & title">
+        </div>
+        <div class="form-row">
+          <label class="form-label">Phone</label>
+          <input type="text" class="form-input" id="prospectPhone" placeholder="01xxxxxxxxx">
+        </div>
+        <div class="form-row" style="margin-bottom:0">
+          <label class="form-label">Region</label>
+          <select class="form-select" id="prospectRegion">
+            <option>Borg El Arab</option><option>Alexandria</option><option>Amreyah</option>
+            <option>Sadat</option><option>October</option><option>Cairo</option>
+            <option>Obour</option><option>Badr</option><option>Nobareya</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-label">Systems & Analysis</div>
+  <div class="sys-tabs" id="sysTabs"></div>
+  <div id="sysPanels"></div>
+  <div class="add-sys-row">
+    <button class="add-sys-btn" onclick="addSystem('boiler')">🔥 Add Boiler</button>
+    <button class="add-sys-btn" onclick="addSystem('cooling')">❄️ Add Cooling Tower</button>
+    <button class="add-sys-btn" onclick="addSystem('closed')">🔄 Add Closed Loop</button>
+    <button class="add-sys-btn" onclick="addSystem('raw')">🚰 Add Raw Water</button>
+  </div>
+
+  <div style="margin-top:20px">
+    <div class="btn-row">
+      <button class="btn btn-secondary" onclick="goScreen('client')">← Back</button>
+      <button class="btn btn-primary" onclick="goScreen('review')">Review →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ SCREEN 3: REVIEW ══════════ -->
+<div class="screen" id="screen-review">
+  <div class="progress-wrap">
+    <div class="progress-steps">
+      <div class="progress-step done"></div>
+      <div class="progress-step done"></div>
+      <div class="progress-step active"></div>
+    </div>
+    <div class="progress-label">Step 3 of 3 — Review & Submit</div>
+  </div>
+  <div class="section-label">Report Summary</div>
+  <div class="card" id="reviewCard"></div>
+  <div class="section-label">Recipients</div>
+  <div class="card">
+    <div class="card-body" id="emailRecipients"></div>
+  </div>
+  <div style="margin-top:8px">
+    <div class="btn-row" style="margin-bottom:10px">
+      <button class="btn btn-secondary" onclick="goScreen('report')">← Back</button>
+    </div>
+    <button class="btn btn-success" onclick="submitReport()">✓ Submit & Send Report</button>
+  </div>
+</div>
+
+<!-- ══════════ SCREEN 4: SUCCESS ══════════ -->
+<div class="screen" id="screen-success">
+  <div style="padding-top:36px">
+    <div class="success-icon">✓</div>
+    <div class="success-title">Report Submitted!</div>
+    <div class="success-sub">Saved to archive and sent successfully.</div>
+    <div class="success-ref" id="successRef">REF: —</div>
+    <div id="emailsSent"></div>
+    <button class="btn btn-primary" style="margin-top:16px" onclick="resetApp()">+ New Report</button>
+  </div>
+</div>
+
+<!-- ══════════ ADD CLIENT SHEET ══════════ -->
+<div class="bottom-sheet" id="addClientSheet">
+  <div class="bottom-sheet-box">
+    <div class="bottom-sheet-handle"></div>
+    <div class="bottom-sheet-title">
+      Add New Client
+      <button class="close-btn" onclick="hideSheet('addClientSheet')">✕</button>
+    </div>
+    <div class="form-row"><label class="form-label">Company Name *</label><input type="text" class="form-input" id="nc_name" placeholder="e.g. Delta Textile Co."></div>
+    <div class="form-row"><label class="form-label">Client Code *</label><input type="text" class="form-input" id="nc_code" placeholder="e.g. CLT-010"></div>
+    <div class="form-row"><label class="form-label">Region</label>
+      <select class="form-select" id="nc_region">
+        <option>Borg El Arab</option><option>Alexandria</option><option>Amreyah</option>
+        <option>Sadat</option><option>October</option><option>Cairo</option>
+        <option>Obour</option><option>Badr</option><option>Nobareya</option>
+      </select>
+    </div>
+    <div class="form-row"><label class="form-label">Client Email</label><input type="email" class="form-input" id="nc_email" placeholder="maintenance@company.com"></div>
+    <div class="form-row"><label class="form-label">Assigned Engineer</label><select class="form-select" id="nc_engineer"></select></div>
+    <div class="form-row" style="margin-bottom:0"><label class="form-label">Follow-up Frequency</label>
+      <select class="form-select" id="nc_freq">
+        <option>Monthly</option><option>Bi-monthly</option><option>Weekly</option><option>Quarterly</option>
+      </select>
+    </div>
+    <button class="btn btn-primary" style="margin-top:16px" onclick="saveNewClient()">Save Client</button>
+  </div>
+</div>
+
+<!-- LOADING -->
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="loading-box">
+    <div class="spinner"></div>
+    <div class="loading-text" id="loadingText">Please wait...</div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════
+// CONFIG
+// ══════════════════════════════════════════
+const APPS_SCRIPT_URL  = 'https://script.google.com/macros/s/AKfycbzdUP8GcjMrK760rnypaAQ-sqZygdAVF-KPOmQArDkfZFIXSRJQXMItoZr-MxtH1-UXkg/exec';
+const SERVICE_DB       = 'service';
+const MANAGEMENT_EMAIL = 'ahmed.atef@pwtinternational.com';
+const EMAILJS_KEY      = 'ZqqYCta5qvMAbTsEv';
+const EMAILJS_SVC      = 'service_ovot8uz';
+const EMAILJS_TPL      = 'template_n2iyh4b';
+
+// ══════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════
+let state = {
+  engineer: null,
+  client: null,
+  visitMode: 'service', // 'service' | 'free'
+  systems: [],
+  sysCounter: 0,
+  reportRef: '',
+  timestamp: ''
+};
+let allClients   = [];
+let allEngineers = [];
+
+// ══════════════════════════════════════════
+// PARAMETERS
+// ══════════════════════════════════════════
+const PARAMS = {
+  boiler: {
+    icon: '🔥', label: 'Boiler',
+    sections: [
+      { title: 'Feed Water', params: [
+        { id:'fw_ph',   label:'pH',            unit:'—',     min:7.0,  max:9.5  },
+        { id:'fw_tds',  label:'TDS',            unit:'ppm',   min:0,    max:500  },
+        { id:'fw_hard', label:'Total Hardness', unit:'ppm',   min:0,    max:5    },
+        { id:'fw_ca',   label:'Ca Hardness',    unit:'ppm',   min:0,    max:3    },
+        { id:'fw_malk', label:'M-Alkalinity',   unit:'ppm',   min:0,    max:200  },
+        { id:'fw_fe',   label:'Iron',           unit:'ppm',   min:0,    max:0.3  },
+        { id:'fw_cl2',  label:'Free Chlorine',  unit:'ppm',   min:0,    max:0.1  },
+      ]},
+      { title: 'Boiler Water', params: [
+        { id:'bw_ph',   label:'pH',            unit:'—',     min:10.5, max:12.0 },
+        { id:'bw_tds',  label:'TDS',           unit:'ppm',   min:0,    max:3500 },
+        { id:'bw_palk', label:'P-Alkalinity',  unit:'ppm',   min:100,  max:600  },
+        { id:'bw_malk', label:'M-Alkalinity',  unit:'ppm',   min:150,  max:800  },
+        { id:'bw_ohalk',label:'OH Alkalinity', unit:'ppm',   min:0,    max:200, calc: true },
+        { id:'bw_cl',   label:'Chloride',      unit:'ppm',   min:0,    max:200  },
+        { id:'bw_so3',  label:'Sulfite',       unit:'ppm',   min:20,   max:60   },
+        { id:'bw_po4',  label:'Phosphate',     unit:'ppm',   min:20,   max:50   },
+        { id:'bw_si',   label:'Silica',        unit:'ppm',   min:0,    max:150  },
+        { id:'bw_tan',  label:'Tannin',        unit:'ppm',   min:10,   max:40   },
+      ]},
+      { title: 'Condensate Return', params: [
+        { id:'cr_ph',   label:'pH',            unit:'—',     min:8.0,  max:9.5  },
+        { id:'cr_cond', label:'Conductivity',  unit:'µS/cm', min:0,    max:50   },
+        { id:'cr_fe',   label:'Iron',          unit:'ppm',   min:0,    max:0.1  },
+      ]},
+    ]
+  },
+  cooling: {
+    icon: '❄️', label: 'Cooling Tower',
+    sections: [
+      { title: 'Make-up Water', params: [
+        { id:'mu_ph',   label:'pH',            unit:'—',     min:6.5,  max:8.5  },
+        { id:'mu_tds',  label:'TDS',           unit:'ppm',   min:0,    max:1000 },
+        { id:'mu_hard', label:'Total Hardness',unit:'ppm',   min:0,    max:400  },
+        { id:'mu_ca',   label:'Ca Hardness',   unit:'ppm',   min:0,    max:300  },
+        { id:'mu_alk',  label:'M-Alkalinity',  unit:'ppm',   min:0,    max:300  },
+        { id:'mu_cl',   label:'Chloride',      unit:'ppm',   min:0,    max:200  },
+      ]},
+      { title: 'Circuit Water', params: [
+        { id:'cw_ph',   label:'pH',            unit:'—',     min:7.0,  max:9.0  },
+        { id:'cw_cond', label:'Conductivity',  unit:'µS/cm', min:0,    max:3000 },
+        { id:'cw_tds',  label:'TDS',           unit:'ppm',   min:0,    max:2000 },
+        { id:'cw_hard', label:'Total Hardness',unit:'ppm',   min:0,    max:800  },
+        { id:'cw_ca',   label:'Ca Hardness',   unit:'ppm',   min:0,    max:600  },
+        { id:'cw_alk',  label:'M-Alkalinity',  unit:'ppm',   min:0,    max:600  },
+        { id:'cw_cl',   label:'Chloride',      unit:'ppm',   min:0,    max:500  },
+        { id:'cw_fcl',  label:'Free Chlorine', unit:'ppm',   min:0.2,  max:1.0  },
+        { id:'cw_fe',   label:'Iron',          unit:'ppm',   min:0,    max:1.0  },
+        { id:'cw_lsi',  label:'LSI',           unit:'—',     min:-0.5, max:0.5  },
+      ]},
+      { title: 'Blowdown', params: [
+        { id:'bd_ph',   label:'pH',            unit:'—',     min:7.0,  max:9.5  },
+        { id:'bd_cond', label:'Conductivity',  unit:'µS/cm', min:0,    max:5000 },
+        { id:'bd_tds',  label:'TDS',           unit:'ppm',   min:0,    max:3000 },
+      ]},
+    ]
+  },
+  closed: {
+    icon: '🔄', label: 'Closed Loop',
+    sections: [
+      { title: 'Closed Loop Parameters', params: [
+        { id:'cl_ph',   label:'pH',             unit:'—',     min:8.0,  max:10.0 },
+        { id:'cl_cond', label:'Conductivity',   unit:'µS/cm', min:0,    max:3000 },
+        { id:'cl_hard', label:'Total Hardness', unit:'ppm',   min:0,    max:200  },
+        { id:'cl_fe',   label:'Iron',           unit:'ppm',   min:0,    max:1.0  },
+        { id:'cl_inh',  label:'Inhibitor Level',unit:'ppm',   min:100,  max:300  },
+        { id:'cl_turb', label:'Turbidity',      unit:'NTU',   min:0,    max:5    },
+      ]},
+    ]
+  },
+  raw: {
+    icon: '🚰', label: 'Raw Water',
+    sections: [
+      { title: 'Raw Water Analysis', params: [
+        { id:'rw_ph',   label:'pH',             unit:'—',     min:6.5,  max:8.5  },
+        { id:'rw_tds',  label:'TDS',            unit:'ppm',   min:0,    max:1000 },
+        { id:'rw_hard', label:'Total Hardness', unit:'ppm',   min:0,    max:500  },
+        { id:'rw_ca',   label:'Ca Hardness',    unit:'ppm',   min:0,    max:400  },
+        { id:'rw_alk',  label:'M-Alkalinity',   unit:'ppm',   min:0,    max:400  },
+        { id:'rw_turb', label:'Turbidity',      unit:'NTU',   min:0,    max:10   },
+        { id:'rw_fe',   label:'Iron',           unit:'ppm',   min:0,    max:0.3  },
+        { id:'rw_cl2',  label:'Free Chlorine',  unit:'ppm',   min:0,    max:1.0  },
+        { id:'rw_so4',  label:'Sulfate',        unit:'ppm',   min:0,    max:400  },
+        { id:'rw_si',   label:'Silica',         unit:'ppm',   min:0,    max:50   },
+      ]},
+    ]
+  }
+};
+
+// ══════════════════════════════════════════
+// ENGINEERS — load from Sheets
+// ══════════════════════════════════════════
+async function loadEngineers() {
+  // Dummy engineers while sheet is being populated
+  const dummy = [
+    { code:'001', name:'Mohamed Hassan',   email:'m.hassan@pwtinternational.com' },
+    { code:'002', name:'Mostafa Magdy',    email:'m.magdy@pwtinternational.com'  },
+    { code:'003', name:'Noah',             email:'noah@pwtinternational.com'      },
+    { code:'004', name:'Ahmed Gamil',      email:'a.gamil@pwtinternational.com'  },
+    { code:'005', name:'Mostafa Abu El-Ela',email:'m.abouela@pwtinternational.com'},
+    { code:'006', name:'Mohamed Saeed',    email:'m.saeed@pwtinternational.com'  },
+  ];
+
+  try {
+    const res  = await fetch(`${APPS_SCRIPT_URL}?sheet=Engineers&db=${SERVICE_DB}`);
+    const json = await res.json();
+    if (json.success && json.data.length > 1) {
+      allEngineers = json.data.slice(1)
+        .map(r => ({ code: r[0], name: r[1], email: r[2] }))
+        .filter(e => e.name);
+    } else {
+      allEngineers = dummy;
+    }
+  } catch(e) {
+    allEngineers = dummy;
+  }
+
+  renderEngineers();
+  populateEngineerSelect();
+}
+
+function renderEngineers() {
+  document.getElementById('engGrid').innerHTML = allEngineers.map(e => `
+    <button class="eng-btn" onclick="selectEngineer('${e.code}',this)">
+      ${e.name}
+    </button>`).join('');
+}
+
+function selectEngineer(code, el) {
+  document.querySelectorAll('.eng-btn').forEach(b => b.classList.remove('selected'));
+  el.classList.add('selected');
+  state.engineer = allEngineers.find(e => e.code === code);
+  filterClients(); // show only assigned clients
+}
+
+function populateEngineerSelect() {
+  const sel = document.getElementById('nc_engineer');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">— Any Engineer —</option>' +
+    allEngineers.map(e => `<option value="${e.code}">${e.name}</option>`).join('');
+}
+
+// ══════════════════════════════════════════
+// VISIT MODE
+// ══════════════════════════════════════════
+function setVisitMode(mode) {
+  state.visitMode = mode;
+  document.getElementById('freeVisitBtn').style.background = mode === 'free' ? '#f59e0b' : '#fff8e1';
+  document.getElementById('freeVisitBtn').style.color = mode === 'free' ? 'white' : '#92400e';
+  if (mode === 'free') {
+    document.getElementById('visitType').value = 'Free Water Analysis';
+  }
+}
+
+// ══════════════════════════════════════════
+// CLIENTS
+// ══════════════════════════════════════════
+async function loadClients() {
+  const dummy = [
+    { code:'CLT-001', name:'Delta Textile Co.',     region:'October', email:'maintenance@delta.com',     freq:'Monthly',    engineer:'001' },
+    { code:'CLT-002', name:'Nile Plastics Factory', region:'Badr',    email:'eng@nileplastics.com',      freq:'Bi-monthly', engineer:'002' },
+    { code:'CLT-003', name:'Cairo Food Industries', region:'Cairo',   email:'plant@cairofood.com',       freq:'Monthly',    engineer:'004' },
+  ];
+  try {
+    const res  = await fetch(`${APPS_SCRIPT_URL}?sheet=Clients&db=${SERVICE_DB}`);
+    const json = await res.json();
+    if (json.success && json.data.length > 1) {
+      allClients = json.data.slice(1)
+        .map(r => ({ code:r[0], name:r[1], region:r[2], email:r[3], freq:r[4], engineer:r[5] }))
+        .filter(c => c.name);
+    } else {
+      allClients = dummy;
+    }
+  } catch(e) {
+    allClients = dummy;
+  }
+  renderClients(allClients);
+}
+
+function renderClients(clients) {
+  const list = document.getElementById('clientList');
+  if (!clients.length) {
+    list.innerHTML = '<div style="text-align:center;padding:24px;color:var(--muted);font-size:12px">No clients found</div>';
+    return;
+  }
+  list.innerHTML = clients.map(c => `
+    <div class="client-item" onclick="selectClient('${c.code}')">
+      <div class="client-avatar">${c.name.charAt(0)}</div>
+      <div class="client-info">
+        <div class="client-name">${c.name}</div>
+        <div class="client-meta">${c.code} · ${c.region} · ${c.freq}</div>
+      </div>
+      <span style="color:var(--muted);font-size:16px">›</span>
+    </div>`).join('');
+}
+
+function filterClients() {
+  const q   = document.getElementById('clientSearch').value.toLowerCase();
+  let list  = allClients;
+  // Filter by assigned engineer if selected
+  if (state.engineer) {
+    list = list.filter(c => !c.engineer || c.engineer === '' || c.engineer === state.engineer.code);
+  }
+  if (q) list = list.filter(c => c.name.toLowerCase().includes(q) || c.code.toLowerCase().includes(q));
+  renderClients(list);
+}
+
+function selectClient(code) {
+  if (!state.engineer) { showToast('Please select an engineer first', 'error'); return; }
+  state.client = allClients.find(c => c.code === code);
+  if (!state.client) return;
+
+  const now = new Date();
+  const dateStr = now.toISOString().slice(0,10).replace(/-/g,'');
+  const reg  = state.client.region.toUpperCase().replace(/\s/g,'').slice(0,4);
+  const eng  = state.engineer.code;
+  state.reportRef  = `SRV-${dateStr}-${reg}-${eng}-${String(Math.floor(Math.random()*99)+1).padStart(2,'0')}`;
+  state.timestamp  = now.toLocaleString('en-GB');
+
+  document.getElementById('reportHero').innerHTML = `
+    <div class="report-hero-title">${state.client.name}</div>
+    <div class="report-hero-sub">${state.reportRef} · ${state.timestamp}</div>
+    <div class="report-hero-badges">
+      <span class="hero-badge">👤 ${state.engineer.name}</span>
+      <span class="hero-badge">📍 ${state.client.region}</span>
+      <span class="hero-badge">🔄 ${state.client.freq}</span>
+      ${state.visitMode === 'free' ? '<span class="hero-badge" style="background:rgba(245,158,11,0.3)">🆓 Free Visit</span>' : ''}
+    </div>`;
+
+  // Reset systems
+  state.systems = [];
+  state.sysCounter = 0;
+  document.getElementById('sysTabs').innerHTML = '';
+  document.getElementById('sysPanels').innerHTML = '';
+
+  // Show/hide free visit section
+  document.getElementById('freeVisitSection').style.display = state.visitMode === 'free' ? 'block' : 'none';
+  if (state.visitMode === 'free') document.getElementById('visitType').value = 'Free Water Analysis';
+
+  goScreen('report');
+}
+
+// ══════════════════════════════════════════
+// ADD CLIENT
+// ══════════════════════════════════════════
+async function saveNewClient() {
+  const name    = document.getElementById('nc_name').value.trim();
+  const code    = document.getElementById('nc_code').value.trim();
+  const region  = document.getElementById('nc_region').value;
+  const email   = document.getElementById('nc_email').value.trim();
+  const engCode = document.getElementById('nc_engineer').value;
+  const freq    = document.getElementById('nc_freq').value;
+  if (!name || !code) { showToast('Name and Code required', 'error'); return; }
+  showLoading('Saving client...');
+  try {
+    await postToSheets('Clients', [code, name, region, email, freq, engCode, new Date().toLocaleDateString()]);
+    allClients.push({ code, name, region, email, freq, engineer: engCode });
+    renderClients(allClients);
+    hideSheet('addClientSheet');
+    showToast('Client saved ✓', 'success');
+    ['nc_name','nc_code','nc_email'].forEach(id => document.getElementById(id).value = '');
+  } catch(e) { showToast('Error saving', 'error'); }
+  hideLoading();
+}
+
+// ══════════════════════════════════════════
+// SYSTEMS
+// ══════════════════════════════════════════
+function addSystem(type) {
+  const id   = ++state.sysCounter;
+  const def  = PARAMS[type];
+  state.systems.push({ id, type });
+
+  // Tab
+  const tab = document.createElement('button');
+  tab.className = 'sys-tab';
+  tab.id = `sys-tab-${id}`;
+  tab.innerHTML = `${def.icon} ${def.label} #${id}`;
+  tab.onclick = () => switchTab(id);
+  document.getElementById('sysTabs').appendChild(tab);
+
+  // Panel
+  const panel = document.createElement('div');
+  panel.className = 'sys-panel';
+  panel.id = `sys-panel-${id}`;
+
+  let sectionsHTML = '';
+  def.sections.forEach(sec => {
+    const rows = sec.params.map(p => {
+      if (p.calc) {
+        return `
+          <div class="param-row">
+            <div class="status-dot calc" id="dot-${id}-${p.id}"></div>
+            <div class="param-label">${p.label} <span style="font-size:9px;color:var(--blue)">(auto)</span></div>
+            <div class="param-unit">${p.unit}</div>
+            <input type="number" class="param-input" id="inp-${id}-${p.id}" readonly placeholder="auto" step="0.01">
+          </div>`;
+      }
+      return `
+        <div class="param-row">
+          <div class="status-dot" id="dot-${id}-${p.id}"></div>
+          <div class="param-label">${p.label}</div>
+          <div class="param-unit">${p.unit}</div>
+          <input type="number" class="param-input" id="inp-${id}-${p.id}"
+            placeholder="—" step="0.01"
+            data-min="${p.min}" data-max="${p.max}"
+            oninput="onParamInput(this,'${id}','${p.id}')">
+        </div>`;
+    }).join('');
+    sectionsHTML += `
+      <div class="subsection">
+        <div class="subsection-title">${sec.title}</div>
+        ${rows}
+      </div>`;
+  });
+
+  panel.innerHTML = `
+    <div class="card">
+      <div class="card-body">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+          <input type="text" class="form-input" id="sysname-${id}" value="${def.label} #${id}"
+            style="font-weight:600;font-size:13px;padding:7px 10px"
+            oninput="updateTabLabel(${id},this.value)">
+          <button onclick="removeSystem(${id})" class="btn btn-danger btn-sm" style="width:auto;white-space:nowrap">🗑 Remove</button>
+        </div>
+        ${sectionsHTML}
+        <div style="margin-top:12px">
+          <div class="subsection-title">Recommendations</div>
+          <textarea class="rec-textarea" id="rec-${id}" placeholder="Enter recommendations for this system..."></textarea>
+        </div>
+      </div>
+    </div>`;
+
+  document.getElementById('sysPanels').appendChild(panel);
+  switchTab(id);
+}
+
+function switchTab(id) {
+  document.querySelectorAll('.sys-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.sys-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById(`sys-tab-${id}`)?.classList.add('active');
+  document.getElementById(`sys-panel-${id}`)?.classList.add('active');
+}
+
+function updateTabLabel(id, val) {
+  const t = document.getElementById(`sys-tab-${id}`);
+  const def = PARAMS[state.systems.find(s=>s.id===id)?.type];
+  if (t && def) t.textContent = `${def.icon} ${val}`;
+}
+
+function removeSystem(id) {
+  if (!confirm('Remove this system?')) return;
+  document.getElementById(`sys-tab-${id}`)?.remove();
+  document.getElementById(`sys-panel-${id}`)?.remove();
+  state.systems = state.systems.filter(s => s.id !== id);
+  if (state.systems.length) switchTab(state.systems[state.systems.length-1].id);
+}
+
+function onParamInput(input, sysId, paramId) {
+  const val  = parseFloat(input.value);
+  const min  = parseFloat(input.dataset.min);
+  const max  = parseFloat(input.dataset.max);
+  const dot  = document.getElementById(`dot-${sysId}-${paramId}`);
+
+  if (input.value === '') {
+    input.className = 'param-input';
+    dot.className   = 'status-dot';
+  } else if (val >= min && val <= max) {
+    input.className = 'param-input in-range';
+    dot.className   = 'status-dot ok';
+  } else {
+    input.className = 'param-input out-of-range';
+    dot.className   = 'status-dot bad';
+  }
+
+  // OH Alkalinity auto-calc: 2P - M
+  if (paramId === 'bw_palk' || paramId === 'bw_malk') {
+    calcOHAlk(sysId);
+  }
+}
+
+function calcOHAlk(sysId) {
+  const pAlk = parseFloat(document.getElementById(`inp-${sysId}-bw_palk`)?.value) || 0;
+  const mAlk = parseFloat(document.getElementById(`inp-${sysId}-bw_malk`)?.value) || 0;
+  const ohInp = document.getElementById(`inp-${sysId}-bw_ohalk`);
+  const ohDot = document.getElementById(`dot-${sysId}-bw_ohalk`);
+  if (!ohInp) return;
+  if (pAlk > 0 || mAlk > 0) {
+    const oh = (2 * pAlk) - mAlk;
+    ohInp.value = oh >= 0 ? oh.toFixed(1) : 0;
+    ohDot.className = 'status-dot calc';
+  } else {
+    ohInp.value = '';
+  }
+}
+
+// ══════════════════════════════════════════
+// COLLECT DATA
+// ══════════════════════════════════════════
+function collectSystems() {
+  return state.systems.map(sys => {
+    const def     = PARAMS[sys.type];
+    const name    = document.getElementById(`sysname-${sys.id}`)?.value || def.label;
+    const rec     = document.getElementById(`rec-${sys.id}`)?.value || '';
+    const readings = {};
+    def.sections.forEach(sec => {
+      sec.params.forEach(p => {
+        const v = document.getElementById(`inp-${sys.id}-${p.id}`)?.value;
+        if (v !== '' && v !== undefined) readings[p.label] = v;
+      });
+    });
+    return { id: sys.id, type: sys.type, stype: def, name, readings, recommendations: rec };
+  });
+}
+
+// ══════════════════════════════════════════
+// REVIEW
+// ══════════════════════════════════════════
+function buildReview() {
+  const systemsData = collectSystems();
+  const visitType   = document.getElementById('visitType').value;
+  const visitNotes  = document.getElementById('visitNotes').value;
+
+  const sysSummary = systemsData.map(sys => {
+    const filled     = Object.values(sys.readings).filter(v => v !== '').length;
+    const outRange   = Object.entries(sys.readings).filter(([k,v]) => {
+      const p = findParamDef(sys.type, k);
+      return p && parseFloat(v) !== NaN && (parseFloat(v) < p.min || parseFloat(v) > p.max);
+    }).length;
+    return `
+      <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border)">
+        <span style="font-size:18px">${sys.stype.icon}</span>
+        <div style="flex:1">
+          <div style="font-weight:600;font-size:12px">${sys.name}</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px">${filled} readings · ${outRange > 0 ? `<span style="color:var(--red)">${outRange} out of range</span>` : '<span style="color:var(--green)">All in range</span>'}</div>
+          ${sys.recommendations ? `<div style="font-size:10px;color:var(--slate);margin-top:3px;font-style:italic">"${sys.recommendations.slice(0,55)}${sys.recommendations.length>55?'...':''}"</div>` : ''}
+        </div>
+      </div>`;
+  }).join('');
+
+  document.getElementById('reviewCard').innerHTML = `
+    <div class="card-body">
+      <div style="display:flex;justify-content:space-between;margin-bottom:10px">
+        <div>
+          <div style="font-weight:700;font-size:14px">${state.client?.name || 'Free Visit'}</div>
+          <div style="font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace;margin-top:2px">${state.reportRef}</div>
+        </div>
+        <span class="chip-pending">Pending</span>
+      </div>
+      <div style="font-size:11px;color:var(--slate);margin-bottom:10px"><strong>Visit:</strong> ${visitType}${visitNotes ? ' — '+visitNotes : ''}</div>
+      ${sysSummary || '<div style="color:var(--muted);font-size:12px;text-align:center;padding:16px">No systems added</div>'}
+    </div>`;
+
+  // Recipients
+  const eng = state.engineer;
+  const cli = state.client;
+  document.getElementById('emailRecipients').innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:7px">
+      <div style="display:flex;gap:8px;font-size:11px;color:var(--slate);align-items:center">
+        <span>📧</span><strong>Office:</strong> <span style="font-family:'IBM Plex Mono',monospace;font-size:10px">${MANAGEMENT_EMAIL}</span>
+      </div>
+      <div style="display:flex;gap:8px;font-size:11px;color:var(--slate);align-items:center">
+        <span>📧</span><strong>Client:</strong> <span style="font-family:'IBM Plex Mono',monospace;font-size:10px">${cli?.email || '—'}</span>
+      </div>
+      <div style="display:flex;gap:8px;font-size:11px;color:var(--slate);align-items:center">
+        <span>📧</span><strong>Engineer:</strong> <span style="font-family:'IBM Plex Mono',monospace;font-size:10px">${eng?.email || '—'}</span>
+      </div>
+    </div>`;
+}
+
+// ══════════════════════════════════════════
+// SUBMIT
+// ══════════════════════════════════════════
+async function submitReport() {
+  showLoading('Saving to archive...');
+  try {
+    const systemsData = collectSystems();
+    const visitType   = document.getElementById('visitType').value;
+    const visitNotes  = document.getElementById('visitNotes').value;
+    const clientEmail = state.client?.email || '';
+    const engEmail    = state.engineer?.email || '';
+
+    // Prospect info for free visits
+    const prospectName    = document.getElementById('prospectName')?.value || '';
+    const prospectContact = document.getElementById('prospectContact')?.value || '';
+    const prospectPhone   = document.getElementById('prospectPhone')?.value || '';
+    const prospectRegion  = document.getElementById('prospectRegion')?.value || '';
+
+    // Save to Sheets
+    const row = [
+      state.reportRef,
+      state.timestamp,
+      state.visitMode,
+      state.client?.code  || 'FREE-VISIT',
+      state.client?.name  || prospectName,
+      state.client?.region|| prospectRegion,
+      state.engineer?.code || '',
+      state.engineer?.name || '',
+      visitType,
+      visitNotes,
+      prospectContact,
+      prospectPhone,
+      JSON.stringify(systemsData),
+      'Submitted',
+      new Date().toISOString()
+    ];
+    await postToSheets('Reports', row);
+
+    // Generate PDF
+    showLoading('Generating PDF...');
+    const pdfUri = await generatePDF(systemsData, visitType, visitNotes, prospectName, prospectContact);
+
+    // Build email body
+    const emailBody = buildEmailBody(systemsData, visitType, visitNotes, prospectName, prospectContact, prospectPhone);
+
+    showLoading('Sending reports...');
+    emailjs.init(EMAILJS_KEY);
+
+    const base = {
+      report_ref:    state.reportRef,
+      client_name:   state.client?.name || prospectName || 'Free Visit',
+      engineer_name: state.engineer?.name || '',
+      visit_date:    state.timestamp,
+      report_body:   emailBody,
+    };
+
+    // 1. Office
+    await emailjs.send(EMAILJS_SVC, EMAILJS_TPL, { ...base, to_email: MANAGEMENT_EMAIL });
+    // 2. Client
+    if (clientEmail) await emailjs.send(EMAILJS_SVC, EMAILJS_TPL, { ...base, to_email: clientEmail });
+    // 3. Engineer
+    if (engEmail && engEmail !== MANAGEMENT_EMAIL) await emailjs.send(EMAILJS_SVC, EMAILJS_TPL, { ...base, to_email: engEmail });
+
+    // Download PDF
+    downloadPDF(pdfUri, state.reportRef);
+
+    hideLoading();
+
+    // Success screen
+    document.getElementById('successRef').textContent = state.reportRef;
+    const sent = [
+      { label: 'Technical Office', email: MANAGEMENT_EMAIL },
+      { label: 'Client',           email: clientEmail || 'No email on file' },
+      { label: 'Engineer',         email: engEmail    || 'No email on file' },
+    ];
+    document.getElementById('emailsSent').innerHTML = sent.map(r => `
+      <div class="email-sent-row">✓ <strong>${r.label}:</strong> ${r.email}</div>`).join('');
+
+    goScreen('success');
+  } catch(err) {
+    hideLoading();
+    showToast('Error: ' + err.message, 'error');
+    console.error(err);
+  }
+}
+
+// ══════════════════════════════════════════
+// EMAIL BODY
+// ══════════════════════════════════════════
+function buildEmailBody(systemsData, visitType, visitNotes, prospectName, prospectContact, prospectPhone) {
+  let body = '';
+
+  if (visitNotes) {
+    body += `<p style="font-size:12px;color:#666;font-style:italic;margin:0 0 14px;padding:8px 12px;background:#f8fafc;border-radius:6px">📝 ${visitNotes}</p>`;
+  }
+
+  if (prospectName) {
+    body += `
+      <div style="margin-bottom:16px;padding:12px 14px;background:#fff8e1;border:1px solid #fde68a;border-radius:8px;font-size:12px">
+        <strong style="color:#92400e">🆓 Free Water Analysis Visit</strong><br>
+        <span style="color:#78350f">Prospect: ${prospectName}</span><br>
+        ${prospectContact ? `<span style="color:#78350f">Contact: ${prospectContact}</span><br>` : ''}
+        ${prospectPhone   ? `<span style="color:#78350f">Phone: ${prospectPhone}</span>` : ''}
+      </div>`;
+  }
+
+  systemsData.forEach(sys => {
+    const readings = Object.entries(sys.readings).filter(([,v]) => v !== '');
+    body += `<div style="margin-bottom:18px">`;
+    body += `<div style="font-size:13px;font-weight:700;color:#fff;padding:8px 14px;background:#1a56db;border-radius:6px 6px 0 0;margin:0">${sys.stype.icon} ${sys.name}</div>`;
+    if (readings.length > 0) {
+      body += `<table style="width:100%;border-collapse:collapse;border:1px solid #e2e8f0;border-top:none">`;
+      body += `<tr style="background:#f1f5f9"><td style="padding:5px 10px;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;width:55%">Parameter</td><td style="padding:5px 10px;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase">Value</td></tr>`;
+      readings.forEach(([k,v], i) => {
+        const bg = i % 2 === 0 ? '#fff' : '#f8fafc';
+        const p  = findParamDef(sys.type, k);
+        const numV = parseFloat(v);
+        const statusColor = p && !isNaN(numV) ? (numV >= p.min && numV <= p.max ? '#10b981' : '#ef4444') : '#94a3b8';
+        body += `<tr style="background:${bg}">
+          <td style="padding:6px 10px;font-size:12px;color:#334155;border-top:1px solid #e2e8f0">${k}</td>
+          <td style="padding:6px 10px;font-size:12px;font-weight:700;color:#0a1628;border-top:1px solid #e2e8f0;font-family:monospace">
+            ${v} <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${statusColor};margin-left:6px;vertical-align:middle"></span>
+          </td></tr>`;
+      });
+      body += `</table>`;
+    }
+    if (sys.recommendations) {
+      body += `<div style="padding:8px 12px;background:#eff6ff;border:1px solid #bfdbfe;border-top:none;border-radius:0 0 6px 6px;font-size:12px;color:#1e3a5f"><strong>Recommendations:</strong> ${sys.recommendations}</div>`;
+    }
+    body += `</div>`;
+  });
+
+  body += `<div style="margin-top:16px;padding:10px 14px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;text-align:center;font-size:11px;color:#166534">📄 A PDF copy has been automatically saved on the engineer's device.</div>`;
+
+  return body;
+}
+
+// ══════════════════════════════════════════
+// PDF GENERATION
+// ══════════════════════════════════════════
+async function generatePDF(systemsData, visitType, visitNotes, prospectName, prospectContact) {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
+  const W = 210, M = 14, CW = W - M*2;
+  let y = 0;
+
+  // Header
+  doc.setFillColor(10,22,40);
+  doc.rect(0,0,W,30,'F');
+  doc.setTextColor(255,255,255);
+  doc.setFontSize(15); doc.setFont('helvetica','bold');
+  doc.text('PWT International', M, 12);
+  doc.setFontSize(8); doc.setFont('helvetica','normal');
+  doc.setTextColor(160,190,210);
+  doc.text('Water Treatment Chemicals — Service Report', M, 19);
+
+  // Ref badge
+  doc.setFillColor(41,182,246);
+  doc.roundedRect(W-M-58, 5, 58, 18, 3, 3, 'F');
+  doc.setTextColor(10,22,40);
+  doc.setFontSize(7); doc.setFont('helvetica','bold');
+  doc.text(state.reportRef, W-M-56, 12);
+  doc.setFont('helvetica','normal');
+  doc.text(state.timestamp, W-M-56, 18);
+
+  y = 36;
+
+  // Free visit banner
+  if (prospectName) {
+    doc.setFillColor(255, 248, 225);
+    doc.rect(M, y, CW, 16, 'F');
+    doc.setDrawColor(253, 230, 138);
+    doc.rect(M, y, CW, 16, 'S');
+    doc.setTextColor(146,64,14);
+    doc.setFontSize(9); doc.setFont('helvetica','bold');
+    doc.text('FREE WATER ANALYSIS VISIT', M+3, y+7);
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(8);
+    doc.text(`Prospect: ${prospectName}${prospectContact ? ' · '+prospectContact : ''}`, M+3, y+13);
+    y += 20;
+  }
+
+  // Info bar
+  doc.setFillColor(232,240,254);
+  doc.rect(M, y, CW, 18, 'F');
+  doc.setTextColor(100,116,139);
+  doc.setFontSize(7); doc.setFont('helvetica','bold');
+  doc.text('CLIENT',    M+3,     y+5);
+  doc.text('ENGINEER',  M+65,    y+5);
+  doc.text('VISIT TYPE',M+120,   y+5);
+  doc.text('DATE',      M+168,   y+5);
+  doc.setTextColor(10,22,40);
+  doc.setFontSize(8.5); doc.setFont('helvetica','bold');
+  const clientLabel = state.client?.name || prospectName || 'Free Visit';
+  doc.text(clientLabel.slice(0,22), M+3, y+13);
+  doc.text(state.engineer?.name?.slice(0,18)||'', M+65, y+13);
+  doc.setFontSize(7.5);
+  doc.text(visitType.slice(0,20), M+120, y+13);
+  doc.text(state.timestamp.split(',')[0], M+168, y+13);
+  y += 22;
+
+  if (visitNotes) {
+    doc.setFont('helvetica','italic'); doc.setFontSize(8); doc.setTextColor(100,116,139);
+    doc.text('Notes: ' + visitNotes, M, y); y += 7;
+  }
+
+  // Systems
+  systemsData.forEach(sys => {
+    if (y > 245) { doc.addPage(); y = 16; }
+
+    // System header
+    doc.setFillColor(26,86,219);
+    doc.rect(M, y, CW, 8, 'F');
+    doc.setTextColor(255,255,255);
+    doc.setFont('helvetica','bold'); doc.setFontSize(9);
+    doc.text(`${sys.name}`, M+3, y+5.5);
+    y += 11;
+
+    // All sections with readings
+    const def = PARAMS[sys.type];
+    def.sections.forEach(sec => {
+      const rows = sec.params.filter(p => {
+        const v = sys.readings[p.label];
+        return v !== undefined && v !== '';
+      });
+      if (rows.length === 0) return;
+
+      // Section sub-header
+      doc.setFillColor(241,245,249);
+      doc.rect(M, y, CW, 6, 'F');
+      doc.setTextColor(100,116,139);
+      doc.setFont('helvetica','bold'); doc.setFontSize(7);
+      doc.text(sec.title.toUpperCase(), M+3, y+4.3);
+      y += 7;
+
+      // Column headers
+      doc.setFontSize(7); doc.setTextColor(100,116,139); doc.setFont('helvetica','bold');
+      doc.text('PARAMETER', M+3, y+4);
+      doc.text('VALUE', M+100, y+4);
+      doc.text('UNIT', M+130, y+4);
+      doc.text('STATUS', M+158, y+4);
+      y += 6;
+
+      rows.forEach((p, i) => {
+        if (y > 272) { doc.addPage(); y = 16; }
+        if (i % 2 === 0) { doc.setFillColor(248,250,252); doc.rect(M, y-1, CW, 7, 'F'); }
+        doc.setDrawColor(226,232,240);
+        doc.line(M, y+6, M+CW, y+6);
+
+        doc.setTextColor(51,65,85); doc.setFont('helvetica','normal'); doc.setFontSize(8);
+        doc.text(p.label, M+3, y+4.5);
+
+        const v    = sys.readings[p.label];
+        const numV = parseFloat(v);
+        doc.setFont('helvetica','bold'); doc.setTextColor(10,22,40);
+        doc.text(String(v), M+100, y+4.5);
+
+        doc.setFont('helvetica','normal'); doc.setTextColor(100,116,139); doc.setFontSize(7);
+        doc.text(p.unit, M+130, y+4.5);
+
+        // Status dot
+        if (!isNaN(numV)) {
+          const ok = numV >= p.min && numV <= p.max;
+          doc.setFillColor(...(p.calc ? [59,130,246] : ok ? [16,185,129] : [239,68,68]));
+          doc.circle(M+163, y+3, 2.2, 'F');
+        }
+        y += 7;
+      });
+      y += 3;
+    });
+
+    // Recommendations
+    if (sys.recommendations) {
+      if (y > 260) { doc.addPage(); y = 16; }
+      doc.setFillColor(239,246,255);
+      const lines = doc.splitTextToSize('Recommendations: ' + sys.recommendations, CW-6);
+      const h     = lines.length * 5 + 5;
+      doc.rect(M, y, CW, h, 'F');
+      doc.setTextColor(30,58,95); doc.setFont('helvetica','normal'); doc.setFontSize(8);
+      doc.text(lines, M+3, y+4.5);
+      y += h + 4;
+    }
+    y += 5;
+  });
+
+  // Footer
+  doc.setFillColor(248,250,252);
+  doc.rect(0, 287, W, 10, 'F');
+  doc.setTextColor(148,163,184); doc.setFontSize(7); doc.setFont('helvetica','normal');
+  doc.text('PWT International · Water Treatment Chemicals · Automated Service Report', W/2, 293, { align:'center' });
+
+  return doc.output('datauristring');
+}
+
+function findParamDef(type, label) {
+  const def = PARAMS[type];
+  if (!def) return null;
+  for (const sec of def.sections)
+    for (const p of sec.params)
+      if (p.label === label) return p;
+  return null;
+}
+
+function downloadPDF(dataUri, ref) {
+  const a = document.createElement('a');
+  a.href     = dataUri;
+  a.download = `${ref}.pdf`;
+  a.click();
+}
+
+// ══════════════════════════════════════════
+// SHEETS
+// ══════════════════════════════════════════
+async function postToSheets(sheet, row) {
+  const res  = await fetch(APPS_SCRIPT_URL, {
+    method: 'POST',
+    body: JSON.stringify({ action:'append', db: SERVICE_DB, sheet, row })
+  });
+  const json = await res.json();
+  if (!json.success) throw new Error(json.error);
+}
+
+// ══════════════════════════════════════════
+// NAVIGATION
+// ══════════════════════════════════════════
+function goScreen(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(`screen-${name}`).classList.add('active');
+  window.scrollTo(0,0);
+  if (name === 'review') buildReview();
+}
+
+function resetApp() {
+  state = { engineer:null, client:null, visitMode:'service', systems:[], sysCounter:0, reportRef:'', timestamp:'' };
+  document.querySelectorAll('.eng-btn').forEach(b => b.classList.remove('selected'));
+  document.getElementById('clientSearch').value = '';
+  renderClients(allClients);
+  goScreen('client');
+}
+
+// ══════════════════════════════════════════
+// UI HELPERS
+// ══════════════════════════════════════════
+function showSheet(id) { document.getElementById(id).classList.add('show'); }
+function hideSheet(id) { document.getElementById(id).classList.remove('show'); }
+function showLoading(text='Please wait...') {
+  document.getElementById('loadingText').textContent = text;
+  document.getElementById('loadingOverlay').classList.add('show');
+}
+function hideLoading() { document.getElementById('loadingOverlay').classList.remove('show'); }
+function showToast(msg, type='') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className   = `toast show ${type}`;
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+function updateClock() {
+  const n = new Date();
+  document.getElementById('appBarTime').innerHTML =
+    `${n.toLocaleDateString('en-GB')}<br>${n.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}`;
+}
+
+// Close bottom sheet on backdrop click
+document.querySelectorAll('.bottom-sheet').forEach(el => {
+  el.addEventListener('click', e => { if (e.target === el) el.classList.remove('show'); });
+});
+
+// ══════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════
+loadEngineers();
+loadClients();
+updateClock();
+setInterval(updateClock, 30000);
+</script>
+</body>
+</html>
