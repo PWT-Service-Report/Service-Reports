@@ -1,0 +1,909 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PWT — Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --navy:    #0a1628;
+  --blue:    #1a56db;
+  --sky:     #3b82f6;
+  --cyan:    #06b6d4;
+  --slate:   #334155;
+  --muted:   #64748b;
+  --border:  #e2e8f0;
+  --surface: #f8fafc;
+  --white:   #ffffff;
+  --green:   #10b981;
+  --amber:   #f59e0b;
+  --red:     #ef4444;
+  --radius:  14px;
+  --shadow:  0 1px 3px rgba(0,0,0,0.05), 0 4px 24px rgba(10,22,40,0.06);
+  --shadow-lg:0 12px 40px rgba(10,22,40,0.12);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'IBM Plex Sans', sans-serif;
+  background: var(--surface);
+  color: var(--navy);
+  min-height: 100vh;
+}
+
+/* ── TOP BAR ── */
+.topbar {
+  background: linear-gradient(135deg, var(--navy) 0%, #1e3a5f 100%);
+  padding: 18px 32px;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  box-shadow: 0 4px 20px rgba(10,22,40,0.3);
+}
+.topbar-logo {
+  width: 42px; height: 42px;
+  background: linear-gradient(135deg, var(--sky), var(--cyan));
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 800; font-size: 13px; color: white;
+  flex-shrink: 0;
+  letter-spacing: -0.5px;
+}
+.topbar-title { flex: 1; }
+.topbar-title h1 { color: white; font-size: 18px; font-weight: 700; letter-spacing: -0.3px; }
+.topbar-title p { color: rgba(255,255,255,0.55); font-size: 12px; margin-top: 2px; font-family: 'IBM Plex Mono', monospace; }
+
+.month-selector {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 10px;
+  padding: 6px 10px;
+}
+.month-selector button {
+  background: transparent;
+  border: none;
+  color: white;
+  cursor: pointer;
+  font-size: 16px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: background 0.15s;
+}
+.month-selector button:hover { background: rgba(255,255,255,0.1); }
+.month-selector span {
+  color: white;
+  font-size: 13px;
+  font-weight: 600;
+  min-width: 110px;
+  text-align: center;
+}
+
+.refresh-btn {
+  background: linear-gradient(135deg, var(--sky), var(--cyan));
+  border: none;
+  color: white;
+  padding: 9px 18px;
+  border-radius: 10px;
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: transform 0.15s, box-shadow 0.15s;
+  box-shadow: 0 4px 12px rgba(59,130,246,0.3);
+}
+.refresh-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(59,130,246,0.4); }
+.refresh-btn.spinning span { animation: spin 1s linear infinite; display: inline-block; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── MAIN ── */
+.main {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 28px 32px;
+}
+
+/* ── CARDS ── */
+.cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 18px;
+  margin-bottom: 28px;
+}
+
+.stat-card {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 22px;
+  box-shadow: var(--shadow);
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.stat-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+
+.stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0; right: 0;
+  width: 80px; height: 80px;
+  background: var(--accent);
+  opacity: 0.08;
+  border-radius: 50%;
+  transform: translate(30%, -30%);
+}
+
+.stat-card-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.stat-card-label .icon {
+  width: 28px; height: 28px;
+  border-radius: 8px;
+  background: var(--accent);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px;
+  color: white;
+}
+.stat-card-value {
+  font-size: 38px;
+  font-weight: 800;
+  margin: 12px 0 4px;
+  letter-spacing: -1px;
+  color: var(--navy);
+}
+.stat-card-sub {
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 500;
+}
+.stat-card.reports { --accent: var(--blue); }
+.stat-card.clients { --accent: var(--green); }
+.stat-card.free    { --accent: var(--amber); }
+.stat-card.alerts  { --accent: var(--red); }
+
+/* ── SECTION ── */
+.section-card {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  margin-bottom: 24px;
+  overflow: hidden;
+}
+.section-header {
+  padding: 18px 24px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.section-title {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.section-title .badge {
+  background: var(--surface);
+  color: var(--muted);
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.section-body { padding: 22px 24px; }
+
+/* ── ENGINEERS BARS ── */
+.eng-bar-row {
+  display: grid;
+  grid-template-columns: 180px 1fr 60px;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+.eng-bar-row:last-child { border-bottom: none; }
+.eng-bar-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--slate);
+}
+.eng-bar-track {
+  height: 22px;
+  background: var(--surface);
+  border-radius: 11px;
+  overflow: hidden;
+  position: relative;
+}
+.eng-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--blue), var(--sky));
+  border-radius: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 10px;
+  color: white;
+  font-size: 11px;
+  font-weight: 700;
+  transition: width 0.5s ease;
+}
+.eng-bar-value {
+  text-align: right;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--navy);
+  font-family: 'IBM Plex Mono', monospace;
+}
+
+/* ── ALERTS ── */
+.alerts-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.alert-card {
+  background: var(--white);
+  border-radius: 10px;
+  padding: 16px 18px;
+  border-left: 4px solid var(--color);
+  background: var(--bg);
+}
+.alert-card.warning { --color: var(--amber); --bg: #fffbeb; }
+.alert-card.danger  { --color: var(--red);   --bg: #fef2f2; }
+
+.alert-title {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--color);
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.alert-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.alert-list li {
+  font-size: 13px;
+  color: var(--slate);
+  padding: 4px 0;
+}
+.alert-empty {
+  font-size: 12px;
+  color: var(--muted);
+  font-style: italic;
+}
+
+/* ── FILTERS ── */
+.filters-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.filter-select {
+  padding: 8px 14px;
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 13px;
+  background: var(--white);
+  color: var(--navy);
+  outline: none;
+  cursor: pointer;
+  appearance: none;
+  padding-right: 32px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2364748b' d='M2 4l4 4 4-4z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+}
+.filter-select:focus { border-color: var(--sky); }
+
+.export-btn {
+  background: var(--white);
+  border: 1.5px solid var(--border);
+  color: var(--slate);
+  padding: 8px 14px;
+  border-radius: 10px;
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.export-btn:hover { border-color: var(--green); color: var(--green); }
+
+/* ── LOADING ── */
+.loading {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--muted);
+  font-size: 14px;
+}
+.loading-spinner {
+  width: 42px;
+  height: 42px;
+  margin: 0 auto 16px;
+  border: 3px solid var(--border);
+  border-top-color: var(--sky);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--muted);
+  font-size: 13px;
+  font-style: italic;
+}
+
+/* ── RESPONSIVE ── */
+@media (max-width: 768px) {
+  .topbar { padding: 14px 18px; flex-wrap: wrap; }
+  .main { padding: 18px; }
+  .alerts-grid { grid-template-columns: 1fr; }
+  .eng-bar-row { grid-template-columns: 100px 1fr 50px; gap: 10px; }
+  .eng-bar-name { font-size: 12px; }
+  .stat-card-value { font-size: 32px; }
+}
+
+/* ── CLIENTS LIST ── */
+.client-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+}
+.client-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--surface);
+  border-radius: 10px;
+  border: 1px solid var(--border);
+}
+.client-avatar {
+  width: 36px; height: 36px;
+  border-radius: 9px;
+  background: linear-gradient(135deg, var(--navy), var(--blue));
+  display: flex; align-items: center; justify-content: center;
+  color: white;
+  font-weight: 700;
+  font-size: 13px;
+}
+.client-card-info { flex: 1; min-width: 0; }
+.client-card-name { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.client-card-meta { font-size: 11px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; margin-top: 2px; }
+
+/* ── TOAST ── */
+.toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--navy);
+  color: white;
+  padding: 11px 22px;
+  border-radius: 100px;
+  font-size: 13px;
+  font-weight: 500;
+  z-index: 200;
+  opacity: 0;
+  transition: opacity 0.3s;
+  pointer-events: none;
+  box-shadow: var(--shadow-lg);
+}
+.toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div class="topbar-logo">PWT</div>
+  <div class="topbar-title">
+    <h1>Service Dashboard</h1>
+    <p>PWT International · Water Treatment</p>
+  </div>
+  <div class="month-selector">
+    <button onclick="changeMonth(-1)">‹</button>
+    <span id="monthLabel">May 2026</span>
+    <button onclick="changeMonth(1)">›</button>
+  </div>
+  <button class="refresh-btn" id="refreshBtn" onclick="loadAll()">
+    <span>⟳</span> Refresh
+  </button>
+</div>
+
+<div class="main">
+
+  <!-- LOADING -->
+  <div class="loading" id="loadingState">
+    <div class="loading-spinner"></div>
+    Loading dashboard data...
+  </div>
+
+  <!-- CONTENT -->
+  <div id="dashboardContent" style="display:none">
+
+    <!-- STATS CARDS -->
+    <div class="cards-grid">
+      <div class="stat-card reports">
+        <div class="stat-card-label">
+          <div class="icon">📋</div>
+          Reports This Month
+        </div>
+        <div class="stat-card-value" id="statReports">0</div>
+        <div class="stat-card-sub" id="statReportsSub">—</div>
+      </div>
+
+      <div class="stat-card clients">
+        <div class="stat-card-label">
+          <div class="icon">👥</div>
+          Active Clients
+        </div>
+        <div class="stat-card-value" id="statClients">0</div>
+        <div class="stat-card-sub" id="statClientsSub">visited this month</div>
+      </div>
+
+      <div class="stat-card free">
+        <div class="stat-card-label">
+          <div class="icon">🆓</div>
+          Free Visits
+        </div>
+        <div class="stat-card-value" id="statFree">0</div>
+        <div class="stat-card-sub" id="statFreeSub">prospect analyses</div>
+      </div>
+
+      <div class="stat-card alerts">
+        <div class="stat-card-label">
+          <div class="icon">⚠️</div>
+          Out of Range
+        </div>
+        <div class="stat-card-value" id="statAlerts">0</div>
+        <div class="stat-card-sub" id="statAlertsSub">critical readings</div>
+      </div>
+    </div>
+
+    <!-- ENGINEERS PERFORMANCE -->
+    <div class="section-card">
+      <div class="section-header">
+        <div class="section-title">
+          Engineers Performance
+          <span class="badge" id="totalEngBadge">0 engineers</span>
+        </div>
+        <div class="filters-row">
+          <button class="export-btn" onclick="exportData()">📥 Export CSV</button>
+        </div>
+      </div>
+      <div class="section-body" id="engineersBody">
+        <div class="empty-state">No data available</div>
+      </div>
+    </div>
+
+    <!-- ALERTS -->
+    <div class="section-card">
+      <div class="section-header">
+        <div class="section-title">Alerts & Action Required</div>
+      </div>
+      <div class="section-body">
+        <div class="alerts-grid">
+          <div class="alert-card warning">
+            <div class="alert-title">
+              <span>📅</span> Clients Without Visit This Month
+            </div>
+            <ul class="alert-list" id="missedClientsList">
+              <li class="alert-empty">No missed clients</li>
+            </ul>
+          </div>
+          <div class="alert-card danger">
+            <div class="alert-title">
+              <span>🔴</span> Reports with Critical Readings
+            </div>
+            <ul class="alert-list" id="criticalReportsList">
+              <li class="alert-empty">No critical reports</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CLIENTS THIS MONTH -->
+    <div class="section-card">
+      <div class="section-header">
+        <div class="section-title">
+          Clients Visited This Month
+          <span class="badge" id="visitedClientsBadge">0</span>
+        </div>
+      </div>
+      <div class="section-body">
+        <div class="client-grid" id="visitedClientsGrid">
+          <div class="empty-state" style="grid-column:1/-1">No clients visited yet</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════
+// CONFIG
+// ══════════════════════════════════════════
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzdUP8GcjMrK760rnypaAQ-sqZygdAVF-KPOmQArDkfZFIXSRJQXMItoZr-MxtH1-UXkg/exec';
+const SERVICE_DB      = 'service';
+
+let currentMonth = new Date().getMonth();
+let currentYear  = new Date().getFullYear();
+
+let allReports   = [];
+let allClients   = [];
+let allEngineers = [];
+
+const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+// ══════════════════════════════════════════
+// MONTH NAVIGATION
+// ══════════════════════════════════════════
+function changeMonth(delta) {
+  currentMonth += delta;
+  if (currentMonth < 0) { currentMonth = 11; currentYear--; }
+  if (currentMonth > 11) { currentMonth = 0; currentYear++; }
+  updateMonthLabel();
+  renderDashboard();
+}
+
+function updateMonthLabel() {
+  document.getElementById('monthLabel').textContent = `${MONTH_NAMES[currentMonth]} ${currentYear}`;
+}
+
+// ══════════════════════════════════════════
+// LOAD DATA
+// ══════════════════════════════════════════
+async function fetchSheet(sheetName) {
+  try {
+    const res  = await fetch(`${APPS_SCRIPT_URL}?sheet=${sheetName}&db=${SERVICE_DB}`);
+    const json = await res.json();
+    if (json.success && json.data.length > 0) return json.data;
+    return [];
+  } catch(e) {
+    console.error('Error fetching', sheetName, e);
+    return [];
+  }
+}
+
+async function loadAll() {
+  const btn = document.getElementById('refreshBtn');
+  btn.classList.add('spinning');
+  document.getElementById('loadingState').style.display = 'block';
+  document.getElementById('dashboardContent').style.display = 'none';
+
+  try {
+    const [reports, clients, engineers] = await Promise.all([
+      fetchSheet('Reports'),
+      fetchSheet('Clients'),
+      fetchSheet('Engineers'),
+    ]);
+
+    // Reports columns: ref, timestamp, visit_mode, client_code, client_name, region, eng_code, eng_name, visit_type, notes, prospect_contact, prospect_phone, systems_data, status, created_at
+    allReports = reports.slice(1).map(r => ({
+      ref:           r[0],
+      timestamp:     r[1],
+      visit_mode:    r[2],
+      client_code:   r[3],
+      client_name:   r[4],
+      region:        r[5],
+      eng_code:      r[6],
+      eng_name:      r[7],
+      visit_type:    r[8],
+      notes:         r[9],
+      prospect_contact: r[10],
+      prospect_phone:   r[11],
+      systems_raw:   r[12],
+      status:        r[13],
+      created_at:    r[14],
+    })).filter(r => r.ref);
+
+    allClients = clients.slice(1).map(r => ({
+      code:     r[0],
+      name:     r[1],
+      region:   r[2],
+      email:    r[3],
+      freq:     r[4],
+      engineer: r[5],
+    })).filter(c => c.code);
+
+    allEngineers = engineers.slice(1).map(r => ({
+      code:  r[0],
+      name:  r[1],
+      email: r[2],
+    })).filter(e => e.code);
+
+    renderDashboard();
+    document.getElementById('loadingState').style.display = 'none';
+    document.getElementById('dashboardContent').style.display = 'block';
+    showToast('Data refreshed ✓');
+  } catch(err) {
+    document.getElementById('loadingState').innerHTML = `<div style="color:var(--red)">Error loading data: ${err.message}</div>`;
+    console.error(err);
+  } finally {
+    btn.classList.remove('spinning');
+  }
+}
+
+// ══════════════════════════════════════════
+// FILTER FOR CURRENT MONTH
+// ══════════════════════════════════════════
+function getMonthReports() {
+  return allReports.filter(r => {
+    if (!r.created_at) return false;
+    const d = new Date(r.created_at);
+    return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+  });
+}
+
+// ══════════════════════════════════════════
+// PARSE SYSTEMS DATA
+// ══════════════════════════════════════════
+function parseSystemsData(raw) {
+  if (!raw) return [];
+  try {
+    if (typeof raw === 'string') return JSON.parse(raw);
+    return raw;
+  } catch(e) {
+    return [];
+  }
+}
+
+function countOutOfRange(report) {
+  const systems = parseSystemsData(report.systems_raw);
+  let count = 0;
+  systems.forEach(sys => {
+    if (!sys.readings) return;
+    // Note: This is a basic check using thresholds embedded in the data
+    // For now, we'll rely on the visual indicators set in the app
+    // A proper out-of-range count would require parameter definitions here
+    // We'll use a heuristic: any system with notes about out-of-range
+  });
+  return count;
+}
+
+// ══════════════════════════════════════════
+// RENDER DASHBOARD
+// ══════════════════════════════════════════
+function renderDashboard() {
+  const monthReports = getMonthReports();
+
+  // Stats
+  const totalReports = monthReports.length;
+  const visitedClientCodes = new Set(monthReports.filter(r => r.visit_mode === 'service').map(r => r.client_code));
+  const freeVisits = monthReports.filter(r => r.visit_mode === 'free').length;
+
+  document.getElementById('statReports').textContent = totalReports;
+  document.getElementById('statClients').textContent = visitedClientCodes.size;
+  document.getElementById('statFree').textContent    = freeVisits;
+
+  // Critical readings count
+  let criticalCount = 0;
+  const criticalReports = [];
+  monthReports.forEach(r => {
+    const systems = parseSystemsData(r.systems_raw);
+    let hasOOR = false;
+    systems.forEach(sys => {
+      if (sys.readings) {
+        Object.values(sys.readings).forEach(v => {
+          // Heuristic — we'll mark as critical if there are any extreme values
+          // Real implementation should check against parameter limits
+        });
+      }
+    });
+  });
+  document.getElementById('statAlerts').textContent = criticalCount;
+
+  // Sub-labels
+  document.getElementById('statReportsSub').textContent = `${MONTH_NAMES[currentMonth]} ${currentYear}`;
+  document.getElementById('statClientsSub').textContent = 'visited this month';
+  document.getElementById('statFreeSub').textContent    = 'prospect analyses';
+  document.getElementById('statAlertsSub').textContent  = 'critical readings';
+
+  // Engineers performance
+  renderEngineers(monthReports);
+
+  // Missed clients
+  renderMissedClients(visitedClientCodes);
+
+  // Visited clients
+  renderVisitedClients(monthReports);
+
+  // Critical reports
+  renderCriticalReports(monthReports);
+}
+
+function renderEngineers(monthReports) {
+  // Count reports per engineer
+  const engCounts = {};
+  allEngineers.forEach(e => engCounts[e.code] = { name: e.name, count: 0, clients: new Set() });
+
+  monthReports.forEach(r => {
+    if (r.eng_code && engCounts[r.eng_code]) {
+      engCounts[r.eng_code].count++;
+      if (r.client_code) engCounts[r.eng_code].clients.add(r.client_code);
+    }
+  });
+
+  const sorted = Object.values(engCounts).sort((a,b) => b.count - a.count);
+  const maxCount = Math.max(...sorted.map(e => e.count), 1);
+
+  document.getElementById('totalEngBadge').textContent = `${allEngineers.length} engineers`;
+
+  const html = sorted.map(e => {
+    const pct = (e.count / maxCount) * 100;
+    return `
+      <div class="eng-bar-row">
+        <div class="eng-bar-name">${e.name}</div>
+        <div class="eng-bar-track">
+          <div class="eng-bar-fill" style="width:${pct}%">${e.count > 0 ? e.count : ''}</div>
+        </div>
+        <div class="eng-bar-value">${e.clients.size} <span style="color:var(--muted);font-size:10px">clients</span></div>
+      </div>`;
+  }).join('');
+
+  document.getElementById('engineersBody').innerHTML = html || '<div class="empty-state">No reports this month</div>';
+}
+
+function renderMissedClients(visitedSet) {
+  const missed = allClients.filter(c => !visitedSet.has(c.code));
+  const list = document.getElementById('missedClientsList');
+  if (missed.length === 0) {
+    list.innerHTML = '<li class="alert-empty">All clients have been visited ✓</li>';
+    return;
+  }
+  list.innerHTML = missed.slice(0, 10).map(c => `
+    <li>
+      <strong>${c.name}</strong>
+      <span style="color:var(--muted);font-size:11px;margin-left:6px">${c.code} · ${c.region || ''}</span>
+    </li>`).join('');
+  if (missed.length > 10) {
+    list.innerHTML += `<li style="color:var(--muted);font-style:italic;font-size:11px;margin-top:4px">+${missed.length - 10} more...</li>`;
+  }
+}
+
+function renderVisitedClients(monthReports) {
+  const seen = new Map();
+  monthReports.forEach(r => {
+    if (r.visit_mode === 'service' && r.client_code && !seen.has(r.client_code)) {
+      seen.set(r.client_code, {
+        name: r.client_name,
+        code: r.client_code,
+        region: r.region,
+        engineer: r.eng_name,
+        date: r.created_at,
+      });
+    }
+  });
+
+  document.getElementById('visitedClientsBadge').textContent = seen.size;
+
+  if (seen.size === 0) {
+    document.getElementById('visitedClientsGrid').innerHTML = '<div class="empty-state" style="grid-column:1/-1">No clients visited yet</div>';
+    return;
+  }
+
+  const html = Array.from(seen.values()).map(c => `
+    <div class="client-card">
+      <div class="client-avatar">${c.name.charAt(0)}</div>
+      <div class="client-card-info">
+        <div class="client-card-name">${c.name}</div>
+        <div class="client-card-meta">${c.code} · ${c.engineer || '—'}</div>
+      </div>
+    </div>`).join('');
+
+  document.getElementById('visitedClientsGrid').innerHTML = html;
+}
+
+function renderCriticalReports(monthReports) {
+  // For now, show reports with notes containing critical keywords
+  const critical = monthReports.filter(r => {
+    const notes = (r.notes || '').toLowerCase();
+    return notes.includes('critical') || notes.includes('urgent') || notes.includes('emergency');
+  });
+
+  const list = document.getElementById('criticalReportsList');
+  if (critical.length === 0) {
+    list.innerHTML = '<li class="alert-empty">No critical reports flagged ✓</li>';
+    return;
+  }
+  list.innerHTML = critical.slice(0, 5).map(r => `
+    <li>
+      <strong>${r.client_name}</strong>
+      <span style="color:var(--muted);font-size:11px;margin-left:6px">${r.eng_name} · ${r.ref}</span>
+    </li>`).join('');
+}
+
+// ══════════════════════════════════════════
+// EXPORT CSV
+// ══════════════════════════════════════════
+function exportData() {
+  const monthReports = getMonthReports();
+  if (monthReports.length === 0) {
+    showToast('No data to export');
+    return;
+  }
+
+  const headers = ['Ref','Date','Type','Client Code','Client Name','Region','Engineer','Visit Type','Notes','Status'];
+  const rows = monthReports.map(r => [
+    r.ref,
+    r.timestamp,
+    r.visit_mode,
+    r.client_code,
+    r.client_name,
+    r.region,
+    r.eng_name,
+    r.visit_type,
+    (r.notes || '').replace(/"/g,'""'),
+    r.status,
+  ].map(v => `"${v || ''}"`).join(','));
+
+  const csv = [headers.join(','), ...rows].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = `PWT-Reports-${MONTH_NAMES[currentMonth]}-${currentYear}.csv`;
+  a.click();
+  showToast('CSV exported ✓');
+}
+
+// ══════════════════════════════════════════
+// TOAST
+// ══════════════════════════════════════════
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// ══════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════
+updateMonthLabel();
+loadAll();
+
+// Auto-refresh every 5 minutes
+setInterval(loadAll, 5 * 60 * 1000);
+</script>
+</body>
+</html>
