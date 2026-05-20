@@ -743,11 +743,43 @@ function addSystem(type) {
           <div class="subsection-title">Recommendations</div>
           <textarea class="rec-textarea" id="rec-${id}" placeholder="Enter recommendations for this system..."></textarea>
         </div>
+        <div style="margin-top:14px">
+          <div class="subsection-title">Treatment Program</div>
+          <div id="tp-${id}" style="display:flex;flex-direction:column;gap:8px"></div>
+          <button onclick="addTreatmentProduct(${id})" class="btn btn-secondary btn-sm" style="margin-top:8px;font-size:11px">+ Add Product</button>
+        </div>
       </div>
     </div>`;
 
   document.getElementById('sysPanels').appendChild(panel);
   switchTab(id);
+}
+
+function addTreatmentProduct(sysId) {
+  const container = document.getElementById(`tp-${sysId}`);
+  if (!container) return;
+  const idx = container.children.length;
+  const row = document.createElement('div');
+  row.style.cssText = 'background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px;position:relative';
+  row.innerHTML = `
+    <button onclick="this.parentElement.remove()" style="position:absolute;top:6px;right:8px;background:none;border:none;color:#ef4444;cursor:pointer;font-size:14px;font-weight:bold">✕</button>
+    <div style="display:grid;grid-template-columns:1fr;gap:6px">
+      <div>
+        <label style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.7px">Product</label>
+        <input type="text" class="form-input tp-product" placeholder="e.g. PWT-100" style="font-size:12px;padding:7px 9px;margin-top:2px">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+        <div>
+          <label style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.7px">Dosage (kg/day)</label>
+          <input type="number" step="0.01" class="form-input tp-dosage" placeholder="0" style="font-size:12px;padding:7px 9px;margin-top:2px">
+        </div>
+        <div>
+          <label style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.7px">Stock (kg)</label>
+          <input type="number" step="0.01" class="form-input tp-stock" placeholder="0" style="font-size:12px;padding:7px 9px;margin-top:2px">
+        </div>
+      </div>
+    </div>`;
+  container.appendChild(row);
 }
 
 function switchTab(id) {
@@ -835,7 +867,20 @@ function collectSystems() {
     // Flatten for email/sheets compatibility
     const readings = {};
     Object.values(sections).forEach(sr => Object.assign(readings, sr));
-    return { id: sys.id, type: sys.type, stype: def, name, sections, readings, recommendations: rec };
+    // Collect treatment program
+    const treatment = [];
+    const tpContainer = document.getElementById(`tp-${sys.id}`);
+    if (tpContainer) {
+      tpContainer.querySelectorAll(':scope > div').forEach(row => {
+        const product = row.querySelector('.tp-product')?.value?.trim() || '';
+        const dosage  = row.querySelector('.tp-dosage')?.value || '';
+        const stock   = row.querySelector('.tp-stock')?.value || '';
+        if (product) {
+          treatment.push({ product, dosage, stock });
+        }
+      });
+    }
+    return { id: sys.id, type: sys.type, stype: def, name, sections, readings, recommendations: rec, treatment };
   });
 }
 
@@ -1065,6 +1110,27 @@ function buildEmailBody(systemsData, visitType, visitNotes, prospectName, prospe
     if (sys.recommendations) {
       body += `<div style="padding:10px 14px;background:#eff6ff;border-top:1px solid #bfdbfe;font-size:12px;color:#1e3a5f"><strong>Recommendations:</strong> ${sys.recommendations}</div>`;
     }
+
+    // Treatment Program
+    if (sys.treatment && sys.treatment.length > 0) {
+      body += `<div style="background:#fef3c7;padding:6px 14px;font-size:10px;font-weight:700;color:#92400e;text-transform:uppercase;letter-spacing:0.8px;border-top:1px solid #fde68a">TREATMENT PROGRAM</div>`;
+      body += `<table style="width:100%;border-collapse:collapse">`;
+      body += `<tr style="background:#fffbeb">
+        <td style="padding:6px 14px;font-size:10px;font-weight:700;color:#78350f;text-transform:uppercase;letter-spacing:0.6px;border-top:1px solid #fde68a">Product</td>
+        <td style="padding:6px 14px;font-size:10px;font-weight:700;color:#78350f;text-transform:uppercase;letter-spacing:0.6px;border-top:1px solid #fde68a">Dosage (kg/day)</td>
+        <td style="padding:6px 14px;font-size:10px;font-weight:700;color:#78350f;text-transform:uppercase;letter-spacing:0.6px;border-top:1px solid #fde68a">Stock (kg)</td>
+      </tr>`;
+      sys.treatment.forEach((t, i) => {
+        const bg = i % 2 === 0 ? '#ffffff' : '#fffbeb';
+        body += `<tr style="background:${bg}">
+          <td style="padding:7px 14px;font-size:12px;font-weight:600;color:#0a1628;border-top:1px solid #fde68a">${t.product}</td>
+          <td style="padding:7px 14px;font-size:12px;color:#334155;border-top:1px solid #fde68a;font-family:monospace">${t.dosage || '—'}</td>
+          <td style="padding:7px 14px;font-size:12px;color:#334155;border-top:1px solid #fde68a;font-family:monospace">${t.stock || '—'}</td>
+        </tr>`;
+      });
+      body += `</table>`;
+    }
+
     body += `</div>`;
   });
 
@@ -1230,6 +1296,41 @@ async function generatePDF(systemsData, visitType, visitNotes, prospectName, pro
       doc.text(lines, M+3, y+4.5);
       y += h + 4;
     }
+
+    // Treatment Program
+    if (sys.treatment && sys.treatment.length > 0) {
+      if (y > 240) { doc.addPage(); y = 16; }
+      // Header
+      doc.setFillColor(254,243,199);
+      doc.rect(M, y, CW, 7, 'F');
+      doc.setTextColor(146,64,14);
+      doc.setFont('helvetica','bold'); doc.setFontSize(8);
+      doc.text('TREATMENT PROGRAM', M+3, y+5);
+      y += 8;
+
+      // Column headers
+      doc.setFontSize(7); doc.setTextColor(120,53,15); doc.setFont('helvetica','bold');
+      doc.text('PRODUCT',          M+3,    y+4);
+      doc.text('DOSAGE (kg/day)',  M+90,   y+4);
+      doc.text('STOCK (kg)',       M+145,  y+4);
+      y += 6;
+
+      sys.treatment.forEach((t, i) => {
+        if (y > 272) { doc.addPage(); y = 16; }
+        if (i % 2 === 0) { doc.setFillColor(255,251,235); doc.rect(M, y-1, CW, 7, 'F'); }
+        doc.setDrawColor(253,230,138);
+        doc.line(M, y+6, M+CW, y+6);
+
+        doc.setTextColor(10,22,40); doc.setFont('helvetica','bold'); doc.setFontSize(8);
+        doc.text(t.product, M+3, y+4.5);
+        doc.setFont('helvetica','normal'); doc.setTextColor(51,65,85);
+        doc.text(t.dosage || '—', M+90, y+4.5);
+        doc.text(t.stock || '—',  M+145, y+4.5);
+        y += 7;
+      });
+      y += 3;
+    }
+
     y += 5;
   });
 
