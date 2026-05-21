@@ -1022,7 +1022,9 @@ async function submitReport() {
 
     // Generate PDF
     showLoading('Generating PDF...');
-    const pdfUri = await generatePDF(systemsData, visitType, visitNotes, prospectName, prospectContact);
+    const pdfResult = await generatePDF(systemsData, visitType, visitNotes, prospectName, prospectContact);
+    const pdfUri = pdfResult.dataUri;
+    const pdfBase64Clean = pdfResult.base64Clean;
 
     // Build email body
     const emailBody = buildEmailBody(systemsData, visitType, visitNotes, prospectName, prospectContact, prospectPhone);
@@ -1049,7 +1051,7 @@ async function submitReport() {
       prospect_phone:  prospectPhone,
       systems:         systemsData,
       email_body:      emailBody,
-      pdf_base64:      pdfUri.split(',')[1],
+      pdf_base64:      pdfBase64Clean,
     };
 
     await fetch(MAKE_WEBHOOK, {
@@ -1383,7 +1385,19 @@ async function generatePDF(systemsData, visitType, visitNotes, prospectName, pro
   doc.setTextColor(148,163,184); doc.setFontSize(7); doc.setFont('helvetica','normal');
   doc.text('PWT International · Water Treatment Chemicals · Automated Service Report', W/2, 293, { align:'center' });
 
-  return doc.output('datauristring');
+  // Return both: data URI (for download) and clean base64 (for email attachment)
+  const blob = doc.output('blob');
+  const arrayBuffer = await blob.arrayBuffer();
+  const bytes = new Uint8Array(arrayBuffer);
+  let binary = '';
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  const base64Clean = btoa(binary);
+  const dataUri = 'data:application/pdf;base64,' + base64Clean;
+  // Attach clean base64 as property so submit function can access it
+  dataUri.__cleanBase64 = base64Clean;
+  return { dataUri, base64Clean };
 }
 
 function findParamDef(type, label) {
