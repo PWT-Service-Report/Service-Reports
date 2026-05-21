@@ -1134,18 +1134,15 @@ function buildEmailBody(systemsData, visitType, visitNotes, prospectName, prospe
     body += `<div style="margin-bottom:18px;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden">`;
     body += `<div style="font-size:13px;font-weight:700;color:#fff;padding:9px 14px;background:#1a56db">${def.icon} ${sys.name}</div>`;
 
-    // Always iterate through DEFINED sections in order — for each section, find params that have values
+    // Iterate through DEFINED sections in order — strict isolation per section
     def.sections.forEach(sec => {
-      // Collect rows for this section
+      // Get this section's data only (no fallback to flat readings)
+      const secData = (sys.sections && sys.sections[sec.title]) || null;
+      if (!secData) return; // Skip section if no data for it
+
       const rows = [];
       sec.params.forEach(p => {
-        // Try sections object first (new format), then readings (flat)
-        let v;
-        if (sys.sections && sys.sections[sec.title] && sys.sections[sec.title][p.label] !== undefined) {
-          v = sys.sections[sec.title][p.label];
-        } else if (sys.readings && sys.readings[p.label] !== undefined) {
-          v = sys.readings[p.label];
-        }
+        const v = secData[p.label];
         if (v !== undefined && v !== '' && v !== null) {
           rows.push({ p, v });
         }
@@ -1153,8 +1150,8 @@ function buildEmailBody(systemsData, visitType, visitNotes, prospectName, prospe
 
       if (rows.length === 0) return;
 
-      // Section sub-header
-      body += `<div style="background:#f1f5f9;padding:6px 14px;font-size:10px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.8px;border-top:1px solid #e2e8f0">${sec.title}</div>`;
+      // Section sub-header — bold, consistent styling
+      body += `<div style="background:#f1f5f9;padding:7px 14px;font-size:11px;font-weight:700;color:#1e293b;text-transform:uppercase;letter-spacing:0.8px;border-top:1px solid #e2e8f0">${sec.title}</div>`;
 
       // Table
       body += `<table style="width:100%;border-collapse:collapse">`;
@@ -1182,19 +1179,19 @@ function buildEmailBody(systemsData, visitType, visitNotes, prospectName, prospe
 
     // Treatment Program
     if (sys.treatment && sys.treatment.length > 0) {
-      body += `<div style="background:#fef3c7;padding:6px 14px;font-size:10px;font-weight:700;color:#92400e;text-transform:uppercase;letter-spacing:0.8px;border-top:1px solid #fde68a">TREATMENT PROGRAM</div>`;
+      body += `<div style="background:#f1f5f9;padding:7px 14px;font-size:11px;font-weight:700;color:#1e293b;text-transform:uppercase;letter-spacing:0.8px;border-top:1px solid #e2e8f0">TREATMENT PROGRAM</div>`;
       body += `<table style="width:100%;border-collapse:collapse">`;
-      body += `<tr style="background:#fffbeb">
-        <td style="padding:6px 14px;font-size:10px;font-weight:700;color:#78350f;text-transform:uppercase;letter-spacing:0.6px;border-top:1px solid #fde68a">Product</td>
-        <td style="padding:6px 14px;font-size:10px;font-weight:700;color:#78350f;text-transform:uppercase;letter-spacing:0.6px;border-top:1px solid #fde68a">Dosage (kg/day)</td>
-        <td style="padding:6px 14px;font-size:10px;font-weight:700;color:#78350f;text-transform:uppercase;letter-spacing:0.6px;border-top:1px solid #fde68a">Stock (kg)</td>
+      body += `<tr style="background:#f8fafc">
+        <td style="padding:6px 14px;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.6px;border-top:1px solid #e2e8f0">Product</td>
+        <td style="padding:6px 14px;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.6px;border-top:1px solid #e2e8f0">Dosage (kg/day)</td>
+        <td style="padding:6px 14px;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.6px;border-top:1px solid #e2e8f0">Stock (kg)</td>
       </tr>`;
       sys.treatment.forEach((t, i) => {
-        const bg = i % 2 === 0 ? '#ffffff' : '#fffbeb';
+        const bg = i % 2 === 0 ? '#ffffff' : '#f8fafc';
         body += `<tr style="background:${bg}">
-          <td style="padding:7px 14px;font-size:12px;font-weight:600;color:#0a1628;border-top:1px solid #fde68a">${t.product}</td>
-          <td style="padding:7px 14px;font-size:12px;color:#334155;border-top:1px solid #fde68a;font-family:monospace">${t.dosage || '—'}</td>
-          <td style="padding:7px 14px;font-size:12px;color:#334155;border-top:1px solid #fde68a;font-family:monospace">${t.stock || '—'}</td>
+          <td style="padding:7px 14px;font-size:12px;font-weight:600;color:#0a1628;border-top:1px solid #e2e8f0">${t.product}</td>
+          <td style="padding:7px 14px;font-size:12px;color:#334155;border-top:1px solid #e2e8f0;font-family:monospace">${t.dosage || '—'}</td>
+          <td style="padding:7px 14px;font-size:12px;color:#334155;border-top:1px solid #e2e8f0;font-family:monospace">${t.stock || '—'}</td>
         </tr>`;
       });
       body += `</table>`;
@@ -1304,27 +1301,23 @@ async function generatePDF(systemsData, visitType, visitNotes, prospectName, pro
     const sectionsToRender = sys.sections || {};
 
     def.sections.forEach(sec => {
-      // Get readings for this specific section only
-      const secData = sys.sections ? sys.sections[sec.title] : null;
+      // Get readings for this specific section only — strict isolation
+      const secData = (sys.sections && sys.sections[sec.title]) || null;
+      if (!secData) return;
       const rows = sec.params.filter(p => {
-        if (secData) {
-          return secData[p.label] !== undefined && secData[p.label] !== '';
-        } else {
-          const v = sys.readings[p.label];
-          return v !== undefined && v !== '';
-        }
+        return secData[p.label] !== undefined && secData[p.label] !== '';
       });
       if (rows.length === 0) return;
 
       if (y > 255) { doc.addPage(); y = 16; }
 
-      // Section sub-header
+      // Section sub-header — bold, consistent styling
       doc.setFillColor(241,245,249);
-      doc.rect(M, y, CW, 6, 'F');
-      doc.setTextColor(100,116,139);
-      doc.setFont('helvetica','bold'); doc.setFontSize(7);
-      doc.text(sec.title.toUpperCase(), M+3, y+4.3);
-      y += 7;
+      doc.rect(M, y, CW, 7, 'F');
+      doc.setTextColor(30,41,59);
+      doc.setFont('helvetica','bold'); doc.setFontSize(8);
+      doc.text(sec.title.toUpperCase(), M+3, y+5);
+      y += 8;
 
       // Column headers
       doc.setFontSize(7); doc.setTextColor(100,116,139); doc.setFont('helvetica','bold');
@@ -1340,8 +1333,8 @@ async function generatePDF(systemsData, visitType, visitNotes, prospectName, pro
         doc.setDrawColor(226,232,240);
         doc.line(M, y+6, M+CW, y+6);
 
-        // Get value from correct section
-        const v = secData ? secData[p.label] : sys.readings[p.label];
+        // Get value from correct section only
+        const v = secData[p.label];
         const numV = parseFloat(v);
 
         doc.setTextColor(51,65,85); doc.setFont('helvetica','normal'); doc.setFontSize(8);
@@ -1379,16 +1372,16 @@ async function generatePDF(systemsData, visitType, visitNotes, prospectName, pro
     // Treatment Program
     if (sys.treatment && sys.treatment.length > 0) {
       if (y > 240) { doc.addPage(); y = 16; }
-      // Header
-      doc.setFillColor(254,243,199);
+      // Header — bold, consistent styling
+      doc.setFillColor(241,245,249);
       doc.rect(M, y, CW, 7, 'F');
-      doc.setTextColor(146,64,14);
+      doc.setTextColor(30,41,59);
       doc.setFont('helvetica','bold'); doc.setFontSize(8);
       doc.text('TREATMENT PROGRAM', M+3, y+5);
       y += 8;
 
       // Column headers
-      doc.setFontSize(7); doc.setTextColor(120,53,15); doc.setFont('helvetica','bold');
+      doc.setFontSize(7); doc.setTextColor(100,116,139); doc.setFont('helvetica','bold');
       doc.text('PRODUCT',          M+3,    y+4);
       doc.text('DOSAGE (kg/day)',  M+90,   y+4);
       doc.text('STOCK (kg)',       M+145,  y+4);
@@ -1396,8 +1389,8 @@ async function generatePDF(systemsData, visitType, visitNotes, prospectName, pro
 
       sys.treatment.forEach((t, i) => {
         if (y > 272) { doc.addPage(); y = 16; }
-        if (i % 2 === 0) { doc.setFillColor(255,251,235); doc.rect(M, y-1, CW, 7, 'F'); }
-        doc.setDrawColor(253,230,138);
+        if (i % 2 === 0) { doc.setFillColor(248,250,252); doc.rect(M, y-1, CW, 7, 'F'); }
+        doc.setDrawColor(226,232,240);
         doc.line(M, y+6, M+CW, y+6);
 
         doc.setTextColor(10,22,40); doc.setFont('helvetica','bold'); doc.setFontSize(8);
