@@ -1026,10 +1026,33 @@ async function submitReport() {
     const pdfUri = pdfResult.dataUri;
     const pdfBase64Clean = pdfResult.base64Clean;
 
-    // Build email body
-    const emailBody = buildEmailBody(systemsData, visitType, visitNotes, prospectName, prospectContact, prospectPhone);
+    // Upload PDF to Google Drive via Apps Script
+    showLoading('Uploading PDF to Drive...');
+    let pdfViewLink = '';
+    let pdfDownloadLink = '';
+    try {
+      const uploadRes = await fetch(APPS_SCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify({
+          action: 'uploadPDF',
+          fileName: state.reportRef + '.pdf',
+          pdfBase64: pdfBase64Clean,
+        })
+      });
+      const uploadJson = await uploadRes.json();
+      if (uploadJson.success) {
+        pdfViewLink = uploadJson.viewLink;
+        pdfDownloadLink = uploadJson.downloadLink;
+      }
+    } catch(e) {
+      console.warn('PDF upload to Drive failed:', e);
+    }
 
-    showLoading('Sending to Make.com...');
+    // Build email body (with PDF link if available)
+    const emailBody = buildEmailBody(systemsData, visitType, visitNotes, prospectName, prospectContact, prospectPhone, pdfViewLink);
+
+    showLoading('Sending reports...');
 
     // Send to Make.com webhook
     const payload = {
@@ -1051,7 +1074,8 @@ async function submitReport() {
       prospect_phone:  prospectPhone,
       systems:         systemsData,
       email_body:      emailBody,
-      pdf_base64:      pdfBase64Clean,
+      pdf_view_link:   pdfViewLink,
+      pdf_download_link: pdfDownloadLink,
     };
 
     await fetch(MAKE_WEBHOOK, {
@@ -1086,7 +1110,7 @@ async function submitReport() {
 // ══════════════════════════════════════════
 // EMAIL BODY
 // ══════════════════════════════════════════
-function buildEmailBody(systemsData, visitType, visitNotes, prospectName, prospectContact, prospectPhone) {
+function buildEmailBody(systemsData, visitType, visitNotes, prospectName, prospectContact, prospectPhone, pdfLink) {
   let body = '';
 
   if (visitNotes) {
@@ -1180,6 +1204,16 @@ function buildEmailBody(systemsData, visitType, visitNotes, prospectName, prospe
   });
 
   body += `<div style="margin-top:16px;padding:10px 14px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;text-align:center;font-size:11px;color:#166534">📄 A PDF copy has been automatically saved on the engineer's device.</div>`;
+
+  // PDF Download Button (if link available)
+  if (pdfLink) {
+    body += `
+      <div style="margin-top:24px;padding:20px;background:linear-gradient(135deg,#1a56db,#3b82f6);border-radius:12px;text-align:center">
+        <div style="color:rgba(255,255,255,0.85);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1.2px;margin-bottom:10px">Full Report Available</div>
+        <a href="${pdfLink}" target="_blank" style="display:inline-block;background:white;color:#1a56db;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;box-shadow:0 4px 12px rgba(0,0,0,0.15)">📄 Download PDF Report</a>
+        <div style="color:rgba(255,255,255,0.7);font-size:11px;margin-top:10px">Click to view or download the complete service report</div>
+      </div>`;
+  }
 
   return body;
 }
