@@ -1031,22 +1031,30 @@ async function submitReport() {
     let pdfViewLink = '';
     let pdfDownloadLink = '';
     try {
+      console.log('🚀 Sending PDF to Apps Script...', { url: APPS_SCRIPT_URL, base64Length: pdfBase64Clean?.length });
       const uploadRes = await fetch(APPS_SCRIPT_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'text/plain' },
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({
           action: 'uploadPDF',
           fileName: state.reportRef + '.pdf',
           pdfBase64: pdfBase64Clean,
         })
       });
-      const uploadJson = await uploadRes.json();
+      console.log('📥 Response status:', uploadRes.status, uploadRes.statusText);
+      const responseText = await uploadRes.text();
+      console.log('📄 Response body:', responseText);
+      const uploadJson = JSON.parse(responseText);
+      console.log('✅ Parsed:', uploadJson);
       if (uploadJson.success) {
         pdfViewLink = uploadJson.viewLink;
         pdfDownloadLink = uploadJson.downloadLink;
+        console.log('🔗 PDF Link obtained:', pdfViewLink);
+      } else {
+        console.error('❌ Apps Script returned error:', uploadJson.error);
       }
     } catch(e) {
-      console.warn('PDF upload to Drive failed:', e);
+      console.error('❌ PDF upload to Drive failed:', e);
     }
 
     // Build email body (with PDF link if available)
