@@ -1433,17 +1433,19 @@ async function generatePDF(systemsData, visitType, visitNotes, prospectName, pro
       const recText = sys.recommendations;
       const hasArabic = /[\u0600-\u06FF]/.test(recText);
       
-      // Step 1: measure text height first
-      let textH;
-      if (hasArabic) {
-        // Estimate: ~40 chars per line, ~5mm per line
-        const estLines = Math.max(1, Math.ceil(recText.length / 45));
-        textH = estLines * 6;
-      } else {
-        doc.setFontSize(8);
-        const lines = doc.splitTextToSize(recText, CW - 8);
-        textH = lines.length * 5;
+      // Step 1: measure text height — account for newlines
+      const recLinesSplit = recText.split(/\n/).filter(l => l.trim());
+      let textH = 0;
+      for (const rl of recLinesSplit) {
+        if (/[\u0600-\u06FF]/.test(rl)) {
+          textH += 7;
+        } else {
+          doc.setFontSize(8);
+          const sub = doc.splitTextToSize(rl, CW - 8);
+          textH += sub.length * 5 + 2;
+        }
       }
+      textH = Math.max(textH, 6);
       
       const labelH = 7; // height for "Recommendations:" label
       const padding = 4;
@@ -1461,15 +1463,23 @@ async function generatePDF(systemsData, visitType, visitNotes, prospectName, pro
       doc.setTextColor(30,58,95);
       doc.text('Recommendations:', M+3, y + padding + 4);
       
-      // Draw text below label
-      if (hasArabic) {
-        addTextToPDF(doc, recText, M+3, y + labelH + padding, CW-6, 8, [30,58,95], false);
-      } else {
-        doc.setFont('helvetica','normal');
-        doc.setFontSize(8);
-        doc.setTextColor(30,58,95);
-        const lines = doc.splitTextToSize(recText, CW-8);
-        doc.text(lines, M+3, y + labelH + padding + 4);
+      // Draw text below label — handle newlines
+      const recLines = recText.split(/\n/);
+      let ty = y + labelH + padding;
+      for (const rline of recLines) {
+        if (!rline.trim()) { ty += 4; continue; }
+        const lineHasArabic = /[\u0600-\u06FF]/.test(rline);
+        if (lineHasArabic) {
+          addTextToPDF(doc, rline, M+3, ty, CW-6, 8, [30,58,95], false);
+          ty += 7;
+        } else {
+          doc.setFont('helvetica','normal');
+          doc.setFontSize(8);
+          doc.setTextColor(30,58,95);
+          const sublines = doc.splitTextToSize(rline, CW-8);
+          doc.text(sublines, M+3, ty + 4);
+          ty += sublines.length * 5 + 2;
+        }
       }
       
       y += totalH + 4;
@@ -1610,6 +1620,18 @@ document.querySelectorAll('.bottom-sheet').forEach(el => {
 // ══════════════════════════════════════════
 updateClock();
 setInterval(updateClock, 30000);
+
+// ─── VERSION CHECK — auto-refresh when new version deployed ───
+const APP_VERSION = '2.1.6';
+const storedVer = localStorage.getItem('pwt_app_version');
+if (storedVer && storedVer !== APP_VERSION) {
+  localStorage.removeItem('pwt_engineers_cache');
+  localStorage.removeItem('pwt_clients_cache');
+  localStorage.setItem('pwt_app_version', APP_VERSION);
+  window.location.reload(true);
+} else {
+  localStorage.setItem('pwt_app_version', APP_VERSION);
+}
 
 // Load engineers and clients in parallel after UI renders
 requestAnimationFrame(() => {
