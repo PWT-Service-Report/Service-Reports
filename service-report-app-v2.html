@@ -618,7 +618,7 @@ async function loadClients() {
     const json = await res.json();
     if (json.success && json.data.length > 1) {
       allClients = json.data.slice(1)
-        .map(r => ({ code:r[0], name:r[1], region:r[2], email:r[3], freq:r[4], engineer:r[5] }))
+        .map(r => ({ code:r[0], name:r[1], region:r[2], email:r[3], engineer:r[4], freq:'' }))
         .filter(c => c.name);
       // Update cache
       try { localStorage.setItem('pwt_clients_cache', JSON.stringify({ data: allClients, ts: Date.now() })); } catch(e) {}
@@ -1622,7 +1622,7 @@ updateClock();
 setInterval(updateClock, 30000);
 
 // ─── VERSION CHECK — auto-refresh when new version deployed ───
-const APP_VERSION = '2.1.6';
+const APP_VERSION = '2.1.7';
 const storedVer = localStorage.getItem('pwt_app_version');
 if (storedVer && storedVer !== APP_VERSION) {
   localStorage.removeItem('pwt_engineers_cache');
