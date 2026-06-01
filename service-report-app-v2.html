@@ -1242,30 +1242,23 @@ function addTextToPDF(doc, text, x, y, maxWidth, fontSize, color, bold) {
     return lines.length * (fontSize * 0.4);
   }
   
-  // Arabic text — render via canvas
+  // Arabic text — render via canvas (RTL, right-aligned)
   const canvas = document.createElement('canvas');
-  const scale = 3; // High DPI
-  const canvasWidth = maxWidth * scale * 3.78; // mm to px approx
-  const lineHeight = fontSize * 1.6 * scale;
-  canvas.width = canvasWidth;
-  canvas.height = lineHeight * 3; // allow wrapping
+  const scale = 4; // High DPI
+  const mmToPx = 3.78;
+  const canvasWidth = maxWidth * scale * mmToPx;
+  const lineHeight = fontSize * 2 * scale;
   
   const ctx = canvas.getContext('2d');
-  ctx.fillStyle = 'transparent';
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  
   ctx.font = `${bold ? 'bold' : 'normal'} ${fontSize * scale}px Arial, sans-serif`;
-  ctx.fillStyle = `rgb(${color[0]},${color[1]},${color[2]})`;
-  ctx.direction = 'rtl';
-  ctx.textAlign = 'right';
   
-  // Word wrap
+  // Word wrap with RTL
   const words = text.split(' ');
   let line = '';
   let lines = [];
   for (const word of words) {
     const test = line + word + ' ';
-    if (ctx.measureText(test).width > canvasWidth - 10 && line !== '') {
+    if (ctx.measureText(test).width > canvasWidth - 20 && line !== '') {
       lines.push(line.trim());
       line = word + ' ';
     } else {
@@ -1274,20 +1267,23 @@ function addTextToPDF(doc, text, x, y, maxWidth, fontSize, color, bold) {
   }
   if (line.trim()) lines.push(line.trim());
   
+  canvas.width = canvasWidth;
   canvas.height = lineHeight * lines.length + 10;
+  
+  // Re-set font after resize (canvas resize resets context)
   ctx.font = `${bold ? 'bold' : 'normal'} ${fontSize * scale}px Arial, sans-serif`;
   ctx.fillStyle = `rgb(${color[0]},${color[1]},${color[2]})`;
   ctx.direction = 'rtl';
   ctx.textAlign = 'right';
   
   lines.forEach((l, i) => {
-    ctx.fillText(l, canvasWidth - 5, lineHeight * (i + 1));
+    ctx.fillText(l, canvasWidth - 8, lineHeight * (i + 1) - 4);
   });
   
   const imgData = canvas.toDataURL('image/png');
-  const imgH = (canvas.height / scale / 3.78); // px to mm
+  const imgH = (canvas.height / scale / mmToPx);
   const imgW = maxWidth;
-  doc.addImage(imgData, 'PNG', x, y - fontSize * 0.35, imgW, imgH);
+  doc.addImage(imgData, 'PNG', x, y, imgW, imgH);
   
   return imgH;
 }
@@ -1437,31 +1433,46 @@ async function generatePDF(systemsData, visitType, visitNotes, prospectName, pro
       const recText = sys.recommendations;
       const hasArabic = /[\u0600-\u06FF]/.test(recText);
       
-      // Calculate height based on text
-      let estH;
+      // Step 1: measure text height first
+      let textH;
       if (hasArabic) {
-        estH = Math.max(12, Math.ceil(recText.length / 40) * 6 + 10);
+        // Estimate: ~40 chars per line, ~5mm per line
+        const estLines = Math.max(1, Math.ceil(recText.length / 45));
+        textH = estLines * 6;
       } else {
-        const lines = doc.splitTextToSize(recText, CW - 30);
-        estH = lines.length * 5.5 + 10;
+        doc.setFontSize(8);
+        const lines = doc.splitTextToSize(recText, CW - 8);
+        textH = lines.length * 5;
       }
+      
+      const labelH = 7; // height for "Recommendations:" label
+      const padding = 4;
+      const totalH = labelH + textH + padding * 2;
       
       // Draw background box
       doc.setFillColor(239,246,255);
-      doc.rect(M, y, CW, estH, 'F');
+      doc.rect(M, y, CW, totalH, 'F');
       doc.setDrawColor(191,219,254);
-      doc.rect(M, y, CW, estH, 'S');
+      doc.rect(M, y, CW, totalH, 'S');
       
-      // Draw "Recommendations:" label in bold (always Latin)
+      // Draw label
       doc.setFont('helvetica','bold');
       doc.setFontSize(8);
       doc.setTextColor(30,58,95);
-      doc.text('Recommendations:', M+3, y+6);
+      doc.text('Recommendations:', M+3, y + padding + 4);
       
-      // Draw the actual text (supports Arabic)
-      addTextToPDF(doc, recText, M+3, y+12, CW-6, 8, [30,58,95], false);
+      // Draw text below label
+      if (hasArabic) {
+        addTextToPDF(doc, recText, M+3, y + labelH + padding, CW-6, 8, [30,58,95], false);
+      } else {
+        doc.setFont('helvetica','normal');
+        doc.setFontSize(8);
+        doc.setTextColor(30,58,95);
+        const lines = doc.splitTextToSize(recText, CW-8);
+        doc.text(lines, M+3, y + labelH + padding + 4);
+      }
       
-      y += estH + 4;
+      y += totalH + 4;
     }
 
     // Treatment Program
