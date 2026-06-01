@@ -393,7 +393,7 @@ body { font-family: 'IBM Plex Sans', sans-serif; background: var(--surface); col
 // ══════════════════════════════════════════
 // CONFIG
 // ══════════════════════════════════════════
-const APPS_SCRIPT_URL  = 'https://script.google.com/macros/s/AKfycbzdUP8GcjMrK760rnypaAQ-sqZygdAVF-KPOmQArDkfZFIXSRJQXMItoZr-MxtH1-UXkg/exec';
+const APPS_SCRIPT_URL  = 'https://script.google.com/macros/s/AKfycbxr4Y9ZNHExaYouaZyltRCHB5dqPZhTmdqgjXlu_xSDJo1XLaAYD12cr2ydhWGDi4Fobg/exec';
 const SERVICE_DB       = 'service';
 const MANAGEMENT_EMAIL = 'ahmed.atef@pwtinternational.com';
 const MAKE_WEBHOOK     = 'https://hook.eu1.make.com/gwrnm3s85y48lnxits7cb4ahqkcfn8uw';
@@ -1226,6 +1226,71 @@ function buildEmailBody(systemsData, visitType, visitNotes, prospectName, prospe
 // ══════════════════════════════════════════
 // PDF GENERATION
 // ══════════════════════════════════════════
+// Helper: render Arabic or mixed text to image and add to PDF
+function addTextToPDF(doc, text, x, y, maxWidth, fontSize, color, bold) {
+  // Detect if text contains Arabic
+  const hasArabic = /[؀-ۿݐ-ݿࢠ-ࣿﭐ-﷿ﹰ-﻿]/.test(text);
+  
+  if (!hasArabic) {
+    // Regular Latin text — use normal jsPDF
+    doc.setFontSize(fontSize);
+    doc.setTextColor(...color);
+    doc.setFont('helvetica', bold ? 'bold' : 'normal');
+    const lines = doc.splitTextToSize(text, maxWidth);
+    doc.text(lines, x, y);
+    return lines.length * (fontSize * 0.4);
+  }
+  
+  // Arabic text — render via canvas
+  const canvas = document.createElement('canvas');
+  const scale = 3; // High DPI
+  const canvasWidth = maxWidth * scale * 3.78; // mm to px approx
+  const lineHeight = fontSize * 1.6 * scale;
+  canvas.width = canvasWidth;
+  canvas.height = lineHeight * 3; // allow wrapping
+  
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = 'transparent';
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  
+  ctx.font = `${bold ? 'bold' : 'normal'} ${fontSize * scale}px Arial, sans-serif`;
+  ctx.fillStyle = `rgb(${color[0]},${color[1]},${color[2]})`;
+  ctx.direction = 'rtl';
+  ctx.textAlign = 'right';
+  
+  // Word wrap
+  const words = text.split(' ');
+  let line = '';
+  let lines = [];
+  for (const word of words) {
+    const test = line + word + ' ';
+    if (ctx.measureText(test).width > canvasWidth - 10 && line !== '') {
+      lines.push(line.trim());
+      line = word + ' ';
+    } else {
+      line = test;
+    }
+  }
+  if (line.trim()) lines.push(line.trim());
+  
+  canvas.height = lineHeight * lines.length + 10;
+  ctx.font = `${bold ? 'bold' : 'normal'} ${fontSize * scale}px Arial, sans-serif`;
+  ctx.fillStyle = `rgb(${color[0]},${color[1]},${color[2]})`;
+  ctx.direction = 'rtl';
+  ctx.textAlign = 'right';
+  
+  lines.forEach((l, i) => {
+    ctx.fillText(l, canvasWidth - 5, lineHeight * (i + 1));
+  });
+  
+  const imgData = canvas.toDataURL('image/png');
+  const imgH = (canvas.height / scale / 3.78); // px to mm
+  const imgW = maxWidth;
+  doc.addImage(imgData, 'PNG', x, y - fontSize * 0.35, imgW, imgH);
+  
+  return imgH;
+}
+
 async function generatePDF(systemsData, visitType, visitNotes, prospectName, prospectContact) {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
@@ -1369,12 +1434,14 @@ async function generatePDF(systemsData, visitType, visitNotes, prospectName, pro
     if (sys.recommendations) {
       if (y > 260) { doc.addPage(); y = 16; }
       doc.setFillColor(239,246,255);
-      const lines = doc.splitTextToSize('Recommendations: ' + sys.recommendations, CW-6);
-      const h     = lines.length * 5 + 5;
+      // Estimate height (Arabic may wrap differently)
+      const recText = 'Recommendations: ' + sys.recommendations;
+      const hasArabic = /[؀-ۿ]/.test(sys.recommendations);
+      const estLines = hasArabic ? Math.ceil(recText.length / 50) + 1 : doc.splitTextToSize(recText, CW-6).length;
+      const h = estLines * 5 + 8;
       doc.rect(M, y, CW, h, 'F');
-      doc.setTextColor(30,58,95); doc.setFont('helvetica','normal'); doc.setFontSize(8);
-      doc.text(lines, M+3, y+4.5);
-      y += h + 4;
+      const textH = addTextToPDF(doc, recText, M+3, y+4.5, CW-6, 8, [30,58,95], false);
+      y += Math.max(h, textH) + 4;
     }
 
     // Treatment Program
@@ -1401,9 +1468,8 @@ async function generatePDF(systemsData, visitType, visitNotes, prospectName, pro
         doc.setDrawColor(226,232,240);
         doc.line(M, y+6, M+CW, y+6);
 
-        doc.setTextColor(10,22,40); doc.setFont('helvetica','bold'); doc.setFontSize(8);
-        doc.text(t.product, M+3, y+4.5);
-        doc.setFont('helvetica','normal'); doc.setTextColor(51,65,85);
+        addTextToPDF(doc, t.product, M+3, y+4.5, 80, 8, [10,22,40], true);
+        doc.setFont('helvetica','normal'); doc.setTextColor(51,65,85); doc.setFontSize(8);
         doc.text(t.dosage || '—', M+90, y+4.5);
         doc.text(t.stock || '—',  M+145, y+4.5);
         y += 7;
