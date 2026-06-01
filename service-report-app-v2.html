@@ -1038,6 +1038,7 @@ async function submitReport() {
         body: JSON.stringify({
           action: 'uploadPDF',
           fileName: state.reportRef + '.pdf',
+          clientName: state.client?.name || prospectName || 'Free Visit',
           pdfBase64: pdfBase64Clean,
         })
       });
@@ -1433,15 +1434,34 @@ async function generatePDF(systemsData, visitType, visitNotes, prospectName, pro
     // Recommendations
     if (sys.recommendations) {
       if (y > 260) { doc.addPage(); y = 16; }
+      const recText = sys.recommendations;
+      const hasArabic = /[\u0600-\u06FF]/.test(recText);
+      
+      // Calculate height based on text
+      let estH;
+      if (hasArabic) {
+        estH = Math.max(12, Math.ceil(recText.length / 40) * 6 + 10);
+      } else {
+        const lines = doc.splitTextToSize(recText, CW - 30);
+        estH = lines.length * 5.5 + 10;
+      }
+      
+      // Draw background box
       doc.setFillColor(239,246,255);
-      // Estimate height (Arabic may wrap differently)
-      const recText = 'Recommendations: ' + sys.recommendations;
-      const hasArabic = /[؀-ۿ]/.test(sys.recommendations);
-      const estLines = hasArabic ? Math.ceil(recText.length / 50) + 1 : doc.splitTextToSize(recText, CW-6).length;
-      const h = estLines * 5 + 8;
-      doc.rect(M, y, CW, h, 'F');
-      const textH = addTextToPDF(doc, recText, M+3, y+4.5, CW-6, 8, [30,58,95], false);
-      y += Math.max(h, textH) + 4;
+      doc.rect(M, y, CW, estH, 'F');
+      doc.setDrawColor(191,219,254);
+      doc.rect(M, y, CW, estH, 'S');
+      
+      // Draw "Recommendations:" label in bold (always Latin)
+      doc.setFont('helvetica','bold');
+      doc.setFontSize(8);
+      doc.setTextColor(30,58,95);
+      doc.text('Recommendations:', M+3, y+6);
+      
+      // Draw the actual text (supports Arabic)
+      addTextToPDF(doc, recText, M+3, y+12, CW-6, 8, [30,58,95], false);
+      
+      y += estH + 4;
     }
 
     // Treatment Program
