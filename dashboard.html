@@ -23,407 +23,175 @@
   --shadow:  0 1px 3px rgba(0,0,0,0.05), 0 4px 24px rgba(10,22,40,0.06);
   --shadow-lg:0 12px 40px rgba(10,22,40,0.12);
 }
-
 * { box-sizing: border-box; margin: 0; padding: 0; }
-
-body {
-  font-family: 'IBM Plex Sans', sans-serif;
-  background: var(--surface);
-  color: var(--navy);
-  min-height: 100vh;
-}
+body { font-family: 'IBM Plex Sans', sans-serif; background: var(--surface); color: var(--navy); min-height: 100vh; }
 
 /* ── TOP BAR ── */
-.topbar {
-  background: linear-gradient(135deg, var(--navy) 0%, #1e3a5f 100%);
-  padding: 18px 32px;
-  position: sticky;
-  top: 0;
-  z-index: 50;
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  box-shadow: 0 4px 20px rgba(10,22,40,0.3);
-}
-.topbar-logo {
-  width: 42px; height: 42px;
-  background: linear-gradient(135deg, var(--sky), var(--cyan));
-  border-radius: 10px;
-  display: flex; align-items: center; justify-content: center;
-  font-weight: 800; font-size: 13px; color: white;
-  flex-shrink: 0;
-  letter-spacing: -0.5px;
-}
+.topbar { background: linear-gradient(135deg, var(--navy) 0%, #1e3a5f 100%); padding: 18px 32px; position: sticky; top: 0; z-index: 50; display: flex; align-items: center; gap: 16px; box-shadow: 0 4px 20px rgba(10,22,40,0.3); }
+.topbar-logo { width: 42px; height: 42px; background: linear-gradient(135deg, var(--sky), var(--cyan)); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 13px; color: white; flex-shrink: 0; letter-spacing: -0.5px; }
 .topbar-title { flex: 1; }
 .topbar-title h1 { color: white; font-size: 18px; font-weight: 700; letter-spacing: -0.3px; }
 .topbar-title p { color: rgba(255,255,255,0.55); font-size: 12px; margin-top: 2px; font-family: 'IBM Plex Mono', monospace; }
-
-.month-selector {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: rgba(255,255,255,0.08);
-  border: 1px solid rgba(255,255,255,0.15);
-  border-radius: 10px;
-  padding: 6px 10px;
-}
-.month-selector button {
-  background: transparent;
-  border: none;
-  color: white;
-  cursor: pointer;
-  font-size: 16px;
-  padding: 4px 8px;
-  border-radius: 6px;
-  transition: background 0.15s;
-}
+.month-selector { display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); border-radius: 10px; padding: 6px 10px; }
+.month-selector button { background: transparent; border: none; color: white; cursor: pointer; font-size: 16px; padding: 4px 8px; border-radius: 6px; transition: background 0.15s; }
 .month-selector button:hover { background: rgba(255,255,255,0.1); }
-.month-selector span {
-  color: white;
-  font-size: 13px;
-  font-weight: 600;
-  min-width: 110px;
-  text-align: center;
-}
-
-.refresh-btn {
-  background: linear-gradient(135deg, var(--sky), var(--cyan));
-  border: none;
-  color: white;
-  padding: 9px 18px;
-  border-radius: 10px;
-  font-family: 'IBM Plex Sans', sans-serif;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  transition: transform 0.15s, box-shadow 0.15s;
-  box-shadow: 0 4px 12px rgba(59,130,246,0.3);
-}
+.month-selector span { color: white; font-size: 13px; font-weight: 600; min-width: 110px; text-align: center; }
+.refresh-btn { background: linear-gradient(135deg, var(--sky), var(--cyan)); border: none; color: white; padding: 9px 18px; border-radius: 10px; font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: transform 0.15s, box-shadow 0.15s; box-shadow: 0 4px 12px rgba(59,130,246,0.3); }
 .refresh-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(59,130,246,0.4); }
 .refresh-btn.spinning span { animation: spin 1s linear infinite; display: inline-block; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* ── TABS ── */
+.tabs-bar { background: var(--white); border-bottom: 1px solid var(--border); padding: 0 32px; display: flex; gap: 0; position: sticky; top: 79px; z-index: 40; box-shadow: 0 2px 8px rgba(10,22,40,0.04); }
+.tab-btn { padding: 16px 22px; border: none; background: transparent; font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; font-weight: 600; color: var(--muted); cursor: pointer; border-bottom: 3px solid transparent; transition: all 0.15s; display: flex; align-items: center; gap: 7px; }
+.tab-btn:hover { color: var(--navy); }
+.tab-btn.active { color: var(--blue); border-bottom-color: var(--blue); }
+.tab-btn .tab-badge { background: var(--red); color: white; font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 10px; display: none; }
+.tab-btn .tab-badge.show { display: inline-block; }
+
 /* ── MAIN ── */
-.main {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 28px 32px;
-}
+.main { max-width: 1280px; margin: 0 auto; padding: 28px 32px; }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
 
 /* ── CARDS ── */
-.cards-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 18px;
-  margin-bottom: 28px;
-}
-
-.stat-card {
-  background: var(--white);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 22px;
-  box-shadow: var(--shadow);
-  position: relative;
-  overflow: hidden;
-  transition: transform 0.15s, box-shadow 0.15s;
-}
+.cards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 18px; margin-bottom: 28px; }
+.stat-card { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); padding: 22px; box-shadow: var(--shadow); position: relative; overflow: hidden; transition: transform 0.15s, box-shadow 0.15s; }
 .stat-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
-
-.stat-card::before {
-  content: '';
-  position: absolute;
-  top: 0; right: 0;
-  width: 80px; height: 80px;
-  background: var(--accent);
-  opacity: 0.08;
-  border-radius: 50%;
-  transform: translate(30%, -30%);
-}
-
-.stat-card-label {
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 1.2px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.stat-card-label .icon {
-  width: 28px; height: 28px;
-  border-radius: 8px;
-  background: var(--accent);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 14px;
-  color: white;
-}
-.stat-card-value {
-  font-size: 38px;
-  font-weight: 800;
-  margin: 12px 0 4px;
-  letter-spacing: -1px;
-  color: var(--navy);
-}
-.stat-card-sub {
-  font-size: 11px;
-  color: var(--muted);
-  font-weight: 500;
-}
+.stat-card::before { content: ''; position: absolute; top: 0; right: 0; width: 80px; height: 80px; background: var(--accent); opacity: 0.08; border-radius: 50%; transform: translate(30%, -30%); }
+.stat-card-label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 1.2px; display: flex; align-items: center; gap: 8px; }
+.stat-card-label .icon { width: 28px; height: 28px; border-radius: 8px; background: var(--accent); display: flex; align-items: center; justify-content: center; font-size: 14px; color: white; }
+.stat-card-value { font-size: 38px; font-weight: 800; margin: 12px 0 4px; letter-spacing: -1px; color: var(--navy); }
+.stat-card-sub { font-size: 11px; color: var(--muted); font-weight: 500; }
 .stat-card.reports { --accent: var(--blue); }
 .stat-card.clients { --accent: var(--green); }
 .stat-card.free    { --accent: var(--amber); }
 .stat-card.alerts  { --accent: var(--red); }
 
 /* ── SECTION ── */
-.section-card {
-  background: var(--white);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  margin-bottom: 24px;
-  overflow: hidden;
-}
-.section-header {
-  padding: 18px 24px;
-  border-bottom: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-.section-title {
-  font-size: 15px;
-  font-weight: 700;
-  letter-spacing: -0.2px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.section-title .badge {
-  background: var(--surface);
-  color: var(--muted);
-  padding: 2px 8px;
-  border-radius: 20px;
-  font-size: 11px;
-  font-weight: 600;
-}
+.section-card { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); margin-bottom: 24px; overflow: hidden; }
+.section-header { padding: 18px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+.section-title { font-size: 15px; font-weight: 700; letter-spacing: -0.2px; display: flex; align-items: center; gap: 8px; }
+.section-title .badge { background: var(--surface); color: var(--muted); padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; }
 .section-body { padding: 22px 24px; }
 
-/* ── ENGINEERS BARS ── */
-.eng-bar-row {
-  display: grid;
-  grid-template-columns: 180px 1fr 60px;
-  align-items: center;
-  gap: 14px;
-  padding: 10px 0;
-  border-bottom: 1px solid var(--border);
-}
+/* ── ENGINEERS ── */
+.eng-bar-row { display: grid; grid-template-columns: 180px 1fr 60px; align-items: center; gap: 14px; padding: 10px 0; border-bottom: 1px solid var(--border); }
 .eng-bar-row:last-child { border-bottom: none; }
-.eng-bar-name {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--slate);
-}
-.eng-bar-track {
-  height: 22px;
-  background: var(--surface);
-  border-radius: 11px;
-  overflow: hidden;
-  position: relative;
-}
-.eng-bar-fill {
-  height: 100%;
-  background: linear-gradient(90deg, var(--blue), var(--sky));
-  border-radius: 11px;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  padding-right: 10px;
-  color: white;
-  font-size: 11px;
-  font-weight: 700;
-  transition: width 0.5s ease;
-}
-.eng-bar-value {
-  text-align: right;
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--navy);
-  font-family: 'IBM Plex Mono', monospace;
-}
+.eng-bar-name { font-size: 13px; font-weight: 600; color: var(--slate); }
+.eng-bar-track { height: 22px; background: var(--surface); border-radius: 11px; overflow: hidden; }
+.eng-bar-fill { height: 100%; background: linear-gradient(90deg, var(--blue), var(--sky)); border-radius: 11px; display: flex; align-items: center; justify-content: flex-end; padding-right: 10px; color: white; font-size: 11px; font-weight: 700; transition: width 0.5s ease; }
+.eng-bar-value { text-align: right; font-size: 13px; font-weight: 700; color: var(--navy); font-family: 'IBM Plex Mono', monospace; }
 
 /* ── ALERTS ── */
-.alerts-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 14px;
-}
-.alert-card {
-  background: var(--white);
-  border-radius: 10px;
-  padding: 16px 18px;
-  border-left: 4px solid var(--color);
-  background: var(--bg);
-}
+.alerts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.alert-card { border-radius: 10px; padding: 16px 18px; border-left: 4px solid var(--color); background: var(--bg); }
 .alert-card.warning { --color: var(--amber); --bg: #fffbeb; }
 .alert-card.danger  { --color: var(--red);   --bg: #fef2f2; }
-
-.alert-title {
-  font-size: 12px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.8px;
-  color: var(--color);
-  margin-bottom: 8px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.alert-list {
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-.alert-list li {
-  font-size: 13px;
-  color: var(--slate);
-  padding: 4px 0;
-}
-.alert-empty {
-  font-size: 12px;
-  color: var(--muted);
-  font-style: italic;
-}
+.alert-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--color); margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+.alert-list { list-style: none; display: flex; flex-direction: column; gap: 5px; }
+.alert-list li { font-size: 13px; color: var(--slate); padding: 4px 0; }
+.alert-empty { font-size: 12px; color: var(--muted); font-style: italic; }
 
 /* ── FILTERS ── */
-.filters-row {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  align-items: center;
-}
-.filter-select {
-  padding: 8px 14px;
-  border: 1.5px solid var(--border);
-  border-radius: 10px;
-  font-family: 'IBM Plex Sans', sans-serif;
-  font-size: 13px;
-  background: var(--white);
-  color: var(--navy);
-  outline: none;
-  cursor: pointer;
-  appearance: none;
-  padding-right: 32px;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2364748b' d='M2 4l4 4 4-4z'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 12px center;
-}
+.filters-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.filter-select { padding: 8px 14px; border: 1.5px solid var(--border); border-radius: 10px; font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; background: var(--white); color: var(--navy); outline: none; cursor: pointer; appearance: none; padding-right: 32px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2364748b' d='M2 4l4 4 4-4z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; }
 .filter-select:focus { border-color: var(--sky); }
-
-.export-btn {
-  background: var(--white);
-  border: 1.5px solid var(--border);
-  color: var(--slate);
-  padding: 8px 14px;
-  border-radius: 10px;
-  font-family: 'IBM Plex Sans', sans-serif;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.15s;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
+.export-btn { background: var(--white); border: 1.5px solid var(--border); color: var(--slate); padding: 8px 14px; border-radius: 10px; font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.15s; display: inline-flex; align-items: center; gap: 6px; }
 .export-btn:hover { border-color: var(--green); color: var(--green); }
 
-/* ── LOADING ── */
-.loading {
-  text-align: center;
-  padding: 60px 20px;
-  color: var(--muted);
-  font-size: 14px;
-}
-.loading-spinner {
-  width: 42px;
-  height: 42px;
-  margin: 0 auto 16px;
-  border: 3px solid var(--border);
-  border-top-color: var(--sky);
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-
-.empty-state {
-  text-align: center;
-  padding: 40px 20px;
-  color: var(--muted);
-  font-size: 13px;
-  font-style: italic;
-}
-
-/* ── RESPONSIVE ── */
-@media (max-width: 768px) {
-  .topbar { padding: 14px 18px; flex-wrap: wrap; }
-  .main { padding: 18px; }
-  .alerts-grid { grid-template-columns: 1fr; }
-  .eng-bar-row { grid-template-columns: 100px 1fr 50px; gap: 10px; }
-  .eng-bar-name { font-size: 12px; }
-  .stat-card-value { font-size: 32px; }
-}
-
-/* ── CLIENTS LIST ── */
-.client-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 12px;
-}
-.client-card {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
-  background: var(--surface);
-  border-radius: 10px;
-  border: 1px solid var(--border);
-}
-.client-avatar {
-  width: 36px; height: 36px;
-  border-radius: 9px;
-  background: linear-gradient(135deg, var(--navy), var(--blue));
-  display: flex; align-items: center; justify-content: center;
-  color: white;
-  font-weight: 700;
-  font-size: 13px;
-}
+/* ── CLIENTS ── */
+.client-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+.client-card { display: flex; align-items: center; gap: 12px; padding: 12px 14px; background: var(--surface); border-radius: 10px; border: 1px solid var(--border); }
+.client-avatar { width: 36px; height: 36px; border-radius: 9px; background: linear-gradient(135deg, var(--navy), var(--blue)); display: flex; align-items: center; justify-content: center; color: white; font-weight: 700; font-size: 13px; }
 .client-card-info { flex: 1; min-width: 0; }
 .client-card-name { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .client-card-meta { font-size: 11px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; margin-top: 2px; }
 
+/* ── LOADING ── */
+.loading { text-align: center; padding: 60px 20px; color: var(--muted); font-size: 14px; }
+.loading-spinner { width: 42px; height: 42px; margin: 0 auto 16px; border: 3px solid var(--border); border-top-color: var(--sky); border-radius: 50%; animation: spin 1s linear infinite; }
+.empty-state { text-align: center; padding: 40px 20px; color: var(--muted); font-size: 13px; font-style: italic; }
+
+/* ══════════════════════════════════════════
+   INVENTORY STYLES
+══════════════════════════════════════════ */
+.inv-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; margin-bottom: 24px; }
+.inv-stat { background: var(--white); border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px; box-shadow: var(--shadow); display: flex; align-items: center; gap: 14px; }
+.inv-stat-icon { width: 44px; height: 44px; border-radius: 11px; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
+.inv-stat-icon.red    { background: #fef2f2; }
+.inv-stat-icon.amber  { background: #fffbeb; }
+.inv-stat-icon.green  { background: #f0fdf4; }
+.inv-stat-icon.blue   { background: #eff6ff; }
+.inv-stat-val  { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; }
+.inv-stat-val.red   { color: var(--red); }
+.inv-stat-val.amber { color: var(--amber); }
+.inv-stat-val.green { color: var(--green); }
+.inv-stat-val.blue  { color: var(--blue); }
+.inv-stat-lbl  { font-size: 11px; color: var(--muted); font-weight: 500; margin-top: 2px; }
+
+.inv-filters { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.inv-filter-btn { padding: 6px 14px; border-radius: 20px; border: 1.5px solid var(--border); background: var(--white); font-family: 'IBM Plex Sans', sans-serif; font-size: 12px; font-weight: 600; color: var(--muted); cursor: pointer; transition: all 0.15s; }
+.inv-filter-btn.active { background: var(--navy); border-color: var(--navy); color: white; }
+.inv-filter-btn.red.active    { background: var(--red);   border-color: var(--red); }
+.inv-filter-btn.amber.active  { background: var(--amber); border-color: var(--amber); }
+.inv-filter-btn.green.active  { background: var(--green); border-color: var(--green); }
+
+.share-factory-btn { background: linear-gradient(135deg, var(--navy), #1e3a5f); color: white; border: none; padding: 9px 18px; border-radius: 10px; font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 7px; transition: all 0.15s; box-shadow: 0 4px 12px rgba(10,22,40,0.2); }
+.share-factory-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(10,22,40,0.3); }
+
+/* Inventory table */
+.inv-table-wrap { overflow-x: auto; }
+table.inv-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.inv-table th { text-align: left; padding: 10px 14px; font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; border-bottom: 2px solid var(--border); background: var(--surface); white-space: nowrap; }
+table.inv-table td { padding: 12px 14px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+table.inv-table tr:last-child td { border-bottom: none; }
+table.inv-table tr:hover td { background: #f8fafc; }
+
+.days-bar-wrap { display: flex; align-items: center; gap: 8px; }
+.days-bar-track { flex: 1; height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; min-width: 60px; }
+.days-bar-fill { height: 100%; border-radius: 4px; }
+.days-bar-fill.red   { background: var(--red); }
+.days-bar-fill.amber { background: var(--amber); }
+.days-bar-fill.green { background: var(--green); }
+
+.status-pill { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; white-space: nowrap; }
+.status-pill.red   { background: #fef2f2; color: #b91c1c; }
+.status-pill.amber { background: #fffbeb; color: #92400e; }
+.status-pill.green { background: #f0fdf4; color: #065f46; }
+
+.client-name-cell { font-weight: 600; color: var(--navy); }
+.product-name-cell { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--slate); }
+.num-cell { font-family: 'IBM Plex Mono', monospace; font-weight: 600; }
+.date-cell { font-size: 11px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; }
+
+/* ── MODAL ── */
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(10,22,40,0.5); z-index: 200; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
+.modal-overlay.show { display: flex; }
+.modal-box { background: white; border-radius: 16px; padding: 28px; max-width: 560px; width: 90%; max-height: 80vh; overflow-y: auto; box-shadow: var(--shadow-lg); }
+.modal-title { font-size: 17px; font-weight: 700; margin-bottom: 6px; }
+.modal-sub { font-size: 12px; color: var(--muted); margin-bottom: 20px; }
+.modal-section { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin: 16px 0 8px; }
+.modal-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+.modal-item:last-child { border-bottom: none; }
+.modal-actions { display: flex; gap: 10px; margin-top: 20px; }
+.modal-btn { flex: 1; padding: 11px; border-radius: 10px; border: none; font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; }
+.modal-btn.primary { background: var(--blue); color: white; }
+.modal-btn.secondary { background: var(--surface); color: var(--slate); border: 1.5px solid var(--border); }
+
 /* ── TOAST ── */
-.toast {
-  position: fixed;
-  bottom: 24px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: var(--navy);
-  color: white;
-  padding: 11px 22px;
-  border-radius: 100px;
-  font-size: 13px;
-  font-weight: 500;
-  z-index: 200;
-  opacity: 0;
-  transition: opacity 0.3s;
-  pointer-events: none;
-  box-shadow: var(--shadow-lg);
-}
+.toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--navy); color: white; padding: 11px 22px; border-radius: 100px; font-size: 13px; font-weight: 500; z-index: 300; opacity: 0; transition: opacity 0.3s; pointer-events: none; box-shadow: var(--shadow-lg); white-space: nowrap; }
 .toast.show { opacity: 1; }
+.toast.success { background: var(--green); }
+
+@media (max-width: 768px) {
+  .topbar { padding: 14px 18px; flex-wrap: wrap; }
+  .tabs-bar { padding: 0 18px; top: 71px; overflow-x: auto; }
+  .main { padding: 18px; }
+  .alerts-grid { grid-template-columns: 1fr; }
+  .eng-bar-row { grid-template-columns: 100px 1fr 50px; gap: 10px; }
+  .stat-card-value { font-size: 32px; }
+}
 </style>
 </head>
 <body>
@@ -445,110 +213,152 @@ body {
   </button>
 </div>
 
-<div class="main">
+<!-- TABS -->
+<div class="tabs-bar">
+  <button class="tab-btn active" onclick="switchTab('overview')" id="tab-overview">📊 Overview</button>
+  <button class="tab-btn" onclick="switchTab('inventory')" id="tab-inventory">
+    🧪 Chemical Inventory
+    <span class="tab-badge" id="inv-badge">0</span>
+  </button>
+</div>
 
-  <!-- LOADING -->
+<div class="main">
   <div class="loading" id="loadingState">
     <div class="loading-spinner"></div>
     Loading dashboard data...
   </div>
 
-  <!-- CONTENT -->
   <div id="dashboardContent" style="display:none">
 
-    <!-- STATS CARDS -->
-    <div class="cards-grid">
-      <div class="stat-card reports">
-        <div class="stat-card-label">
-          <div class="icon">📋</div>
-          Reports This Month
+    <!-- ══ TAB: OVERVIEW ══ -->
+    <div class="tab-panel active" id="panel-overview">
+      <div class="cards-grid">
+        <div class="stat-card reports">
+          <div class="stat-card-label"><div class="icon">📋</div>Reports This Month</div>
+          <div class="stat-card-value" id="statReports">0</div>
+          <div class="stat-card-sub" id="statReportsSub">—</div>
         </div>
-        <div class="stat-card-value" id="statReports">0</div>
-        <div class="stat-card-sub" id="statReportsSub">—</div>
+        <div class="stat-card clients">
+          <div class="stat-card-label"><div class="icon">👥</div>Active Clients</div>
+          <div class="stat-card-value" id="statClients">0</div>
+          <div class="stat-card-sub">visited this month</div>
+        </div>
+        <div class="stat-card free">
+          <div class="stat-card-label"><div class="icon">🆓</div>Free Visits</div>
+          <div class="stat-card-value" id="statFree">0</div>
+          <div class="stat-card-sub">prospect analyses</div>
+        </div>
+        <div class="stat-card alerts">
+          <div class="stat-card-label"><div class="icon">⚠️</div>Out of Range</div>
+          <div class="stat-card-value" id="statAlerts">0</div>
+          <div class="stat-card-sub">critical readings</div>
+        </div>
       </div>
 
-      <div class="stat-card clients">
-        <div class="stat-card-label">
-          <div class="icon">👥</div>
-          Active Clients
-        </div>
-        <div class="stat-card-value" id="statClients">0</div>
-        <div class="stat-card-sub" id="statClientsSub">visited this month</div>
-      </div>
-
-      <div class="stat-card free">
-        <div class="stat-card-label">
-          <div class="icon">🆓</div>
-          Free Visits
-        </div>
-        <div class="stat-card-value" id="statFree">0</div>
-        <div class="stat-card-sub" id="statFreeSub">prospect analyses</div>
-      </div>
-
-      <div class="stat-card alerts">
-        <div class="stat-card-label">
-          <div class="icon">⚠️</div>
-          Out of Range
-        </div>
-        <div class="stat-card-value" id="statAlerts">0</div>
-        <div class="stat-card-sub" id="statAlertsSub">critical readings</div>
-      </div>
-    </div>
-
-    <!-- ENGINEERS PERFORMANCE -->
-    <div class="section-card">
-      <div class="section-header">
-        <div class="section-title">
-          Engineers Performance
-          <span class="badge" id="totalEngBadge">0 engineers</span>
-        </div>
-        <div class="filters-row">
+      <div class="section-card">
+        <div class="section-header">
+          <div class="section-title">Engineers Performance <span class="badge" id="totalEngBadge">0 engineers</span></div>
           <button class="export-btn" onclick="exportData()">📥 Export CSV</button>
         </div>
+        <div class="section-body" id="engineersBody"><div class="empty-state">No data available</div></div>
       </div>
-      <div class="section-body" id="engineersBody">
-        <div class="empty-state">No data available</div>
-      </div>
-    </div>
 
-    <!-- ALERTS -->
-    <div class="section-card">
-      <div class="section-header">
-        <div class="section-title">Alerts & Action Required</div>
+      <div class="section-card">
+        <div class="section-header"><div class="section-title">Alerts & Action Required</div></div>
+        <div class="section-body">
+          <div class="alerts-grid">
+            <div class="alert-card warning">
+              <div class="alert-title"><span>📅</span> Clients Without Visit This Month</div>
+              <ul class="alert-list" id="missedClientsList"><li class="alert-empty">No missed clients</li></ul>
+            </div>
+            <div class="alert-card danger">
+              <div class="alert-title"><span>🔴</span> Reports with Critical Readings</div>
+              <ul class="alert-list" id="criticalReportsList"><li class="alert-empty">No critical reports</li></ul>
+            </div>
+          </div>
+        </div>
       </div>
-      <div class="section-body">
-        <div class="alerts-grid">
-          <div class="alert-card warning">
-            <div class="alert-title">
-              <span>📅</span> Clients Without Visit This Month
-            </div>
-            <ul class="alert-list" id="missedClientsList">
-              <li class="alert-empty">No missed clients</li>
-            </ul>
-          </div>
-          <div class="alert-card danger">
-            <div class="alert-title">
-              <span>🔴</span> Reports with Critical Readings
-            </div>
-            <ul class="alert-list" id="criticalReportsList">
-              <li class="alert-empty">No critical reports</li>
-            </ul>
-          </div>
+
+      <div class="section-card">
+        <div class="section-header">
+          <div class="section-title">Clients Visited This Month <span class="badge" id="visitedClientsBadge">0</span></div>
+        </div>
+        <div class="section-body">
+          <div class="client-grid" id="visitedClientsGrid"><div class="empty-state" style="grid-column:1/-1">No clients visited yet</div></div>
         </div>
       </div>
     </div>
 
-    <!-- CLIENTS THIS MONTH -->
-    <div class="section-card">
-      <div class="section-header">
-        <div class="section-title">
-          Clients Visited This Month
-          <span class="badge" id="visitedClientsBadge">0</span>
+    <!-- ══ TAB: INVENTORY ══ -->
+    <div class="tab-panel" id="panel-inventory">
+
+      <!-- Summary KPIs -->
+      <div class="inv-summary">
+        <div class="inv-stat">
+          <div class="inv-stat-icon red">🔴</div>
+          <div>
+            <div class="inv-stat-val red" id="inv-critical">0</div>
+            <div class="inv-stat-lbl">Critical (&lt;30 days)</div>
+          </div>
+        </div>
+        <div class="inv-stat">
+          <div class="inv-stat-icon amber">🟡</div>
+          <div>
+            <div class="inv-stat-val amber" id="inv-warning">0</div>
+            <div class="inv-stat-lbl">Warning (30–60 days)</div>
+          </div>
+        </div>
+        <div class="inv-stat">
+          <div class="inv-stat-icon green">🟢</div>
+          <div>
+            <div class="inv-stat-val green" id="inv-ok">0</div>
+            <div class="inv-stat-lbl">OK (&gt;60 days)</div>
+          </div>
+        </div>
+        <div class="inv-stat">
+          <div class="inv-stat-icon blue">📦</div>
+          <div>
+            <div class="inv-stat-val blue" id="inv-total">0</div>
+            <div class="inv-stat-lbl">Total Products Tracked</div>
+          </div>
         </div>
       </div>
-      <div class="section-body">
-        <div class="client-grid" id="visitedClientsGrid">
-          <div class="empty-state" style="grid-column:1/-1">No clients visited yet</div>
+
+      <!-- Filters + Share -->
+      <div class="section-card">
+        <div class="section-header">
+          <div class="section-title">Chemical Stock Status</div>
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+            <div class="inv-filters">
+              <button class="inv-filter-btn active" onclick="setInvFilter('all',this)">All</button>
+              <button class="inv-filter-btn red" onclick="setInvFilter('red',this)">🔴 Critical</button>
+              <button class="inv-filter-btn amber" onclick="setInvFilter('amber',this)">🟡 Warning</button>
+              <button class="inv-filter-btn green" onclick="setInvFilter('green',this)">🟢 OK</button>
+            </div>
+            <button class="share-factory-btn" onclick="openShareModal()">📤 Share to Factory</button>
+          </div>
+        </div>
+        <div class="section-body" style="padding:0">
+          <div class="inv-table-wrap">
+            <table class="inv-table">
+              <thead>
+                <tr>
+                  <th>Client</th>
+                  <th>System</th>
+                  <th>Product</th>
+                  <th>Stock (kg)</th>
+                  <th>Dosage (kg/day)</th>
+                  <th>Days Left</th>
+                  <th>Runout Date</th>
+                  <th>Status</th>
+                  <th>Last Report</th>
+                </tr>
+              </thead>
+              <tbody id="invTableBody">
+                <tr><td colspan="9" class="empty-state">Loading inventory data...</td></tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>
@@ -556,52 +366,65 @@ body {
   </div>
 </div>
 
+<!-- SHARE MODAL -->
+<div class="modal-overlay" id="shareModal">
+  <div class="modal-box">
+    <div class="modal-title">📤 Share to Factory</div>
+    <div class="modal-sub" id="shareModalSub">Critical & warning chemicals that need replenishment</div>
+    <div id="shareModalBody"></div>
+    <div class="modal-actions">
+      <button class="modal-btn secondary" onclick="closeShareModal()">Cancel</button>
+      <button class="modal-btn primary" onclick="sendShareEmail()">✉️ Send Email to Factory</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
-// ══════════════════════════════════════════
-// CONFIG
-// ══════════════════════════════════════════
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzdUP8GcjMrK760rnypaAQ-sqZygdAVF-KPOmQArDkfZFIXSRJQXMItoZr-MxtH1-UXkg/exec';
 const SERVICE_DB      = 'service';
+const FACTORY_EMAIL   = 'ahmed.atef@pwtinternational.com'; // غيّره لإيميل المصنع
 
 let currentMonth = new Date().getMonth();
 let currentYear  = new Date().getFullYear();
-
 let allReports   = [];
 let allClients   = [];
 let allEngineers = [];
+let invData      = []; // processed inventory rows
+let invFilter    = 'all';
+let activeTab    = 'overview';
 
 const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
-// ══════════════════════════════════════════
-// MONTH NAVIGATION
-// ══════════════════════════════════════════
+// ── TABS ──
+function switchTab(name) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('panel-' + name).classList.add('active');
+  document.getElementById('tab-' + name).classList.add('active');
+  activeTab = name;
+}
+
+// ── MONTH ──
 function changeMonth(delta) {
   currentMonth += delta;
-  if (currentMonth < 0) { currentMonth = 11; currentYear--; }
-  if (currentMonth > 11) { currentMonth = 0; currentYear++; }
+  if (currentMonth < 0)  { currentMonth = 11; currentYear--; }
+  if (currentMonth > 11) { currentMonth = 0;  currentYear++; }
   updateMonthLabel();
   renderDashboard();
 }
-
 function updateMonthLabel() {
   document.getElementById('monthLabel').textContent = `${MONTH_NAMES[currentMonth]} ${currentYear}`;
 }
 
-// ══════════════════════════════════════════
-// LOAD DATA
-// ══════════════════════════════════════════
+// ── FETCH ──
 async function fetchSheet(sheetName) {
   try {
     const res  = await fetch(`${APPS_SCRIPT_URL}?sheet=${sheetName}&db=${SERVICE_DB}`);
     const json = await res.json();
-    if (json.success && json.data.length > 0) return json.data;
-    return [];
-  } catch(e) {
-    console.error('Error fetching', sheetName, e);
-    return [];
-  }
+    return (json.success && json.data.length > 0) ? json.data : [];
+  } catch(e) { return []; }
 }
 
 async function loadAll() {
@@ -609,63 +432,35 @@ async function loadAll() {
   btn.classList.add('spinning');
   document.getElementById('loadingState').style.display = 'block';
   document.getElementById('dashboardContent').style.display = 'none';
-
   try {
     const [reports, clients, engineers] = await Promise.all([
-      fetchSheet('Reports'),
-      fetchSheet('Clients'),
-      fetchSheet('Engineers'),
+      fetchSheet('Reports'), fetchSheet('Clients'), fetchSheet('Engineers'),
     ]);
-
-    // Reports columns: ref, timestamp, visit_mode, client_code, client_name, region, eng_code, eng_name, visit_type, notes, prospect_contact, prospect_phone, systems_data, status, created_at
     allReports = reports.slice(1).map(r => ({
-      ref:           r[0],
-      timestamp:     r[1],
-      visit_mode:    r[2],
-      client_code:   r[3],
-      client_name:   r[4],
-      region:        r[5],
-      eng_code:      r[6],
-      eng_name:      r[7],
-      visit_type:    r[8],
-      notes:         r[9],
-      prospect_contact: r[10],
-      prospect_phone:   r[11],
-      systems_raw:   r[12],
-      status:        r[13],
-      created_at:    r[14],
+      ref: r[0], timestamp: r[1], visit_mode: r[2], client_code: r[3], client_name: r[4],
+      region: r[5], eng_code: r[6], eng_name: r[7], visit_type: r[8], notes: r[9],
+      prospect_contact: r[10], prospect_phone: r[11], systems_raw: r[12],
+      status: r[13], created_at: r[14],
     })).filter(r => r.ref);
-
     allClients = clients.slice(1).map(r => ({
-      code:     r[0],
-      name:     r[1],
-      region:   r[2],
-      email:    r[3],
-      freq:     r[4],
-      engineer: r[5],
+      code: r[0], name: r[1], region: r[2], email: r[3], freq: r[4], engineer: r[5],
     })).filter(c => c.code);
-
     allEngineers = engineers.slice(1).map(r => ({
-      code:  r[0],
-      name:  r[1],
-      email: r[2],
+      code: r[0], name: r[1], email: r[2],
     })).filter(e => e.code);
 
     renderDashboard();
     document.getElementById('loadingState').style.display = 'none';
     document.getElementById('dashboardContent').style.display = 'block';
-    showToast('Data refreshed ✓');
+    showToast('Data refreshed ✓', 'success');
   } catch(err) {
-    document.getElementById('loadingState').innerHTML = `<div style="color:var(--red)">Error loading data: ${err.message}</div>`;
-    console.error(err);
+    document.getElementById('loadingState').innerHTML = `<div style="color:var(--red)">Error: ${err.message}</div>`;
   } finally {
     btn.classList.remove('spinning');
   }
 }
 
-// ══════════════════════════════════════════
-// FILTER FOR CURRENT MONTH
-// ══════════════════════════════════════════
+// ── FILTER ──
 function getMonthReports() {
   return allReports.filter(r => {
     if (!r.created_at) return false;
@@ -673,237 +468,289 @@ function getMonthReports() {
     return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
   });
 }
-
-// ══════════════════════════════════════════
-// PARSE SYSTEMS DATA
-// ══════════════════════════════════════════
 function parseSystemsData(raw) {
   if (!raw) return [];
-  try {
-    if (typeof raw === 'string') return JSON.parse(raw);
-    return raw;
-  } catch(e) {
-    return [];
-  }
+  try { return typeof raw === 'string' ? JSON.parse(raw) : raw; } catch(e) { return []; }
 }
 
-function countOutOfRange(report) {
-  const systems = parseSystemsData(report.systems_raw);
-  let count = 0;
-  systems.forEach(sys => {
-    if (!sys.readings) return;
-    // Note: This is a basic check using thresholds embedded in the data
-    // For now, we'll rely on the visual indicators set in the app
-    // A proper out-of-range count would require parameter definitions here
-    // We'll use a heuristic: any system with notes about out-of-range
-  });
-  return count;
-}
-
-// ══════════════════════════════════════════
-// RENDER DASHBOARD
-// ══════════════════════════════════════════
+// ── RENDER ──
 function renderDashboard() {
   const monthReports = getMonthReports();
+  const visitedCodes = new Set(monthReports.filter(r => r.visit_mode === 'service').map(r => r.client_code));
+  const freeVisits   = monthReports.filter(r => r.visit_mode === 'free').length;
 
-  // Stats
-  const totalReports = monthReports.length;
-  const visitedClientCodes = new Set(monthReports.filter(r => r.visit_mode === 'service').map(r => r.client_code));
-  const freeVisits = monthReports.filter(r => r.visit_mode === 'free').length;
-
-  document.getElementById('statReports').textContent = totalReports;
-  document.getElementById('statClients').textContent = visitedClientCodes.size;
-  document.getElementById('statFree').textContent    = freeVisits;
-
-  // Critical readings count
-  let criticalCount = 0;
-  const criticalReports = [];
-  monthReports.forEach(r => {
-    const systems = parseSystemsData(r.systems_raw);
-    let hasOOR = false;
-    systems.forEach(sys => {
-      if (sys.readings) {
-        Object.values(sys.readings).forEach(v => {
-          // Heuristic — we'll mark as critical if there are any extreme values
-          // Real implementation should check against parameter limits
-        });
-      }
-    });
-  });
-  document.getElementById('statAlerts').textContent = criticalCount;
-
-  // Sub-labels
+  document.getElementById('statReports').textContent   = monthReports.length;
+  document.getElementById('statClients').textContent   = visitedCodes.size;
+  document.getElementById('statFree').textContent      = freeVisits;
+  document.getElementById('statAlerts').textContent    = 0;
   document.getElementById('statReportsSub').textContent = `${MONTH_NAMES[currentMonth]} ${currentYear}`;
-  document.getElementById('statClientsSub').textContent = 'visited this month';
-  document.getElementById('statFreeSub').textContent    = 'prospect analyses';
-  document.getElementById('statAlertsSub').textContent  = 'critical readings';
 
-  // Engineers performance
   renderEngineers(monthReports);
-
-  // Missed clients
-  renderMissedClients(visitedClientCodes);
-
-  // Visited clients
+  renderMissedClients(visitedCodes);
   renderVisitedClients(monthReports);
-
-  // Critical reports
   renderCriticalReports(monthReports);
+  buildInventory();
 }
 
 function renderEngineers(monthReports) {
-  // Count reports per engineer
   const engCounts = {};
   allEngineers.forEach(e => engCounts[e.code] = { name: e.name, count: 0, clients: new Set() });
-
   monthReports.forEach(r => {
     if (r.eng_code && engCounts[r.eng_code]) {
       engCounts[r.eng_code].count++;
       if (r.client_code) engCounts[r.eng_code].clients.add(r.client_code);
     }
   });
-
   const sorted = Object.values(engCounts).sort((a,b) => b.count - a.count);
   const maxCount = Math.max(...sorted.map(e => e.count), 1);
-
   document.getElementById('totalEngBadge').textContent = `${allEngineers.length} engineers`;
-
-  const html = sorted.map(e => {
+  document.getElementById('engineersBody').innerHTML = sorted.map(e => {
     const pct = (e.count / maxCount) * 100;
-    return `
-      <div class="eng-bar-row">
-        <div class="eng-bar-name">${e.name}</div>
-        <div class="eng-bar-track">
-          <div class="eng-bar-fill" style="width:${pct}%">${e.count > 0 ? e.count : ''}</div>
-        </div>
-        <div class="eng-bar-value">${e.clients.size} <span style="color:var(--muted);font-size:10px">clients</span></div>
-      </div>`;
-  }).join('');
-
-  document.getElementById('engineersBody').innerHTML = html || '<div class="empty-state">No reports this month</div>';
+    return `<div class="eng-bar-row">
+      <div class="eng-bar-name">${e.name}</div>
+      <div class="eng-bar-track"><div class="eng-bar-fill" style="width:${pct}%">${e.count > 0 ? e.count : ''}</div></div>
+      <div class="eng-bar-value">${e.clients.size} <span style="color:var(--muted);font-size:10px">clients</span></div>
+    </div>`;
+  }).join('') || '<div class="empty-state">No reports this month</div>';
 }
 
 function renderMissedClients(visitedSet) {
   const missed = allClients.filter(c => !visitedSet.has(c.code));
   const list = document.getElementById('missedClientsList');
-  if (missed.length === 0) {
-    list.innerHTML = '<li class="alert-empty">All clients have been visited ✓</li>';
-    return;
-  }
-  list.innerHTML = missed.slice(0, 10).map(c => `
-    <li>
-      <strong>${c.name}</strong>
-      <span style="color:var(--muted);font-size:11px;margin-left:6px">${c.code} · ${c.region || ''}</span>
-    </li>`).join('');
-  if (missed.length > 10) {
-    list.innerHTML += `<li style="color:var(--muted);font-style:italic;font-size:11px;margin-top:4px">+${missed.length - 10} more...</li>`;
-  }
+  if (!missed.length) { list.innerHTML = '<li class="alert-empty">All clients visited ✓</li>'; return; }
+  list.innerHTML = missed.slice(0,10).map(c => `<li><strong>${c.name}</strong> <span style="color:var(--muted);font-size:11px;margin-left:6px">${c.code} · ${c.region||''}</span></li>`).join('');
+  if (missed.length > 10) list.innerHTML += `<li style="color:var(--muted);font-style:italic;font-size:11px">+${missed.length-10} more...</li>`;
 }
 
 function renderVisitedClients(monthReports) {
   const seen = new Map();
   monthReports.forEach(r => {
-    if (r.visit_mode === 'service' && r.client_code && !seen.has(r.client_code)) {
-      seen.set(r.client_code, {
-        name: r.client_name,
-        code: r.client_code,
-        region: r.region,
-        engineer: r.eng_name,
-        date: r.created_at,
-      });
-    }
+    if (r.visit_mode === 'service' && r.client_code && !seen.has(r.client_code))
+      seen.set(r.client_code, { name: r.client_name, code: r.client_code, eng: r.eng_name });
   });
-
   document.getElementById('visitedClientsBadge').textContent = seen.size;
-
-  if (seen.size === 0) {
-    document.getElementById('visitedClientsGrid').innerHTML = '<div class="empty-state" style="grid-column:1/-1">No clients visited yet</div>';
-    return;
-  }
-
-  const html = Array.from(seen.values()).map(c => `
-    <div class="client-card">
-      <div class="client-avatar">${c.name.charAt(0)}</div>
-      <div class="client-card-info">
-        <div class="client-card-name">${c.name}</div>
-        <div class="client-card-meta">${c.code} · ${c.engineer || '—'}</div>
-      </div>
-    </div>`).join('');
-
-  document.getElementById('visitedClientsGrid').innerHTML = html;
+  document.getElementById('visitedClientsGrid').innerHTML = seen.size
+    ? Array.from(seen.values()).map(c => `
+        <div class="client-card">
+          <div class="client-avatar">${c.name.charAt(0)}</div>
+          <div class="client-card-info">
+            <div class="client-card-name">${c.name}</div>
+            <div class="client-card-meta">${c.code} · ${c.eng||'—'}</div>
+          </div>
+        </div>`).join('')
+    : '<div class="empty-state" style="grid-column:1/-1">No clients visited yet</div>';
 }
 
 function renderCriticalReports(monthReports) {
-  // For now, show reports with notes containing critical keywords
-  const critical = monthReports.filter(r => {
-    const notes = (r.notes || '').toLowerCase();
-    return notes.includes('critical') || notes.includes('urgent') || notes.includes('emergency');
-  });
-
+  const critical = monthReports.filter(r => /critical|urgent|emergency/i.test(r.notes||''));
   const list = document.getElementById('criticalReportsList');
-  if (critical.length === 0) {
-    list.innerHTML = '<li class="alert-empty">No critical reports flagged ✓</li>';
-    return;
-  }
-  list.innerHTML = critical.slice(0, 5).map(r => `
-    <li>
-      <strong>${r.client_name}</strong>
-      <span style="color:var(--muted);font-size:11px;margin-left:6px">${r.eng_name} · ${r.ref}</span>
-    </li>`).join('');
+  list.innerHTML = critical.length
+    ? critical.slice(0,5).map(r => `<li><strong>${r.client_name}</strong> <span style="color:var(--muted);font-size:11px;margin-left:6px">${r.eng_name} · ${r.ref}</span></li>`).join('')
+    : '<li class="alert-empty">No critical reports ✓</li>';
 }
 
 // ══════════════════════════════════════════
-// EXPORT CSV
+// INVENTORY ENGINE
 // ══════════════════════════════════════════
-function exportData() {
-  const monthReports = getMonthReports();
-  if (monthReports.length === 0) {
-    showToast('No data to export');
+function buildInventory() {
+  // Get the latest report per client (most recent created_at)
+  const latestPerClient = {};
+  allReports
+    .filter(r => r.visit_mode === 'service' && r.client_code)
+    .sort((a,b) => new Date(b.created_at) - new Date(a.created_at))
+    .forEach(r => {
+      if (!latestPerClient[r.client_code]) latestPerClient[r.client_code] = r;
+    });
+
+  invData = [];
+  Object.values(latestPerClient).forEach(report => {
+    const systems = parseSystemsData(report.systems_raw);
+    systems.forEach(sys => {
+      if (!sys.treatment || sys.treatment.length === 0) return;
+      sys.treatment.forEach(t => {
+        if (!t.product) return;
+        const stock  = parseFloat(t.stock)  || 0;
+        const dosage = parseFloat(t.dosage) || 0;
+        if (dosage <= 0) return; // can't calculate without dosage
+
+        const daysLeft   = Math.floor(stock / dosage);
+        const runoutDate = new Date(new Date(report.created_at).getTime() + daysLeft * 86400000);
+        const status     = daysLeft < 30 ? 'red' : daysLeft < 60 ? 'amber' : 'green';
+        const statusLabel = daysLeft < 30 ? '🔴 Critical' : daysLeft < 60 ? '🟡 Warning' : '🟢 OK';
+
+        invData.push({
+          client:      report.client_name,
+          client_code: report.client_code,
+          system:      sys.name || sys.type,
+          product:     t.product,
+          stock,
+          dosage,
+          daysLeft,
+          runoutDate,
+          status,
+          statusLabel,
+          lastReport:  report.created_at ? new Date(report.created_at).toLocaleDateString('en-GB') : '—',
+          reportRef:   report.ref,
+        });
+      });
+    });
+  });
+
+  // Sort: red first, then amber, then green; within each by daysLeft asc
+  const order = { red: 0, amber: 1, green: 2 };
+  invData.sort((a,b) => order[a.status] - order[b.status] || a.daysLeft - b.daysLeft);
+
+  // Update KPIs
+  const critCount  = invData.filter(r => r.status === 'red').length;
+  const warnCount  = invData.filter(r => r.status === 'amber').length;
+  const okCount    = invData.filter(r => r.status === 'green').length;
+  document.getElementById('inv-critical').textContent = critCount;
+  document.getElementById('inv-warning').textContent  = warnCount;
+  document.getElementById('inv-ok').textContent       = okCount;
+  document.getElementById('inv-total').textContent    = invData.length;
+
+  // Badge on tab
+  const badge = document.getElementById('inv-badge');
+  if (critCount > 0) {
+    badge.textContent = critCount;
+    badge.classList.add('show');
+  } else {
+    badge.classList.remove('show');
+  }
+
+  renderInvTable();
+}
+
+function setInvFilter(f, btn) {
+  invFilter = f;
+  document.querySelectorAll('.inv-filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderInvTable();
+}
+
+function renderInvTable() {
+  const rows = invFilter === 'all' ? invData : invData.filter(r => r.status === invFilter);
+  const maxDays = 120;
+  const tbody = document.getElementById('invTableBody');
+
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="9" class="empty-state">${invData.length === 0 ? 'No treatment data found in reports yet' : 'No items match this filter'}</td></tr>`;
     return;
   }
 
-  const headers = ['Ref','Date','Type','Client Code','Client Name','Region','Engineer','Visit Type','Notes','Status'];
-  const rows = monthReports.map(r => [
-    r.ref,
-    r.timestamp,
-    r.visit_mode,
-    r.client_code,
-    r.client_name,
-    r.region,
-    r.eng_name,
-    r.visit_type,
-    (r.notes || '').replace(/"/g,'""'),
-    r.status,
-  ].map(v => `"${v || ''}"`).join(','));
+  tbody.innerHTML = rows.map(r => {
+    const barPct = Math.min((r.daysLeft / maxDays) * 100, 100);
+    const runoutStr = r.runoutDate.toLocaleDateString('en-GB');
+    return `<tr>
+      <td class="client-name-cell">${r.client}</td>
+      <td style="font-size:11px;color:var(--muted)">${r.system}</td>
+      <td class="product-name-cell">${r.product}</td>
+      <td class="num-cell">${r.stock} kg</td>
+      <td class="num-cell">${r.dosage} kg/day</td>
+      <td>
+        <div class="days-bar-wrap">
+          <div class="days-bar-track">
+            <div class="days-bar-fill ${r.status}" style="width:${barPct}%"></div>
+          </div>
+          <span class="num-cell" style="min-width:36px;font-size:12px">${r.daysLeft}d</span>
+        </div>
+      </td>
+      <td class="date-cell">${runoutStr}</td>
+      <td><span class="status-pill ${r.status}">${r.statusLabel}</span></td>
+      <td class="date-cell">${r.lastReport}</td>
+    </tr>`;
+  }).join('');
+}
 
-  const csv = [headers.join(','), ...rows].join('\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+// ── SHARE MODAL ──
+function openShareModal() {
+  const urgent = invData.filter(r => r.status === 'red' || r.status === 'amber');
+  if (!urgent.length) { showToast('No critical or warning items to share'); return; }
+
+  const byClient = {};
+  urgent.forEach(r => {
+    if (!byClient[r.client]) byClient[r.client] = [];
+    byClient[r.client].push(r);
+  });
+
+  let html = '';
+  Object.entries(byClient).forEach(([client, items]) => {
+    html += `<div class="modal-section">${client}</div>`;
+    items.forEach(r => {
+      html += `<div class="modal-item">
+        <span><strong>${r.product}</strong> <span style="color:var(--muted);font-size:11px">· ${r.system}</span></span>
+        <span class="status-pill ${r.status}" style="font-size:10px">${r.daysLeft}d left</span>
+      </div>`;
+    });
+  });
+
+  document.getElementById('shareModalBody').innerHTML = html;
+  document.getElementById('shareModalSub').textContent = `${urgent.length} products need replenishment`;
+  document.getElementById('shareModal').classList.add('show');
+}
+
+function closeShareModal() {
+  document.getElementById('shareModal').classList.remove('show');
+}
+
+function sendShareEmail() {
+  const urgent = invData.filter(r => r.status === 'red' || r.status === 'amber');
+  const byClient = {};
+  urgent.forEach(r => {
+    if (!byClient[r.client]) byClient[r.client] = [];
+    byClient[r.client].push(r);
+  });
+
+  let body = `Chemical Replenishment Alert — PWT International\n`;
+  body += `Generated: ${new Date().toLocaleDateString('en-GB')}\n\n`;
+  body += `The following chemicals require replenishment:\n\n`;
+
+  Object.entries(byClient).forEach(([client, items]) => {
+    body += `CLIENT: ${client}\n`;
+    items.forEach(r => {
+      body += `  • ${r.product} (${r.system}) — ${r.daysLeft} days left, runout: ${r.runoutDate.toLocaleDateString('en-GB')}\n`;
+    });
+    body += '\n';
+  });
+
+  const subject = encodeURIComponent(`[PWT] Chemical Replenishment Alert — ${urgent.filter(r=>r.status==='red').length} Critical Items`);
+  const bodyEnc = encodeURIComponent(body);
+  window.open(`mailto:${FACTORY_EMAIL}?subject=${subject}&body=${bodyEnc}`);
+  closeShareModal();
+  showToast('Email client opened ✓', 'success');
+}
+
+// ── EXPORT ──
+function exportData() {
+  const monthReports = getMonthReports();
+  if (!monthReports.length) { showToast('No data to export'); return; }
+  const headers = ['Ref','Date','Type','Client Code','Client Name','Region','Engineer','Visit Type','Notes','Status'];
+  const rows = monthReports.map(r => [r.ref,r.timestamp,r.visit_mode,r.client_code,r.client_name,r.region,r.eng_name,r.visit_type,(r.notes||'').replace(/"/g,'""'),r.status].map(v=>`"${v||''}"`).join(','));
+  const csv  = [headers.join(','),...rows].join('\n');
+  const blob = new Blob([csv],{type:'text/csv;charset=utf-8;'});
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
-  a.href     = url;
-  a.download = `PWT-Reports-${MONTH_NAMES[currentMonth]}-${currentYear}.csv`;
-  a.click();
+  a.href = url; a.download = `PWT-Reports-${MONTH_NAMES[currentMonth]}-${currentYear}.csv`; a.click();
   showToast('CSV exported ✓');
 }
 
-// ══════════════════════════════════════════
-// TOAST
-// ══════════════════════════════════════════
-function showToast(msg) {
+// ── TOAST ──
+function showToast(msg, type='') {
   const t = document.getElementById('toast');
   t.textContent = msg;
-  t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 2500);
+  t.className = `toast show ${type}`;
+  setTimeout(()=>t.classList.remove('show'), 2500);
 }
 
-// ══════════════════════════════════════════
-// INIT
-// ══════════════════════════════════════════
+// ── INIT ──
 updateMonthLabel();
 loadAll();
-
-// Auto-refresh every 5 minutes
 setInterval(loadAll, 5 * 60 * 1000);
+
+// Close modal on backdrop click
+document.getElementById('shareModal').addEventListener('click', e => {
+  if (e.target === document.getElementById('shareModal')) closeShareModal();
+});
 </script>
 </body>
 </html>
