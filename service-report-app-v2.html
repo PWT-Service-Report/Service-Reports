@@ -421,11 +421,11 @@ const PARAMS = {
     icon: '🔥', label: 'Boiler',
     sections: [
       { title: 'Feed Water', params: [
-        { id:'fw_ph',   label:'pH',            unit:'—',     min:7.0,  max:9.5  },
+        { id:'fw_ph',   label:'pH',            unit:'—',     min:7.0,  max:9.0  },
         { id:'fw_tds',  label:'TDS',            unit:'ppm',   min:0,    max:500  },
         { id:'fw_hard', label:'Total Hardness', unit:'ppm',   min:0,    max:5    },
         { id:'fw_ca',   label:'Ca Hardness',    unit:'ppm',   min:0,    max:3    },
-        { id:'fw_malk', label:'M-Alkalinity',   unit:'ppm',   min:0,    max:200  },
+        { id:'fw_malk', label:'M-Alkalinity',  unit:'ppm',   min:0,    max:9999 },
         { id:'fw_fe',   label:'Iron',           unit:'ppm',   min:0,    max:0.3  },
         { id:'fw_cl2',  label:'Free Chlorine',  unit:'ppm',   min:0,    max:0.1  },
       ]},
@@ -439,11 +439,11 @@ const PARAMS = {
         { id:'bw_so3',  label:'Sulfite',       unit:'ppm',   min:20,   max:60   },
         { id:'bw_po4',  label:'Phosphate',     unit:'ppm',   min:20,   max:50   },
         { id:'bw_si',   label:'Silica',        unit:'ppm',   min:0,    max:150  },
-        { id:'bw_tan',  label:'Tannin',        unit:'ppm',   min:10,   max:40   },
+        { id:'bw_tan',  label:'Tannin',        unit:'ppm',   min:100,  max:160  },
       ]},
       { title: 'Condensate Return', params: [
-        { id:'cr_ph',   label:'pH',            unit:'—',     min:8.0,  max:9.5  },
-        { id:'cr_cond', label:'Conductivity',  unit:'µS/cm', min:0,    max:50   },
+        { id:'cr_ph',   label:'pH',            unit:'—',     min:8.3,  max:9.5  },
+        { id:'cr_cond', label:'Conductivity',  unit:'µS/cm', min:0,    max:20   },
         { id:'cr_fe',   label:'Iron',          unit:'ppm',   min:0,    max:0.1  },
       ]},
     ]
@@ -452,29 +452,29 @@ const PARAMS = {
     icon: '❄️', label: 'Cooling Tower',
     sections: [
       { title: 'Make-up Water', params: [
-        { id:'mu_ph',   label:'pH',            unit:'—',     min:6.5,  max:8.5  },
-        { id:'mu_tds',  label:'TDS',           unit:'ppm',   min:0,    max:1000 },
-        { id:'mu_hard', label:'Total Hardness',unit:'ppm',   min:0,    max:400  },
-        { id:'mu_ca',   label:'Ca Hardness',   unit:'ppm',   min:0,    max:300  },
-        { id:'mu_alk',  label:'M-Alkalinity',  unit:'ppm',   min:0,    max:300  },
-        { id:'mu_cl',   label:'Chloride',      unit:'ppm',   min:0,    max:200  },
+        { id:'mu_ph',   label:'pH',             unit:'—',     min:6.5,  max:8.5  },
+        { id:'mu_tds',  label:'TDS',            unit:'ppm',   min:0,    max:1000 },
+        { id:'mu_hard', label:'Total Hardness', unit:'ppm',   min:0,    max:400  },
+        { id:'mu_ca',   label:'Ca Hardness',    unit:'ppm',   min:0,    max:300  },
+        { id:'mu_alk',  label:'M-Alkalinity',   unit:'ppm',   min:0,    max:300  },
+        { id:'mu_cl',   label:'Chloride',       unit:'ppm',   min:0,    max:200  },
       ]},
       { title: 'Circuit Water', params: [
-        { id:'cw_ph',   label:'pH',            unit:'—',     min:7.0,  max:9.0  },
-        { id:'cw_cond', label:'Conductivity',  unit:'µS/cm', min:0,    max:3000 },
-        { id:'cw_tds',  label:'TDS',           unit:'ppm',   min:0,    max:2000 },
-        { id:'cw_hard', label:'Total Hardness',unit:'ppm',   min:0,    max:800  },
-        { id:'cw_ca',   label:'Ca Hardness',   unit:'ppm',   min:0,    max:600  },
-        { id:'cw_alk',  label:'M-Alkalinity',  unit:'ppm',   min:0,    max:600  },
-        { id:'cw_cl',   label:'Chloride',      unit:'ppm',   min:0,    max:500  },
-        { id:'cw_fcl',  label:'Free Chlorine', unit:'ppm',   min:0.2,  max:1.0  },
-        { id:'cw_fe',   label:'Iron',          unit:'ppm',   min:0,    max:1.0  },
-        { id:'cw_lsi',  label:'LSI',           unit:'—',     min:-0.5, max:0.5  },
-      ]},
-      { title: 'Blowdown', params: [
-        { id:'bd_ph',   label:'pH',            unit:'—',     min:7.0,  max:9.5  },
-        { id:'bd_cond', label:'Conductivity',  unit:'µS/cm', min:0,    max:5000 },
-        { id:'bd_tds',  label:'TDS',           unit:'ppm',   min:0,    max:3000 },
+        { id:'cw_temp', label:'Temperature',    unit:'°C',    min:20,   max:50   },
+        { id:'cw_ph',   label:'pH',             unit:'—',     min:7.0,  max:9.0  },
+        { id:'cw_cond', label:'Conductivity',   unit:'µS/cm', min:0,    max:3000 },
+        { id:'cw_tds',  label:'TDS',            unit:'ppm',   min:0,    max:2000 },
+        { id:'cw_hard', label:'Total Hardness', unit:'ppm',   min:0,    max:800  },
+        { id:'cw_ca',   label:'Ca Hardness',    unit:'ppm',   min:0,    max:600  },
+        { id:'cw_alk',  label:'M-Alkalinity',   unit:'ppm',   min:0,    max:600  },
+        { id:'cw_cl',   label:'Chloride',       unit:'ppm',   min:0,    max:500  },
+        { id:'cw_fcl',  label:'Free Chlorine',  unit:'ppm',   min:0.2,  max:1.0  },
+        { id:'cw_fe',   label:'Iron',           unit:'ppm',   min:0,    max:1.0  },
+        { id:'cw_zn',   label:'Zinc',           unit:'ppm',   min:0,    max:2.0  },
+        { id:'cw_opo4', label:'Ortho-Phosphate',unit:'ppm',   min:0,    max:10   },
+        { id:'cw_tpo4', label:'Total Phosphate',unit:'ppm',   min:0,    max:15   },
+        { id:'cw_phos', label:'Phosphonate',    unit:'ppm',   min:0,    max:10   },
+        { id:'cw_lsi',  label:'LSI',            unit:'—',     min:-0.5, max:0.5, calc:true },
       ]},
     ]
   },
@@ -486,7 +486,7 @@ const PARAMS = {
         { id:'cl_cond', label:'Conductivity',   unit:'µS/cm', min:0,    max:3000 },
         { id:'cl_hard', label:'Total Hardness', unit:'ppm',   min:0,    max:200  },
         { id:'cl_fe',   label:'Iron',           unit:'ppm',   min:0,    max:1.0  },
-        { id:'cl_inh',  label:'Inhibitor Level',unit:'ppm',   min:100,  max:300  },
+        { id:'cl_inh',  label:'Inhibitor Level',unit:'ppm',   min:1000, max:1600 },
         { id:'cl_turb', label:'Turbidity',      unit:'NTU',   min:0,    max:5    },
       ]},
     ]
@@ -867,6 +867,10 @@ function onParamInput(input, sysId, paramId) {
   if (paramId === 'bw_palk' || paramId === 'bw_malk') {
     calcOHAlk(sysId);
   }
+  // LSI auto-calc
+  if (['cw_ph','cw_ca','cw_alk','cw_tds','cw_temp'].includes(paramId)) {
+    calcLSI(sysId);
+  }
 }
 
 function calcOHAlk(sysId) {
@@ -882,6 +886,40 @@ function calcOHAlk(sysId) {
   } else {
     ohInp.value = '';
   }
+}
+
+function calcLSI(sysId) {
+  const pH   = parseFloat(document.getElementById(`inp-${sysId}-cw_ph`)?.value);
+  const ca   = parseFloat(document.getElementById(`inp-${sysId}-cw_ca`)?.value);
+  const alk  = parseFloat(document.getElementById(`inp-${sysId}-cw_alk`)?.value);
+  const tds  = parseFloat(document.getElementById(`inp-${sysId}-cw_tds`)?.value);
+  const temp = parseFloat(document.getElementById(`inp-${sysId}-cw_temp`)?.value);
+  const lsiInp = document.getElementById(`inp-${sysId}-cw_lsi`);
+  const lsiDot = document.getElementById(`dot-${sysId}-cw_lsi`);
+  if (!lsiInp) return;
+  if (isNaN(pH) || isNaN(ca) || isNaN(alk) || isNaN(temp)) {
+    lsiInp.value = '';
+    lsiDot.className = 'status-dot calc';
+    return;
+  }
+  // pHs = (9.3 + A + B) - (C + D)
+  const A = (!isNaN(tds) && tds > 0) ? (Math.log10(tds) - 1) / 10 : 0;
+  const B = (() => {
+    const tbl = [[0,2.60],[5,2.50],[10,2.44],[15,2.34],[20,2.22],[25,2.10],[30,1.97],[35,1.84],[40,1.70],[45,1.55],[50,1.40],[55,1.25],[60,1.10],[70,0.83],[80,0.62]];
+    for (let i = 0; i < tbl.length - 1; i++) {
+      if (temp >= tbl[i][0] && temp <= tbl[i+1][0]) {
+        const t = (temp - tbl[i][0]) / (tbl[i+1][0] - tbl[i][0]);
+        return tbl[i][1] + t * (tbl[i+1][1] - tbl[i][1]);
+      }
+    }
+    return temp < 0 ? 2.60 : 0.62;
+  })();
+  const C = ca > 0 ? Math.log10(ca) - 0.4 : 0;
+  const D = alk > 0 ? Math.log10(alk) : 0;
+  const pHs = (9.3 + A + B) - (C + D);
+  const lsi  = pH - pHs;
+  lsiInp.value = lsi.toFixed(2);
+  lsiDot.className = 'status-dot calc';
 }
 
 // ══════════════════════════════════════════
@@ -1622,7 +1660,7 @@ updateClock();
 setInterval(updateClock, 30000);
 
 // ─── VERSION CHECK — auto-refresh when new version deployed ───
-const APP_VERSION = '2.1.7';
+const APP_VERSION = '2.1.8';
 const storedVer = localStorage.getItem('pwt_app_version');
 if (storedVer && storedVer !== APP_VERSION) {
   localStorage.removeItem('pwt_engineers_cache');
