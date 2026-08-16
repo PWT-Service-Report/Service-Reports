@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PWT — Dashboard</title>
+<title>Krenos — Water Management System</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -198,10 +198,10 @@ table.inv-table tr:hover td { background: #f8fafc; }
 
 <!-- TOP BAR -->
 <div class="topbar">
-  <div class="topbar-logo">PWT</div>
+  <div class="topbar-logo">K</div>
   <div class="topbar-title">
-    <h1>Service Dashboard</h1>
-    <p>PWT International · Water Treatment</p>
+    <h1>Krenos<span style="font-size:10px;vertical-align:super;margin-left:2px;opacity:0.8">™</span> Dashboard</h1>
+    <p>Water Management System</p>
   </div>
   <div class="month-selector">
     <button onclick="changeMonth(-1)">‹</button>
@@ -461,10 +461,31 @@ async function loadAll() {
 }
 
 // ── FILTER ──
+// Parse a report date from created_at (ISO) or timestamp (dd/mm/yyyy, hh:mm:ss)
+function parseReportDate(r) {
+  // 1) created_at is usually a clean ISO string
+  if (r.created_at) {
+    const d = new Date(r.created_at);
+    if (!isNaN(d.getTime())) return d;
+  }
+  // 2) fall back to timestamp — en-GB format: "03/06/2026, 12:20:31"
+  if (r.timestamp) {
+    const s = String(r.timestamp).trim();
+    const m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+    if (m) {
+      const d = new Date(+m[3], +m[2] - 1, +m[1]);
+      if (!isNaN(d.getTime())) return d;
+    }
+    const d2 = new Date(s);
+    if (!isNaN(d2.getTime())) return d2;
+  }
+  return null;
+}
+
 function getMonthReports() {
   return allReports.filter(r => {
-    if (!r.created_at) return false;
-    const d = new Date(r.created_at);
+    const d = parseReportDate(r);
+    if (!d) return false;
     return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
   });
 }
@@ -476,7 +497,7 @@ function parseSystemsData(raw) {
 // ── RENDER ──
 function renderDashboard() {
   const monthReports = getMonthReports();
-  const visitedCodes = new Set(monthReports.filter(r => r.visit_mode === 'service').map(r => r.client_code));
+  const visitedCodes = new Set(monthReports.filter(r => r.visit_mode === 'service' && r.client_code).map(r => String(r.client_code).trim().toLowerCase()));
   const freeVisits   = monthReports.filter(r => r.visit_mode === 'free').length;
 
   document.getElementById('statReports').textContent   = monthReports.length;
@@ -492,30 +513,56 @@ function renderDashboard() {
   buildInventory();
 }
 
+// Normalize an engineer code so "1", 1, "001", " 001 " all match
+function normCode(v) {
+  if (v === null || v === undefined) return '';
+  let s = String(v).trim();
+  if (s === '') return '';
+  // If it's purely numeric, strip leading zeros for a canonical form
+  if (/^\d+$/.test(s)) return String(parseInt(s, 10));
+  return s.toLowerCase();
+}
+
 function renderEngineers(monthReports) {
   const engCounts = {};
-  allEngineers.forEach(e => engCounts[e.code] = { name: e.name, count: 0, clients: new Set() });
-  monthReports.forEach(r => {
-    if (r.eng_code && engCounts[r.eng_code]) {
-      engCounts[r.eng_code].count++;
-      if (r.client_code) engCounts[r.eng_code].clients.add(r.client_code);
-    }
+  const byCode = {};   // normalized code -> engineer key
+  const byName = {};   // normalized name -> engineer key
+
+  allEngineers.forEach(e => {
+    engCounts[e.code] = { name: e.name, count: 0, clients: new Set() };
+    const nc = normCode(e.code);
+    if (nc) byCode[nc] = e.code;
+    if (e.name) byName[String(e.name).trim().toLowerCase()] = e.code;
   });
+
+  monthReports.forEach(r => {
+    // 1) try matching on normalized engineer code
+    let key = byCode[normCode(r.eng_code)];
+    // 2) fall back to matching on engineer name
+    if (!key && r.eng_name) key = byName[String(r.eng_name).trim().toLowerCase()];
+    if (!key || !engCounts[key]) return;
+
+    engCounts[key].count++;
+    if (r.client_code) engCounts[key].clients.add(String(r.client_code).trim());
+  });
+
   const sorted = Object.values(engCounts).sort((a,b) => b.count - a.count);
   const maxCount = Math.max(...sorted.map(e => e.count), 1);
   document.getElementById('totalEngBadge').textContent = `${allEngineers.length} engineers`;
   document.getElementById('engineersBody').innerHTML = sorted.map(e => {
-    const pct = (e.count / maxCount) * 100;
+    const pct = e.count > 0 ? Math.max((e.count / maxCount) * 100, 12) : 0;
     return `<div class="eng-bar-row">
       <div class="eng-bar-name">${e.name}</div>
-      <div class="eng-bar-track"><div class="eng-bar-fill" style="width:${pct}%">${e.count > 0 ? e.count : ''}</div></div>
+      <div class="eng-bar-track">
+        <div class="eng-bar-fill" style="width:${pct}%">${e.count > 0 ? e.count + ' report' + (e.count > 1 ? 's' : '') : ''}</div>
+      </div>
       <div class="eng-bar-value">${e.clients.size} <span style="color:var(--muted);font-size:10px">clients</span></div>
     </div>`;
   }).join('') || '<div class="empty-state">No reports this month</div>';
 }
 
 function renderMissedClients(visitedSet) {
-  const missed = allClients.filter(c => !visitedSet.has(c.code));
+  const missed = allClients.filter(c => !visitedSet.has(String(c.code).trim().toLowerCase()));
   const list = document.getElementById('missedClientsList');
   if (!missed.length) { list.innerHTML = '<li class="alert-empty">All clients visited ✓</li>'; return; }
   list.innerHTML = missed.slice(0,10).map(c => `<li><strong>${c.name}</strong> <span style="color:var(--muted);font-size:11px;margin-left:6px">${c.code} · ${c.region||''}</span></li>`).join('');
@@ -557,7 +604,7 @@ function buildInventory() {
   const latestPerClient = {};
   allReports
     .filter(r => r.visit_mode === 'service' && r.client_code)
-    .sort((a,b) => new Date(b.created_at) - new Date(a.created_at))
+    .sort((a,b) => (parseReportDate(b)?.getTime() || 0) - (parseReportDate(a)?.getTime() || 0))
     .forEach(r => {
       if (!latestPerClient[r.client_code]) latestPerClient[r.client_code] = r;
     });
@@ -574,7 +621,8 @@ function buildInventory() {
         if (dosage <= 0) return; // can't calculate without dosage
 
         const daysLeft   = Math.floor(stock / dosage);
-        const runoutDate = new Date(new Date(report.created_at).getTime() + daysLeft * 86400000);
+        const baseDate   = parseReportDate(report) || new Date();
+        const runoutDate = new Date(baseDate.getTime() + daysLeft * 86400000);
         const status     = daysLeft < 30 ? 'red' : daysLeft < 60 ? 'amber' : 'green';
         const statusLabel = daysLeft < 30 ? '🔴 Critical' : daysLeft < 60 ? '🟡 Warning' : '🟢 OK';
 
@@ -589,7 +637,7 @@ function buildInventory() {
           runoutDate,
           status,
           statusLabel,
-          lastReport:  report.created_at ? new Date(report.created_at).toLocaleDateString('en-GB') : '—',
+          lastReport:  (parseReportDate(report) || null) ? parseReportDate(report).toLocaleDateString('en-GB') : '—',
           reportRef:   report.ref,
         });
       });
@@ -701,7 +749,7 @@ function sendShareEmail() {
     byClient[r.client].push(r);
   });
 
-  let body = `Chemical Replenishment Alert — PWT International\n`;
+  let body = `Chemical Replenishment Alert — Krenos™\n`;
   body += `Generated: ${new Date().toLocaleDateString('en-GB')}\n\n`;
   body += `The following chemicals require replenishment:\n\n`;
 
@@ -713,7 +761,7 @@ function sendShareEmail() {
     body += '\n';
   });
 
-  const subject = encodeURIComponent(`[PWT] Chemical Replenishment Alert — ${urgent.filter(r=>r.status==='red').length} Critical Items`);
+  const subject = encodeURIComponent(`[Krenos] Chemical Replenishment Alert — ${urgent.filter(r=>r.status==='red').length} Critical Items`);
   const bodyEnc = encodeURIComponent(body);
   window.open(`mailto:${FACTORY_EMAIL}?subject=${subject}&body=${bodyEnc}`);
   closeShareModal();
@@ -730,7 +778,7 @@ function exportData() {
   const blob = new Blob([csv],{type:'text/csv;charset=utf-8;'});
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
-  a.href = url; a.download = `PWT-Reports-${MONTH_NAMES[currentMonth]}-${currentYear}.csv`; a.click();
+  a.href = url; a.download = `Krenos-Reports-${MONTH_NAMES[currentMonth]}-${currentYear}.csv`; a.click();
   showToast('CSV exported ✓');
 }
 

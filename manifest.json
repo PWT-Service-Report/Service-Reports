@@ -1,24 +1,40 @@
 {
-  "name": "PWT Service Report",
-  "short_name": "PWT Reports",
-  "description": "PWT International — Water Treatment Service Reports",
+  "name": "Krenos — Water Management System",
+  "short_name": "Krenos",
+  "description": "Field service reporting and water analysis for water treatment engineers.",
   "start_url": "./service-report-app-v2.html",
+  "scope": "./",
   "display": "standalone",
+  "orientation": "portrait",
   "background_color": "#0a1628",
   "theme_color": "#0a1628",
-  "orientation": "portrait",
+  "lang": "en",
+  "dir": "ltr",
+  "categories": ["business", "productivity", "utilities"],
   "icons": [
     {
-      "src": "./icon-192.png",
+      "src": "icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
-      "src": "./icon-512.png",
+      "src": "icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }

@@ -6,13 +6,13 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="PWT Reports">
+<meta name="apple-mobile-web-app-title" content="Krenos">
 <meta name="theme-color" content="#0a1628">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
-<title>PWT — Service Report v2</title>
+<title>Krenos — Water Management System</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -185,10 +185,10 @@ body { font-family: 'IBM Plex Sans', sans-serif; background: var(--surface); col
 
 <!-- APP BAR -->
 <div class="app-bar">
-  <div class="app-bar-logo">PWT</div>
+  <div class="app-bar-logo">K</div>
   <div class="app-bar-info">
-    <h1>Service Report <span style="font-size:10px;background:rgba(255,255,255,0.15);padding:2px 7px;border-radius:10px;margin-right:4px">v2</span></h1>
-    <p>PWT International</p>
+    <h1>Krenos<span style="font-size:9px;vertical-align:super;margin-left:2px;opacity:0.8">™</span> <span style="font-size:10px;background:rgba(255,255,255,0.15);padding:2px 7px;border-radius:10px;margin-left:4px">v2</span></h1>
+    <p>Water Management System</p>
   </div>
   <div class="app-bar-time" id="appBarTime"></div>
 </div>
@@ -804,7 +804,7 @@ function addTreatmentProduct(sysId) {
     <div style="display:grid;grid-template-columns:1fr;gap:6px">
       <div>
         <label style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.7px">Product</label>
-        <input type="text" class="form-input tp-product" placeholder="e.g. PWT-100" style="font-size:12px;padding:7px 9px;margin-top:2px">
+        <input type="text" class="form-input tp-product" placeholder="e.g. Product code" style="font-size:12px;padding:7px 9px;margin-top:2px">
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
         <div>
@@ -1294,10 +1294,10 @@ async function generatePDF(systemsData, visitType, visitNotes, prospectName, pro
   doc.rect(0,0,W,30,'F');
   doc.setTextColor(255,255,255);
   doc.setFontSize(15); doc.setFont('helvetica','bold');
-  doc.text('PWT International', M, 12);
+  doc.text('Krenos™', M, 12);
   doc.setFontSize(8); doc.setFont('helvetica','normal');
   doc.setTextColor(160,190,210);
-  doc.text('Water Treatment Chemicals — Service Report', M, 19);
+  doc.text('Water Management System — Service Report', M, 19);
 
   // Ref badge
   doc.setFillColor(41,182,246);
@@ -1517,7 +1517,7 @@ async function generatePDF(systemsData, visitType, visitNotes, prospectName, pro
   doc.setFillColor(248,250,252);
   doc.rect(0, 287, W, 10, 'F');
   doc.setTextColor(148,163,184); doc.setFontSize(7); doc.setFont('helvetica','normal');
-  doc.text('PWT International · Water Treatment Chemicals · Automated Service Report', W/2, 293, { align:'center' });
+  doc.text('Krenos™ · Water Management System · Automated Service Report', W/2, 293, { align:'center' });
 
   // Return both: data URI (for download) and clean base64 (for email attachment)
   const blob = doc.output('blob');
@@ -1614,7 +1614,7 @@ updateClock();
 setInterval(updateClock, 30000);
 
 // ─── VERSION CHECK — auto-refresh when new version deployed ───
-const APP_VERSION = '2.2.0';
+const APP_VERSION = '2.3.0';
 const storedVer = localStorage.getItem('pwt_app_version');
 if (storedVer && storedVer !== APP_VERSION) {
   localStorage.removeItem('pwt_engineers_cache');
