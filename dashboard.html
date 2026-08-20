@@ -179,6 +179,38 @@ table.inv-table tr:hover td { background: #f8fafc; }
 .modal-btn.primary { background: var(--blue); color: white; }
 .modal-btn.secondary { background: var(--surface); color: var(--slate); border: 1.5px solid var(--border); }
 
+/* ══════════════════════════════════════════
+   CLIENT HISTORY STYLES
+══════════════════════════════════════════ */
+.hist-selects { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; }
+.hist-field { display: flex; flex-direction: column; gap: 5px; }
+.hist-label { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+.hist-select { width: 100%; }
+
+.hist-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; margin-bottom: 24px; }
+.hist-stat { background: var(--white); border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px; box-shadow: var(--shadow); }
+.hist-stat-val { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; color: var(--navy); font-family: 'IBM Plex Mono', monospace; }
+.hist-stat-lbl { font-size: 11px; color: var(--muted); font-weight: 500; margin-top: 3px; }
+
+.hist-legend { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; font-size: 11px; color: var(--muted); }
+.hist-legend-item { display: flex; align-items: center; gap: 5px; }
+.hist-legend-swatch { width: 14px; height: 3px; border-radius: 2px; }
+.hist-legend-band { width: 14px; height: 10px; border-radius: 2px; background: #dcfce7; border: 1px solid #86efac; }
+
+.hist-chart-svg { width: 100%; height: auto; display: block; }
+.hist-tip { font-size: 11px; color: var(--muted); font-style: italic; margin-top: 10px; }
+
+.delta-up   { color: var(--red); font-weight: 700; }
+.delta-down { color: var(--blue); font-weight: 700; }
+.delta-flat { color: var(--muted); }
+
+.rec-item { display: flex; gap: 14px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+.rec-item:last-child { border-bottom: none; }
+.rec-date { flex-shrink: 0; width: 92px; font-size: 11px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; padding-top: 2px; }
+.rec-body { flex: 1; }
+.rec-sys { font-size: 11px; font-weight: 700; color: var(--sky); text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 3px; }
+.rec-text { font-size: 13px; color: var(--slate); line-height: 1.5; }
+
 /* ── TOAST ── */
 .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--navy); color: white; padding: 11px 22px; border-radius: 100px; font-size: 13px; font-weight: 500; z-index: 300; opacity: 0; transition: opacity 0.3s; pointer-events: none; box-shadow: var(--shadow-lg); white-space: nowrap; }
 .toast.show { opacity: 1; }
@@ -216,6 +248,7 @@ table.inv-table tr:hover td { background: #f8fafc; }
 <!-- TABS -->
 <div class="tabs-bar">
   <button class="tab-btn active" onclick="switchTab('overview')" id="tab-overview">📊 Overview</button>
+  <button class="tab-btn" onclick="switchTab('history')" id="tab-history">📈 Client History</button>
   <button class="tab-btn" onclick="switchTab('inventory')" id="tab-inventory">
     🧪 Chemical Inventory
     <span class="tab-badge" id="inv-badge">0</span>
@@ -363,6 +396,120 @@ table.inv-table tr:hover td { background: #f8fafc; }
       </div>
     </div>
 
+    <!-- ══ TAB: CLIENT HISTORY ══ -->
+    <div class="tab-panel" id="panel-history">
+
+      <!-- Selectors -->
+      <div class="section-card">
+        <div class="section-header">
+          <div class="section-title">Select what to review</div>
+          <button class="export-btn" onclick="exportHistoryCSV()">📥 Export CSV</button>
+        </div>
+        <div class="section-body">
+          <div class="hist-selects">
+            <div class="hist-field">
+              <label class="hist-label">Client</label>
+              <select class="filter-select hist-select" id="histClient" onchange="onHistClientChange()">
+                <option value="">— Select a client —</option>
+              </select>
+            </div>
+            <div class="hist-field">
+              <label class="hist-label">System</label>
+              <select class="filter-select hist-select" id="histSystem" onchange="onHistSystemChange()">
+                <option value="">— All systems —</option>
+              </select>
+            </div>
+            <div class="hist-field">
+              <label class="hist-label">Parameter</label>
+              <select class="filter-select hist-select" id="histParam" onchange="renderHistory()">
+                <option value="">— Select a parameter —</option>
+              </select>
+            </div>
+            <div class="hist-field">
+              <label class="hist-label">Period</label>
+              <select class="filter-select hist-select" id="histRange" onchange="renderHistory()">
+                <option value="0">All time</option>
+                <option value="3">Last 3 months</option>
+                <option value="6">Last 6 months</option>
+                <option value="12">Last 12 months</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Summary stats -->
+      <div class="hist-stats" id="histStats" style="display:none">
+        <div class="hist-stat">
+          <div class="hist-stat-val" id="histVisits">0</div>
+          <div class="hist-stat-lbl">Visits recorded</div>
+        </div>
+        <div class="hist-stat">
+          <div class="hist-stat-val" id="histLatest">—</div>
+          <div class="hist-stat-lbl">Latest reading</div>
+        </div>
+        <div class="hist-stat">
+          <div class="hist-stat-val" id="histAvg">—</div>
+          <div class="hist-stat-lbl">Average</div>
+        </div>
+        <div class="hist-stat">
+          <div class="hist-stat-val" id="histOOR">0</div>
+          <div class="hist-stat-lbl">Out of range</div>
+        </div>
+      </div>
+
+      <!-- Trend chart -->
+      <div class="section-card">
+        <div class="section-header">
+          <div class="section-title">Trend <span class="badge" id="histTrendBadge">—</span></div>
+          <div class="hist-legend" id="histLegend"></div>
+        </div>
+        <div class="section-body">
+          <div id="histChartWrap">
+            <div class="empty-state">Select a client and a parameter to see the trend</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Visit-by-visit table -->
+      <div class="section-card">
+        <div class="section-header">
+          <div class="section-title">Visit history <span class="badge" id="histTableBadge">0</span></div>
+        </div>
+        <div class="section-body" style="padding:0">
+          <div class="inv-table-wrap">
+            <table class="inv-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Reference</th>
+                  <th>Engineer</th>
+                  <th>System</th>
+                  <th>Value</th>
+                  <th>Range</th>
+                  <th>Status</th>
+                  <th>Change</th>
+                </tr>
+              </thead>
+              <tbody id="histTableBody">
+                <tr><td colspan="8" class="empty-state">No data yet</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recommendations timeline -->
+      <div class="section-card">
+        <div class="section-header">
+          <div class="section-title">Recommendations over time</div>
+        </div>
+        <div class="section-body">
+          <div id="histRecs"><div class="empty-state">Select a client to see past recommendations</div></div>
+        </div>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -396,6 +543,109 @@ let invFilter    = 'all';
 let activeTab    = 'overview';
 
 const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+// ══════════════════════════════════════════
+// PARAMETER LIMITS — must mirror the app
+// ══════════════════════════════════════════
+const PARAMS = {
+  boiler: { icon:'🔥', label:'Boiler', sections: [
+    { title:'Feed Water', params:[
+      { id:'fw_ph',   label:'pH',             unit:'—',     min:7.0,  max:9.0  },
+      { id:'fw_tds',  label:'TDS',            unit:'ppm',   min:0,    max:500  },
+      { id:'fw_hard', label:'Total Hardness', unit:'ppm',   min:0,    max:5    },
+      { id:'fw_ca',   label:'Ca Hardness',    unit:'ppm',   min:0,    max:3    },
+      { id:'fw_malk', label:'M-Alkalinity',   unit:'ppm',   min:0,    max:9999 },
+      { id:'fw_fe',   label:'Iron',           unit:'ppm',   min:0,    max:0.3  },
+      { id:'fw_cl2',  label:'Free Chlorine',  unit:'ppm',   min:0,    max:0.1  },
+    ]},
+    { title:'Boiler Water', params:[
+      { id:'bw_ph',   label:'pH',             unit:'—',     min:10.5, max:12.0 },
+      { id:'bw_tds',  label:'TDS',            unit:'ppm',   min:0,    max:3500 },
+      { id:'bw_palk', label:'P-Alkalinity',   unit:'ppm',   min:100,  max:600  },
+      { id:'bw_malk', label:'M-Alkalinity',   unit:'ppm',   min:150,  max:800  },
+      { id:'bw_ohalk',label:'OH Alkalinity',  unit:'ppm',   min:0,    max:200, calc:true },
+      { id:'bw_cl',   label:'Chloride',       unit:'ppm',   min:0,    max:200  },
+      { id:'bw_so3',  label:'Sulfite',        unit:'ppm',   min:20,   max:60   },
+      { id:'bw_po4',  label:'Phosphate',      unit:'ppm',   min:20,   max:50   },
+      { id:'bw_si',   label:'Silica',         unit:'ppm',   min:0,    max:150  },
+      { id:'bw_tan',  label:'Tannin',         unit:'ppm',   min:100,  max:160  },
+    ]},
+    { title:'Condensate Return', params:[
+      { id:'cr_ph',   label:'pH',             unit:'—',     min:8.3,  max:9.5  },
+      { id:'cr_cond', label:'Conductivity',   unit:'µS/cm', min:0,    max:20   },
+      { id:'cr_fe',   label:'Iron',           unit:'ppm',   min:0,    max:0.1  },
+    ]},
+  ]},
+  cooling: { icon:'❄️', label:'Cooling Tower', sections: [
+    { title:'Make-up Water', params:[
+      { id:'mu_ph',   label:'pH',             unit:'—',     min:6.5,  max:8.5  },
+      { id:'mu_tds',  label:'TDS',            unit:'ppm',   min:0,    max:1000 },
+      { id:'mu_hard', label:'Total Hardness', unit:'ppm',   min:0,    max:400  },
+      { id:'mu_ca',   label:'Ca Hardness',    unit:'ppm',   min:0,    max:300  },
+      { id:'mu_alk',  label:'M-Alkalinity',   unit:'ppm',   min:0,    max:300  },
+      { id:'mu_cl',   label:'Chloride',       unit:'ppm',   min:0,    max:200  },
+    ]},
+    { title:'Circuit Water', params:[
+      { id:'cw_temp', label:'Temperature',    unit:'°C',    min:20,   max:50   },
+      { id:'cw_ph',   label:'pH',             unit:'—',     min:7.0,  max:9.0  },
+      { id:'cw_cond', label:'Conductivity',   unit:'µS/cm', min:0,    max:3000 },
+      { id:'cw_tds',  label:'TDS',            unit:'ppm',   min:0,    max:2000 },
+      { id:'cw_hard', label:'Total Hardness', unit:'ppm',   min:0,    max:800  },
+      { id:'cw_ca',   label:'Ca Hardness',    unit:'ppm',   min:0,    max:600  },
+      { id:'cw_alk',  label:'M-Alkalinity',   unit:'ppm',   min:0,    max:600  },
+      { id:'cw_cl',   label:'Chloride',       unit:'ppm',   min:0,    max:500  },
+      { id:'cw_fcl',  label:'Free Chlorine',  unit:'ppm',   min:0.2,  max:1.0  },
+      { id:'cw_fe',   label:'Iron',           unit:'ppm',   min:0,    max:1.0  },
+      { id:'cw_zn',   label:'Zinc',           unit:'ppm',   min:0,    max:2.0  },
+      { id:'cw_opo4', label:'Ortho-Phosphate',unit:'ppm',   min:0,    max:10   },
+      { id:'cw_tpo4', label:'Total Phosphate',unit:'ppm',   min:0,    max:15   },
+      { id:'cw_phos', label:'Phosphonate',    unit:'ppm',   min:0,    max:10   },
+      { id:'cw_lsi',  label:'LSI',            unit:'—',     min:-0.5, max:0.5, calc:true },
+    ]},
+  ]},
+  closed: { icon:'🔄', label:'Closed Loop', sections: [
+    { title:'Closed Loop Parameters', params:[
+      { id:'cl_ph',   label:'pH',             unit:'—',     min:8.0,  max:10.0 },
+      { id:'cl_cond', label:'Conductivity',   unit:'µS/cm', min:0,    max:3000 },
+      { id:'cl_hard', label:'Total Hardness', unit:'ppm',   min:0,    max:200  },
+      { id:'cl_fe',   label:'Iron',           unit:'ppm',   min:0,    max:1.0  },
+      { id:'cl_inh',  label:'Inhibitor Level',unit:'ppm',   min:1000, max:1600 },
+      { id:'cl_turb', label:'Turbidity',      unit:'NTU',   min:0,    max:5    },
+    ]},
+  ]},
+  raw: { icon:'🚰', label:'Raw Water', sections: [
+    { title:'Raw Water Analysis', params:[
+      { id:'rw_ph',   label:'pH',             unit:'—',     min:6.5,  max:8.5  },
+      { id:'rw_tds',  label:'TDS',            unit:'ppm',   min:0,    max:1000 },
+      { id:'rw_hard', label:'Total Hardness', unit:'ppm',   min:0,    max:500  },
+      { id:'rw_ca',   label:'Ca Hardness',    unit:'ppm',   min:0,    max:400  },
+      { id:'rw_alk',  label:'M-Alkalinity',   unit:'ppm',   min:0,    max:400  },
+      { id:'rw_turb', label:'Turbidity',      unit:'NTU',   min:0,    max:10   },
+      { id:'rw_fe',   label:'Iron',           unit:'ppm',   min:0,    max:0.3  },
+      { id:'rw_cl2',  label:'Free Chlorine',  unit:'ppm',   min:0,    max:1.0  },
+      { id:'rw_so4',  label:'Sulfate',        unit:'ppm',   min:0,    max:400  },
+      { id:'rw_si',   label:'Silica',         unit:'ppm',   min:0,    max:50   },
+    ]},
+  ]},
+};
+
+function findParamDef(type, label, sectionTitle) {
+  const def = PARAMS[type];
+  if (!def) return null;
+  // When we know the section, match within it — the same label (e.g. "pH")
+  // appears in multiple sections with different limits.
+  if (sectionTitle) {
+    const sec = def.sections.find(s => s.title === sectionTitle);
+    if (sec) {
+      const p = sec.params.find(p => p.label === label);
+      if (p) return p;
+    }
+  }
+  for (const sec of def.sections)
+    for (const p of sec.params)
+      if (p.label === label) return p;
+  return null;
+}
 
 // ── TABS ──
 function switchTab(name) {
@@ -511,6 +761,7 @@ function renderDashboard() {
   renderVisitedClients(monthReports);
   renderCriticalReports(monthReports);
   buildInventory();
+  populateHistClients();
 }
 
 // Normalize an engineer code so "1", 1, "001", " 001 " all match
@@ -766,6 +1017,347 @@ function sendShareEmail() {
   window.open(`mailto:${FACTORY_EMAIL}?subject=${subject}&body=${bodyEnc}`);
   closeShareModal();
   showToast('Email client opened ✓', 'success');
+}
+
+// ══════════════════════════════════════════
+// CLIENT HISTORY
+// ══════════════════════════════════════════
+let histRows = [];   // current filtered series
+let histCache = [];  // all readings for selected client
+
+// Build the client dropdown once data is loaded
+function populateHistClients() {
+  const sel = document.getElementById('histClient');
+  if (!sel) return;
+  const prev = sel.value;
+  // Only clients that actually have reports
+  const withReports = new Set(
+    allReports.filter(r => r.client_code).map(r => String(r.client_code).trim().toLowerCase())
+  );
+  const opts = allClients
+    .filter(c => withReports.has(String(c.code).trim().toLowerCase()))
+    .sort((a,b) => String(a.name).localeCompare(String(b.name)));
+  sel.innerHTML = '<option value="">— Select a client —</option>' +
+    opts.map(c => `<option value="${String(c.code).trim()}">${c.name}</option>`).join('');
+  if (prev) sel.value = prev;
+}
+
+// Collect every reading for the selected client, flattened
+function collectClientReadings(clientCode) {
+  const key = String(clientCode).trim().toLowerCase();
+  const rows = [];
+  allReports
+    .filter(r => r.client_code && String(r.client_code).trim().toLowerCase() === key)
+    .forEach(r => {
+      const d = parseReportDate(r);
+      if (!d) return;
+      const systems = parseSystemsData(r.systems_raw);
+      systems.forEach(sys => {
+        const sysName = sys.name || (PARAMS[sys.type]?.label) || sys.type || 'System';
+        // Prefer per-section data: the same label (e.g. "pH") exists in several
+        // sections with DIFFERENT limits, so a flat lookup would use the wrong range.
+        if (sys.sections && Object.keys(sys.sections).length) {
+          Object.entries(sys.sections).forEach(([secTitle, secReadings]) => {
+            Object.entries(secReadings || {}).forEach(([label, value]) => {
+              const num = parseFloat(value);
+              if (isNaN(num)) return;
+              rows.push({
+                date: d, ref: r.ref, engineer: r.eng_name || '—',
+                sysType: sys.type, sysName, section: secTitle,
+                param: label,
+                paramFull: `${secTitle} · ${label}`,
+                value: num,
+                def: findParamDef(sys.type, label, secTitle),
+              });
+            });
+          });
+        } else {
+          // Older reports saved before sections were stored
+          Object.entries(sys.readings || {}).forEach(([label, value]) => {
+            const num = parseFloat(value);
+            if (isNaN(num)) return;
+            rows.push({
+              date: d, ref: r.ref, engineer: r.eng_name || '—',
+              sysType: sys.type, sysName, section: '',
+              param: label, paramFull: label, value: num,
+              def: findParamDef(sys.type, label),
+            });
+          });
+        }
+        if (sys.recommendations) {
+          rows.push({ date: d, ref: r.ref, engineer: r.eng_name || '—',
+                      sysType: sys.type, sysName, isRec: true, rec: sys.recommendations });
+        }
+      });
+    });
+  rows.sort((a,b) => a.date - b.date);
+  return rows;
+}
+
+function onHistClientChange() {
+  const code = document.getElementById('histClient').value;
+  const sysSel = document.getElementById('histSystem');
+  const parSel = document.getElementById('histParam');
+  if (!code) {
+    histCache = [];
+    sysSel.innerHTML = '<option value="">— All systems —</option>';
+    parSel.innerHTML = '<option value="">— Select a parameter —</option>';
+    renderHistory();
+    return;
+  }
+  histCache = collectClientReadings(code);
+  // Systems present for this client
+  const systems = [...new Set(histCache.map(r => r.sysName))].sort();
+  sysSel.innerHTML = '<option value="">— All systems —</option>' +
+    systems.map(sname => `<option value="${sname}">${sname}</option>`).join('');
+  onHistSystemChange();
+}
+
+function onHistSystemChange() {
+  const sysName = document.getElementById('histSystem').value;
+  const parSel  = document.getElementById('histParam');
+  const prev    = parSel.value;
+  const pool = histCache.filter(r => !r.isRec && (!sysName || r.sysName === sysName));
+  const params = [...new Set(pool.map(r => r.paramFull))].sort();
+  parSel.innerHTML = '<option value="">— Select a parameter —</option>' +
+    params.map(p => `<option value="${p}">${p}</option>`).join('');
+  if (prev && params.includes(prev)) parSel.value = prev;
+  else if (params.length) parSel.value = params[0];
+  renderHistory();
+}
+
+function renderHistory() {
+  const clientCode = document.getElementById('histClient').value;
+  const sysName    = document.getElementById('histSystem').value;
+  const param      = document.getElementById('histParam').value;
+  const months     = parseInt(document.getElementById('histRange').value, 10) || 0;
+
+  const statsEl = document.getElementById('histStats');
+  const chartEl = document.getElementById('histChartWrap');
+  const tbody   = document.getElementById('histTableBody');
+
+  if (!clientCode) {
+    statsEl.style.display = 'none';
+    chartEl.innerHTML = '<div class="empty-state">Select a client and a parameter to see the trend</div>';
+    tbody.innerHTML   = '<tr><td colspan="8" class="empty-state">No data yet</td></tr>';
+    document.getElementById('histRecs').innerHTML = '<div class="empty-state">Select a client to see past recommendations</div>';
+    document.getElementById('histTrendBadge').textContent = '—';
+    document.getElementById('histTableBadge').textContent = '0';
+    return;
+  }
+
+  // Date cutoff
+  let cutoff = null;
+  if (months > 0) {
+    cutoff = new Date();
+    cutoff.setMonth(cutoff.getMonth() - months);
+  }
+
+  histRows = histCache.filter(r =>
+    !r.isRec &&
+    (!sysName || r.sysName === sysName) &&
+    (!param   || r.paramFull === param) &&
+    (!cutoff  || r.date >= cutoff)
+  );
+
+  renderHistRecs(sysName, cutoff);
+
+  if (!param || histRows.length === 0) {
+    statsEl.style.display = 'none';
+    chartEl.innerHTML = '<div class="empty-state">No readings found for this selection</div>';
+    tbody.innerHTML   = '<tr><td colspan="8" class="empty-state">No readings found</td></tr>';
+    document.getElementById('histTrendBadge').textContent = '—';
+    document.getElementById('histTableBadge').textContent = '0';
+    document.getElementById('histLegend').innerHTML = '';
+    return;
+  }
+
+  const def  = histRows[0].def;
+  const unit = def?.unit && def.unit !== '—' ? ' ' + def.unit : '';
+
+  // ── Stats ──
+  const values = histRows.map(r => r.value);
+  const latest = values[values.length - 1];
+  const avg    = values.reduce((a,b) => a+b, 0) / values.length;
+  const oor    = def ? histRows.filter(r => r.value < def.min || r.value > def.max).length : 0;
+
+  statsEl.style.display = 'grid';
+  document.getElementById('histVisits').textContent = histRows.length;
+  document.getElementById('histLatest').textContent = fmtNum(latest) + unit;
+  document.getElementById('histAvg').textContent    = fmtNum(avg) + unit;
+  const oorEl = document.getElementById('histOOR');
+  oorEl.textContent = oor;
+  oorEl.style.color = oor > 0 ? 'var(--red)' : 'var(--green)';
+
+  document.getElementById('histTrendBadge').textContent = `${param}${unit ? ' (' + def.unit + ')' : ''}`;
+  document.getElementById('histTableBadge').textContent = histRows.length;
+
+  drawHistChart(histRows, def, param);
+  renderHistTable(histRows, def);
+}
+
+function fmtNum(n) {
+  if (!isFinite(n)) return '—';
+  return Math.abs(n) >= 100 ? n.toFixed(0) : Math.abs(n) >= 10 ? n.toFixed(1) : n.toFixed(2);
+}
+
+// ── SVG line chart with safe-range band ──
+function drawHistChart(rows, def, param) {
+  const W = 1000, H = 320;
+  const P = { t: 20, r: 24, b: 46, l: 62 };
+  const iw = W - P.l - P.r, ih = H - P.t - P.b;
+
+  const values = rows.map(r => r.value);
+  let lo = Math.min(...values), hi = Math.max(...values);
+  // Include the safe band in the visible range so it's always meaningful
+  if (def && isFinite(def.min) && def.max < 9999) {
+    lo = Math.min(lo, def.min);
+    hi = Math.max(hi, def.max);
+  }
+  if (lo === hi) { lo -= 1; hi += 1; }
+  const pad = (hi - lo) * 0.12;
+  lo -= pad; hi += pad;
+
+  const n = rows.length;
+  const xAt = i => P.l + (n === 1 ? iw / 2 : (i / (n - 1)) * iw);
+  const yAt = v => P.t + ih - ((v - lo) / (hi - lo)) * ih;
+
+  let svg = `<svg viewBox="0 0 ${W} ${H}" class="hist-chart-svg" preserveAspectRatio="xMidYMid meet">`;
+
+  // Safe range band
+  if (def && def.max < 9999) {
+    const yTop = yAt(def.max), yBot = yAt(def.min);
+    svg += `<rect x="${P.l}" y="${Math.min(yTop,yBot)}" width="${iw}" height="${Math.abs(yBot-yTop)}" fill="#dcfce7" opacity="0.65"/>`;
+    svg += `<line x1="${P.l}" y1="${yTop}" x2="${P.l+iw}" y2="${yTop}" stroke="#86efac" stroke-width="1.5" stroke-dasharray="5,4"/>`;
+    svg += `<line x1="${P.l}" y1="${yBot}" x2="${P.l+iw}" y2="${yBot}" stroke="#86efac" stroke-width="1.5" stroke-dasharray="5,4"/>`;
+  }
+
+  // Y gridlines + labels
+  const TICKS = 5;
+  for (let i = 0; i <= TICKS; i++) {
+    const v = lo + (hi - lo) * (i / TICKS);
+    const y = yAt(v);
+    svg += `<line x1="${P.l}" y1="${y}" x2="${P.l+iw}" y2="${y}" stroke="#e2e8f0" stroke-width="1"/>`;
+    svg += `<text x="${P.l-10}" y="${y+4}" text-anchor="end" font-size="12" fill="#64748b" font-family="monospace">${fmtNum(v)}</text>`;
+  }
+
+  // Axis
+  svg += `<line x1="${P.l}" y1="${P.t+ih}" x2="${P.l+iw}" y2="${P.t+ih}" stroke="#94a3b8" stroke-width="1.5"/>`;
+
+  // Line path
+  const pts = rows.map((r,i) => `${xAt(i)},${yAt(r.value)}`).join(' ');
+  if (n > 1) {
+    svg += `<polyline points="${pts}" fill="none" stroke="#1a56db" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`;
+  }
+
+  // Points + x labels
+  rows.forEach((r,i) => {
+    const x = xAt(i), y = yAt(r.value);
+    const bad = def && (r.value < def.min || r.value > def.max);
+    svg += `<circle cx="${x}" cy="${y}" r="5" fill="${bad ? '#ef4444' : '#10b981'}" stroke="#fff" stroke-width="2"><title>${r.date.toLocaleDateString('en-GB')} — ${fmtNum(r.value)} (${r.sysName})</title></circle>`;
+    // Show a label on every point when few, else thin out
+    const step = n <= 8 ? 1 : Math.ceil(n / 8);
+    if (i % step === 0 || i === n - 1) {
+      const dstr = r.date.toLocaleDateString('en-GB', { day:'2-digit', month:'short' });
+      svg += `<text x="${x}" y="${P.t+ih+20}" text-anchor="middle" font-size="11" fill="#64748b" font-family="monospace">${dstr}</text>`;
+      svg += `<text x="${x}" y="${P.t+ih+35}" text-anchor="middle" font-size="10" fill="#94a3b8" font-family="monospace">${String(r.date.getFullYear()).slice(2)}</text>`;
+    }
+  });
+
+  svg += `</svg>`;
+  document.getElementById('histChartWrap').innerHTML = svg +
+    `<div class="hist-tip">Hover a point to see the exact reading, date and system.</div>`;
+
+  // Legend
+  let legend = `<div class="hist-legend-item"><span class="hist-legend-swatch" style="background:#1a56db"></span> ${param}</div>`;
+  if (def && def.max < 9999) {
+    legend += `<div class="hist-legend-item"><span class="hist-legend-band"></span> Safe range ${fmtNum(def.min)}–${fmtNum(def.max)}${def.unit && def.unit !== '—' ? ' ' + def.unit : ''}</div>`;
+  }
+  legend += `<div class="hist-legend-item"><span style="width:9px;height:9px;border-radius:50%;background:#ef4444;display:inline-block"></span> Out of range</div>`;
+  document.getElementById('histLegend').innerHTML = legend;
+}
+
+function renderHistTable(rows, def) {
+  const tbody = document.getElementById('histTableBody');
+  const unit  = def?.unit && def.unit !== '—' ? ' ' + def.unit : '';
+  const rangeStr = def && def.max < 9999 ? `${fmtNum(def.min)} – ${fmtNum(def.max)}` : '—';
+
+  // newest first for reading, but delta computed against the previous visit
+  const out = rows.map((r,i) => {
+    const prev = i > 0 ? rows[i-1].value : null;
+    return { ...r, delta: prev === null ? null : r.value - prev };
+  }).reverse();
+
+  tbody.innerHTML = out.map(r => {
+    const bad = def && (r.value < def.min || r.value > def.max);
+    const status = bad
+      ? `<span class="status-pill red">🔴 Out of range</span>`
+      : `<span class="status-pill green">🟢 In range</span>`;
+    let delta = '<span class="delta-flat">—</span>';
+    if (r.delta !== null && Math.abs(r.delta) > 1e-9) {
+      const up = r.delta > 0;
+      delta = `<span class="${up ? 'delta-up' : 'delta-down'}">${up ? '▲' : '▼'} ${fmtNum(Math.abs(r.delta))}</span>`;
+    } else if (r.delta !== null) {
+      delta = '<span class="delta-flat">no change</span>';
+    }
+    return `<tr>
+      <td class="date-cell">${r.date.toLocaleDateString('en-GB')}</td>
+      <td class="product-name-cell">${r.ref || '—'}</td>
+      <td style="font-size:12px">${r.engineer}</td>
+      <td style="font-size:11px;color:var(--muted)">${r.sysName}</td>
+      <td class="num-cell">${fmtNum(r.value)}${unit}</td>
+      <td class="date-cell">${rangeStr}</td>
+      <td>${status}</td>
+      <td>${delta}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderHistRecs(sysName, cutoff) {
+  const recs = histCache.filter(r =>
+    r.isRec && (!sysName || r.sysName === sysName) && (!cutoff || r.date >= cutoff)
+  ).reverse();
+  const el = document.getElementById('histRecs');
+  if (!recs.length) {
+    el.innerHTML = '<div class="empty-state">No recommendations recorded for this selection</div>';
+    return;
+  }
+  el.innerHTML = recs.slice(0, 20).map(r => `
+    <div class="rec-item">
+      <div class="rec-date">${r.date.toLocaleDateString('en-GB')}</div>
+      <div class="rec-body">
+        <div class="rec-sys">${r.sysName} · ${r.engineer}</div>
+        <div class="rec-text">${escapeHtml(r.rec)}</div>
+      </div>
+    </div>`).join('');
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function exportHistoryCSV() {
+  if (!histRows.length) { showToast('Nothing to export — select a client and parameter'); return; }
+  const clientName = document.getElementById('histClient').selectedOptions[0]?.text || 'client';
+  const param = document.getElementById('histParam').value || 'parameter';
+  const def = histRows[0].def;
+  const headers = ['Date','Reference','Engineer','System','Parameter','Value','Unit','Min','Max','Status'];
+  const lines = histRows.map(r => {
+    const bad = def && (r.value < def.min || r.value > def.max);
+    return [
+      r.date.toLocaleDateString('en-GB'), r.ref, r.engineer, r.sysName, r.param,
+      r.value, def?.unit || '', def?.min ?? '', (def && def.max < 9999) ? def.max : '',
+      bad ? 'Out of range' : 'In range',
+    ].map(v => `"${v ?? ''}"`).join(',');
+  });
+  const csv  = [headers.join(','), ...lines].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url;
+  a.download = `Krenos-History-${clientName.replace(/[^\w\-]+/g,'_')}-${param.replace(/[^\w\-]+/g,'_')}.csv`;
+  a.click();
+  showToast('History exported ✓', 'success');
 }
 
 // ── EXPORT ──

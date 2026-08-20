@@ -179,6 +179,30 @@ body { font-family: 'IBM Plex Sans', sans-serif; background: var(--surface); col
 .chip-pending { background: #fef3c7; color: #92400e; padding: 3px 9px; border-radius: 20px; font-size: 10px; font-weight: 600; }
 
 .divider { height: 1px; background: var(--border); margin: 14px 0; }
+
+/* HISTORY */
+.hist-sys { margin-bottom: 14px; }
+.hist-sys:last-child { margin-bottom: 0; }
+.hist-sys-name { font-size: 11px; font-weight: 700; color: var(--sky); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+.hist-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.hist-table th { text-align: left; padding: 5px 6px; font-size: 9px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.7px; border-bottom: 1.5px solid var(--border); white-space: nowrap; }
+.hist-table th.num, .hist-table td.num { text-align: center; font-family: ui-monospace, 'SF Mono', Consolas, monospace; }
+.hist-table td { padding: 6px; border-bottom: 1px solid var(--border); }
+.hist-table tr:last-child td { border-bottom: none; }
+.hist-param { font-weight: 500; color: var(--slate); }
+.hist-val { font-weight: 700; }
+.hist-val.ok  { color: var(--green); }
+.hist-val.bad { color: var(--red); }
+.hist-val.old { color: var(--muted); font-weight: 500; }
+.hist-trend { font-size: 11px; }
+.hist-trend.up   { color: var(--red); }
+.hist-trend.down { color: var(--blue); }
+.hist-trend.flat { color: var(--muted); }
+.hist-date-head { font-size: 9px; color: var(--muted); font-weight: 600; }
+.hist-rec { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 8px 10px; margin-top: 8px; }
+.hist-rec-date { font-size: 9px; color: var(--blue); font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 3px; }
+.hist-rec-text { font-size: 11px; color: var(--slate); line-height: 1.5; }
+.hist-empty { color: var(--muted); font-size: 12px; text-align: center; padding: 14px; }
 </style>
 </head>
 <body>
@@ -246,6 +270,19 @@ body { font-family: 'IBM Plex Sans', sans-serif; background: var(--surface); col
   </div>
 
   <div class="report-hero" id="reportHero"></div>
+
+  <!-- PREVIOUS VISITS -->
+  <div id="histSection" style="display:none">
+    <div class="section-label" style="display:flex;align-items:center;justify-content:space-between">
+      <span>Previous Visits</span>
+      <button class="btn btn-sm" id="histToggleBtn" style="width:auto;background:var(--surface);color:var(--sky);border:1.5px solid var(--border);font-size:11px" onclick="toggleHistory()">📈 Show</button>
+    </div>
+    <div class="card" id="histCard" style="display:none">
+      <div class="card-body" id="histBody">
+        <div style="color:var(--muted);font-size:12px;text-align:center;padding:10px">Loading history…</div>
+      </div>
+    </div>
+  </div>
 
   <div class="section-label">Visit Details</div>
   <div class="card">
@@ -689,7 +726,232 @@ function selectClient(code) {
   document.getElementById('freeVisitSection').style.display = state.visitMode === 'free' ? 'block' : 'none';
   if (state.visitMode === 'free') document.getElementById('visitType').value = 'Free Water Analysis';
 
+  // Previous visits — only meaningful for existing clients
+  resetHistoryUI();
+  if (state.visitMode === 'service') {
+    document.getElementById('histSection').style.display = 'block';
+    loadClientHistory(state.client.code);
+  }
+
   goScreen('report');
+}
+
+// ══════════════════════════════════════════
+// CLIENT HISTORY (previous visits)
+// ══════════════════════════════════════════
+let historyData = null;      // parsed previous reports for this client
+let historyLoaded = false;
+
+function resetHistoryUI() {
+  historyData = null;
+  historyLoaded = false;
+  document.getElementById('histSection').style.display = 'none';
+  document.getElementById('histCard').style.display = 'none';
+  document.getElementById('histToggleBtn').textContent = '📈 Show';
+  document.getElementById('histBody').innerHTML =
+    '<div class="hist-empty">Loading history…</div>';
+}
+
+function toggleHistory() {
+  const card = document.getElementById('histCard');
+  const btn  = document.getElementById('histToggleBtn');
+  const open = card.style.display !== 'none';
+  card.style.display = open ? 'none' : 'block';
+  btn.textContent = open ? '📈 Show' : '✕ Hide';
+}
+
+async function loadClientHistory(clientCode) {
+  try {
+    const res  = await fetch(`${APPS_SCRIPT_URL}?sheet=Reports&db=${SERVICE_DB}`);
+    const json = await res.json();
+    if (!json.success || !json.data || json.data.length < 2) {
+      document.getElementById('histBody').innerHTML =
+        '<div class="hist-empty">No previous visits recorded</div>';
+      return;
+    }
+    const key = String(clientCode).trim().toLowerCase();
+    const rows = json.data.slice(1)
+      .map(r => ({
+        ref: r[0], timestamp: r[1], visitMode: r[2], clientCode: r[3],
+        engName: r[7], systemsRaw: r[12], createdAt: r[14],
+      }))
+      .filter(r => r.ref && r.clientCode &&
+                   String(r.clientCode).trim().toLowerCase() === key);
+
+    // Newest first, keep the last 3 visits
+    rows.sort((a, b) => histDate(b) - histDate(a));
+    historyData = rows.slice(0, 3);
+    historyLoaded = true;
+    renderClientHistory();
+  } catch (e) {
+    document.getElementById('histBody').innerHTML =
+      '<div class="hist-empty">Could not load history — check your connection</div>';
+  }
+}
+
+function histDate(r) {
+  if (r.createdAt) {
+    const d = new Date(r.createdAt);
+    if (!isNaN(d.getTime())) return d;
+  }
+  if (r.timestamp) {
+    const m = String(r.timestamp).match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+    if (m) return new Date(+m[3], +m[2] - 1, +m[1]);
+    const d = new Date(r.timestamp);
+    if (!isNaN(d.getTime())) return d;
+  }
+  return new Date(0);
+}
+
+function renderClientHistory() {
+  const body = document.getElementById('histBody');
+  if (!historyData || historyData.length === 0) {
+    body.innerHTML = '<div class="hist-empty">No previous visits for this client</div>';
+    return;
+  }
+
+  // visits are newest-first; build a column per visit
+  const visits = historyData.map(r => ({
+    date: histDate(r),
+    ref: r.ref,
+    eng: r.engName || '',
+    systems: parseHistSystems(r.systemsRaw),
+  }));
+
+  // Collect systems across visits, keyed by name
+  const sysMap = {};
+  visits.forEach((v, vi) => {
+    v.systems.forEach(sys => {
+      const name = sys.name || (PARAMS[sys.type]?.label) || sys.type || 'System';
+      if (!sysMap[name]) sysMap[name] = { type: sys.type, rows: {}, recs: [] };
+      const entry = sysMap[name];
+      // per-section readings so duplicate labels keep their own limits
+      const sections = (sys.sections && Object.keys(sys.sections).length)
+        ? sys.sections
+        : { '': sys.readings || {} };
+      Object.entries(sections).forEach(([secTitle, readings]) => {
+        Object.entries(readings || {}).forEach(([label, val]) => {
+          const num = parseFloat(val);
+          if (isNaN(num)) return;
+          const rowKey = secTitle ? `${secTitle}||${label}` : label;
+          if (!entry.rows[rowKey]) {
+            entry.rows[rowKey] = {
+              label, section: secTitle,
+              def: findParamDefSec(sys.type, label, secTitle),
+              values: new Array(visits.length).fill(null),
+            };
+          }
+          entry.rows[rowKey].values[vi] = num;
+        });
+      });
+      if (sys.recommendations) {
+        entry.recs.push({ date: v.date, text: sys.recommendations });
+      }
+    });
+  });
+
+  const names = Object.keys(sysMap);
+  if (!names.length) {
+    body.innerHTML = '<div class="hist-empty">No readings in previous visits</div>';
+    return;
+  }
+
+  const dateHead = visits.map(v =>
+    `<th class="num hist-date-head">${v.date.toLocaleDateString('en-GB', { day:'2-digit', month:'short' })}</th>`
+  ).join('');
+
+  let html = '';
+  names.forEach(name => {
+    const entry = sysMap[name];
+    const rowKeys = Object.keys(entry.rows);
+    if (!rowKeys.length) return;
+
+    html += `<div class="hist-sys">
+      <div class="hist-sys-name">${name}</div>
+      <table class="hist-table">
+        <thead><tr><th>Parameter</th>${dateHead}<th class="num">Trend</th></tr></thead>
+        <tbody>`;
+
+    rowKeys.forEach(k => {
+      const row = entry.rows[k];
+      const def = row.def;
+      const label = row.section ? `${row.label} <span style="font-size:9px;color:var(--muted)">${row.section}</span>` : row.label;
+
+      const cells = row.values.map((v, i) => {
+        if (v === null || v === undefined) return `<td class="num" style="color:var(--muted)">—</td>`;
+        const bad = def && (v < def.min || v > def.max);
+        // i === 0 is the most recent visit — emphasise it
+        const cls = i === 0 ? (bad ? 'hist-val bad' : 'hist-val ok') : 'hist-val old';
+        return `<td class="num"><span class="${cls}">${fmtHist(v)}</span></td>`;
+      }).join('');
+
+      // Trend: most recent vs the previous one that has a value
+      let trend = '<span class="hist-trend flat">—</span>';
+      const latest = row.values[0];
+      const prev = row.values.slice(1).find(v => v !== null && v !== undefined);
+      if (latest !== null && prev !== null && prev !== undefined) {
+        const d = latest - prev;
+        if (Math.abs(d) < 1e-9) trend = '<span class="hist-trend flat">=</span>';
+        else if (d > 0) trend = `<span class="hist-trend up">▲ ${fmtHist(Math.abs(d))}</span>`;
+        else trend = `<span class="hist-trend down">▼ ${fmtHist(Math.abs(d))}</span>`;
+      }
+
+      html += `<tr>
+        <td class="hist-param">${label}</td>
+        ${cells}
+        <td class="num">${trend}</td>
+      </tr>`;
+    });
+
+    html += `</tbody></table>`;
+
+    // Last recommendation for this system
+    if (entry.recs.length) {
+      const last = entry.recs[0];
+      html += `<div class="hist-rec">
+        <div class="hist-rec-date">Last recommendation · ${last.date.toLocaleDateString('en-GB')}</div>
+        <div class="hist-rec-text">${escapeHistHtml(last.text)}</div>
+      </div>`;
+    }
+    html += `</div>`;
+  });
+
+  html += `<div style="font-size:10px;color:var(--muted);font-style:italic;margin-top:10px;text-align:center">
+    Showing the last ${visits.length} visit${visits.length > 1 ? 's' : ''} · newest first
+  </div>`;
+
+  body.innerHTML = html;
+}
+
+function parseHistSystems(raw) {
+  if (!raw) return [];
+  try { return typeof raw === 'string' ? JSON.parse(raw) : raw; } catch (e) { return []; }
+}
+
+function findParamDefSec(type, label, sectionTitle) {
+  const def = PARAMS[type];
+  if (!def) return null;
+  if (sectionTitle) {
+    const sec = def.sections.find(s => s.title === sectionTitle);
+    if (sec) {
+      const p = sec.params.find(p => p.label === label);
+      if (p) return p;
+    }
+  }
+  for (const sec of def.sections)
+    for (const p of sec.params)
+      if (p.label === label) return p;
+  return null;
+}
+
+function fmtHist(n) {
+  if (!isFinite(n)) return '—';
+  return Math.abs(n) >= 100 ? n.toFixed(0) : Math.abs(n) >= 10 ? n.toFixed(1) : n.toFixed(2);
+}
+
+function escapeHistHtml(s) {
+  return String(s).replace(/[&<>"']/g, c =>
+    ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
 }
 
 // ══════════════════════════════════════════
@@ -1614,7 +1876,7 @@ updateClock();
 setInterval(updateClock, 30000);
 
 // ─── VERSION CHECK — auto-refresh when new version deployed ───
-const APP_VERSION = '2.3.0';
+const APP_VERSION = '2.4.0';
 const storedVer = localStorage.getItem('pwt_app_version');
 if (storedVer && storedVer !== APP_VERSION) {
   localStorage.removeItem('pwt_engineers_cache');
