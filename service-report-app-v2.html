@@ -180,6 +180,13 @@ body { font-family: 'IBM Plex Sans', sans-serif; background: var(--surface); col
 
 .divider { height: 1px; background: var(--border); margin: 14px 0; }
 
+/* TRENDS */
+.trend-opts { display: flex; flex-direction: column; gap: 6px; }
+.trend-opt { display: flex; align-items: center; gap: 8px; padding: 7px 10px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; font-size: 12px; color: var(--slate); cursor: pointer; }
+.trend-opt input { width: 16px; height: 16px; accent-color: var(--sky); flex-shrink: 0; }
+.trend-opt input:disabled + span { color: var(--muted); opacity: 0.5; }
+.trend-note { font-size: 10px; color: var(--sky); font-weight: 600; margin-top: 6px; min-height: 13px; }
+
 /* HISTORY */
 .hist-sys { margin-bottom: 14px; }
 .hist-sys:last-child { margin-bottom: 0; }
@@ -340,6 +347,7 @@ body { font-family: 'IBM Plex Sans', sans-serif; background: var(--surface); col
     <button class="add-sys-btn" onclick="addSystem('boiler')">🔥 Add Boiler</button>
     <button class="add-sys-btn" onclick="addSystem('cooling')">❄️ Add Cooling Tower</button>
     <button class="add-sys-btn" onclick="addSystem('closed')">🔄 Add Closed Loop</button>
+    <button class="add-sys-btn" onclick="addSystem('pool')">🏊 Add Swimming Pool</button>
     <button class="add-sys-btn" onclick="addSystem('raw')">🚰 Add Raw Water</button>
   </div>
 
@@ -451,31 +459,39 @@ const PARAMS = {
   boiler: {
     icon: '🔥', label: 'Boiler',
     sections: [
+      { title: 'Softener Water', params: [
+        { id:'sw_ph',   label:'pH',             unit:'—',     min:6.5,  max:8.5  },
+        { id:'sw_tds',  label:'TDS',            unit:'ppm',   min:0,    max:1000 },
+        { id:'sw_hard', label:'Total Hardness', unit:'ppm',   min:0,    max:5    },
+      ]},
       { title: 'Feed Water', params: [
-        { id:'fw_ph',   label:'pH',            unit:'—',     min:7.0,  max:9.5  },
+        { id:'fw_ph',   label:'pH',             unit:'—',     min:7.0,  max:9.0  },
         { id:'fw_tds',  label:'TDS',            unit:'ppm',   min:0,    max:500  },
         { id:'fw_hard', label:'Total Hardness', unit:'ppm',   min:0,    max:5    },
         { id:'fw_ca',   label:'Ca Hardness',    unit:'ppm',   min:0,    max:3    },
-        { id:'fw_malk', label:'M-Alkalinity',   unit:'ppm',   min:0,    max:200  },
+        { id:'fw_malk', label:'M-Alkalinity',   unit:'ppm',   min:0,    max:9999 },
+        { id:'fw_cl',   label:'Chloride',       unit:'ppm',   min:0,    max:9999 },
         { id:'fw_fe',   label:'Iron',           unit:'ppm',   min:0,    max:0.3  },
         { id:'fw_cl2',  label:'Free Chlorine',  unit:'ppm',   min:0,    max:0.1  },
+        { id:'fw_cret', label:'Est. Condensate Return', unit:'%', min:0, max:100, calc:true },
       ]},
       { title: 'Boiler Water', params: [
-        { id:'bw_ph',   label:'pH',            unit:'—',     min:10.5, max:12.0 },
-        { id:'bw_tds',  label:'TDS',           unit:'ppm',   min:0,    max:3500 },
-        { id:'bw_palk', label:'P-Alkalinity',  unit:'ppm',   min:100,  max:600  },
-        { id:'bw_malk', label:'M-Alkalinity',  unit:'ppm',   min:150,  max:800  },
-        { id:'bw_ohalk',label:'OH Alkalinity', unit:'ppm',   min:0,    max:200, calc: true },
-        { id:'bw_cl',   label:'Chloride',      unit:'ppm',   min:0,    max:200  },
-        { id:'bw_so3',  label:'Sulfite',       unit:'ppm',   min:20,   max:60   },
-        { id:'bw_po4',  label:'Phosphate',     unit:'ppm',   min:20,   max:50   },
-        { id:'bw_si',   label:'Silica',        unit:'ppm',   min:0,    max:150  },
-        { id:'bw_tan',  label:'Tannin',        unit:'ppm',   min:10,   max:40   },
+        { id:'bw_ph',   label:'pH',             unit:'—',     min:10.5, max:12.0 },
+        { id:'bw_tds',  label:'TDS',            unit:'ppm',   min:0,    max:3500 },
+        { id:'bw_palk', label:'P-Alkalinity',   unit:'ppm',   min:100,  max:600  },
+        { id:'bw_malk', label:'M-Alkalinity',   unit:'ppm',   min:150,  max:800  },
+        { id:'bw_ohalk',label:'OH Alkalinity',  unit:'ppm',   min:0,    max:200, calc:true },
+        { id:'bw_cl',   label:'Chloride',       unit:'ppm',   min:0,    max:200  },
+        { id:'bw_so3',  label:'Sulfite',        unit:'ppm',   min:20,   max:60   },
+        { id:'bw_po4',  label:'Phosphate',      unit:'ppm',   min:20,   max:50   },
+        { id:'bw_si',   label:'Silica',         unit:'ppm',   min:0,    max:150  },
+        { id:'bw_tan',  label:'Tannin',         unit:'ppm',   min:100,  max:160  },
+        { id:'bw_cyc',  label:'Cycles of Concentration', unit:'—', calc:true, noLimit:true },
       ]},
       { title: 'Condensate Return', params: [
-        { id:'cr_ph',   label:'pH',            unit:'—',     min:8.0,  max:9.5  },
-        { id:'cr_cond', label:'Conductivity',  unit:'µS/cm', min:0,    max:50   },
-        { id:'cr_fe',   label:'Iron',          unit:'ppm',   min:0,    max:0.1  },
+        { id:'cr_ph',   label:'pH',             unit:'—',     min:8.3,  max:9.5  },
+        { id:'cr_cond', label:'Conductivity',   unit:'µS/cm', min:0,    max:20   },
+        { id:'cr_fe',   label:'Iron',           unit:'ppm',   min:0,    max:0.1  },
       ]},
     ]
   },
@@ -483,29 +499,29 @@ const PARAMS = {
     icon: '❄️', label: 'Cooling Tower',
     sections: [
       { title: 'Make-up Water', params: [
-        { id:'mu_ph',   label:'pH',            unit:'—',     min:6.5,  max:8.5  },
-        { id:'mu_tds',  label:'TDS',           unit:'ppm',   min:0,    max:1000 },
-        { id:'mu_hard', label:'Total Hardness',unit:'ppm',   min:0,    max:400  },
-        { id:'mu_ca',   label:'Ca Hardness',   unit:'ppm',   min:0,    max:300  },
-        { id:'mu_alk',  label:'M-Alkalinity',  unit:'ppm',   min:0,    max:300  },
-        { id:'mu_cl',   label:'Chloride',      unit:'ppm',   min:0,    max:200  },
+        { id:'mu_ph',   label:'pH',             unit:'—',     min:6.5,  max:8.5  },
+        { id:'mu_tds',  label:'TDS',            unit:'ppm',   min:0,    max:1000 },
+        { id:'mu_hard', label:'Total Hardness', unit:'ppm',   min:0,    max:400  },
+        { id:'mu_ca',   label:'Ca Hardness',    unit:'ppm',   min:0,    max:300  },
+        { id:'mu_alk',  label:'M-Alkalinity',   unit:'ppm',   min:0,    max:300  },
+        { id:'mu_cl',   label:'Chloride',       unit:'ppm',   min:0,    max:200  },
       ]},
       { title: 'Circuit Water', params: [
-        { id:'cw_ph',   label:'pH',            unit:'—',     min:7.0,  max:9.0  },
-        { id:'cw_cond', label:'Conductivity',  unit:'µS/cm', min:0,    max:3000 },
-        { id:'cw_tds',  label:'TDS',           unit:'ppm',   min:0,    max:2000 },
-        { id:'cw_hard', label:'Total Hardness',unit:'ppm',   min:0,    max:800  },
-        { id:'cw_ca',   label:'Ca Hardness',   unit:'ppm',   min:0,    max:600  },
-        { id:'cw_alk',  label:'M-Alkalinity',  unit:'ppm',   min:0,    max:600  },
-        { id:'cw_cl',   label:'Chloride',      unit:'ppm',   min:0,    max:500  },
-        { id:'cw_fcl',  label:'Free Chlorine', unit:'ppm',   min:0.2,  max:1.0  },
-        { id:'cw_fe',   label:'Iron',          unit:'ppm',   min:0,    max:1.0  },
-        { id:'cw_lsi',  label:'LSI',           unit:'—',     min:-0.5, max:0.5  },
-      ]},
-      { title: 'Blowdown', params: [
-        { id:'bd_ph',   label:'pH',            unit:'—',     min:7.0,  max:9.5  },
-        { id:'bd_cond', label:'Conductivity',  unit:'µS/cm', min:0,    max:5000 },
-        { id:'bd_tds',  label:'TDS',           unit:'ppm',   min:0,    max:3000 },
+        { id:'cw_temp', label:'Temperature',    unit:'°C',    min:20,   max:50   },
+        { id:'cw_ph',   label:'pH',             unit:'—',     min:7.0,  max:9.0  },
+        { id:'cw_cond', label:'Conductivity',   unit:'µS/cm', min:0,    max:3000 },
+        { id:'cw_tds',  label:'TDS',            unit:'ppm',   min:0,    max:2000 },
+        { id:'cw_hard', label:'Total Hardness', unit:'ppm',   min:0,    max:800  },
+        { id:'cw_ca',   label:'Ca Hardness',    unit:'ppm',   min:0,    max:600  },
+        { id:'cw_alk',  label:'M-Alkalinity',   unit:'ppm',   min:0,    max:600  },
+        { id:'cw_cl',   label:'Chloride',       unit:'ppm',   min:0,    max:500  },
+        { id:'cw_fcl',  label:'Free Chlorine',  unit:'ppm',   min:0.2,  max:1.0  },
+        { id:'cw_fe',   label:'Iron',           unit:'ppm',   min:0,    max:1.0  },
+        { id:'cw_zn',   label:'Zinc',           unit:'ppm',   min:0,    max:2.0  },
+        { id:'cw_opo4', label:'Ortho-Phosphate',unit:'ppm',   min:0,    max:10   },
+        { id:'cw_tpo4', label:'Total Phosphate',unit:'ppm',   min:0,    max:15   },
+        { id:'cw_phos', label:'Phosphonate',    unit:'ppm',   min:0,    max:10   },
+        { id:'cw_lsi',  label:'LSI',            unit:'—',     min:-0.5, max:0.5, calc:true },
       ]},
     ]
   },
@@ -517,8 +533,21 @@ const PARAMS = {
         { id:'cl_cond', label:'Conductivity',   unit:'µS/cm', min:0,    max:3000 },
         { id:'cl_hard', label:'Total Hardness', unit:'ppm',   min:0,    max:200  },
         { id:'cl_fe',   label:'Iron',           unit:'ppm',   min:0,    max:1.0  },
-        { id:'cl_inh',  label:'Inhibitor Level',unit:'ppm',   min:100,  max:300  },
+        { id:'cl_inh',  label:'Inhibitor Level',unit:'ppm',   min:1000, max:1600 },
         { id:'cl_turb', label:'Turbidity',      unit:'NTU',   min:0,    max:5    },
+      ]},
+    ]
+  },
+  pool: {
+    icon: '🏊', label: 'Swimming Pool',
+    sections: [
+      { title: 'Pool Water Analysis', params: [
+        { id:'pl_fcl',  label:'Free Chlorine',   unit:'ppm',   min:1,    max:3    },
+        { id:'pl_ph',   label:'pH',              unit:'—',     min:7.2,  max:7.8  },
+        { id:'pl_cya',  label:'Cyanuric Acid',   unit:'ppm',   min:30,   max:70   },
+        { id:'pl_alk',  label:'Total Alkalinity',unit:'ppm',   min:100,  max:150  },
+        { id:'pl_ca',   label:'Calcium Hardness',unit:'ppm',   min:100,  max:400  },
+        { id:'pl_tds',  label:'TDS',             unit:'ppm',   min:0,    max:1500 },
       ]},
     ]
   },
@@ -542,7 +571,287 @@ const PARAMS = {
 };
 
 // ══════════════════════════════════════════
-// ENGINEERS — load from Sheets
+// PERFORMANCE TRENDS
+// ══════════════════════════════════════════
+// Curated per system — these are the readings that tell the client a story
+// about performance, not every parameter on the form.
+const TREND_CANDIDATES = {
+  boiler: [
+    { id:'bw_cyc',  section:'Boiler Water',      label:'Cycles of Concentration' },
+    { id:'fw_cret', section:'Feed Water',        label:'Est. Condensate Return' },
+    { id:'bw_tds',  section:'Boiler Water',      label:'Boiler Water TDS' },
+    { id:'fw_hard', section:'Feed Water',        label:'Feed Water Hardness' },
+    { id:'cr_fe',   section:'Condensate Return', label:'Condensate Iron' },
+    { id:'bw_po4',  section:'Boiler Water',      label:'Phosphate' },
+  ],
+  cooling: [
+    { id:'cw_lsi',  section:'Circuit Water', label:'LSI' },
+    { id:'cw_tds',  section:'Circuit Water', label:'Circuit Water TDS' },
+    { id:'cw_fcl',  section:'Circuit Water', label:'Free Chlorine' },
+    { id:'cw_fe',   section:'Circuit Water', label:'Iron' },
+    { id:'cw_tpo4', section:'Circuit Water', label:'Total Phosphate' },
+  ],
+  closed: [
+    { id:'cl_inh',  section:'Closed Loop Parameters', label:'Inhibitor Level' },
+    { id:'cl_fe',   section:'Closed Loop Parameters', label:'Iron' },
+    { id:'cl_cond', section:'Closed Loop Parameters', label:'Conductivity' },
+  ],
+  raw: [
+    { id:'rw_tds',  section:'Raw Water Analysis', label:'TDS' },
+    { id:'rw_hard', section:'Raw Water Analysis', label:'Total Hardness' },
+    { id:'rw_turb', section:'Raw Water Analysis', label:'Turbidity' },
+  ],
+  // Swimming pools intentionally have no trend charts.
+  pool: [],
+};
+
+const MAX_TRENDS = 3;
+
+function buildTrendPicker(sysId, type) {
+  const cands = TREND_CANDIDATES[type] || [];
+  if (!cands.length) return '';
+  const boxes = cands.map(c => `
+    <label class="trend-opt">
+      <input type="checkbox" class="trend-cb" data-sys="${sysId}"
+             data-pid="${c.id}" data-section="${c.section}" data-label="${escAttr(c.label)}"
+             onchange="onTrendToggle(${sysId})">
+      <span>${escAttr(c.label)}</span>
+    </label>`).join('');
+  return `
+    <div style="margin-top:14px">
+      <div class="subsection-title">Performance Trends <span style="font-size:9px;color:var(--muted);text-transform:none;letter-spacing:0">(optional)</span></div>
+      <div style="font-size:10px;color:var(--muted);margin-bottom:8px">
+        Adds a chart of the last 6 visits to the client's report. Select up to ${MAX_TRENDS}.
+      </div>
+      <div class="trend-opts" id="trend-opts-${sysId}">${boxes}</div>
+      <div class="trend-note" id="trend-note-${sysId}"></div>
+    </div>`;
+}
+
+function onTrendToggle(sysId) {
+  const boxes = [...document.querySelectorAll(`.trend-cb[data-sys="${sysId}"]`)];
+  const checked = boxes.filter(b => b.checked);
+  // Enforce the cap by disabling the rest once the limit is reached
+  boxes.forEach(b => { b.disabled = !b.checked && checked.length >= MAX_TRENDS; });
+  const note = document.getElementById(`trend-note-${sysId}`);
+  if (note) {
+    note.textContent = checked.length
+      ? `${checked.length} of ${MAX_TRENDS} selected — charts will be added to the report`
+      : '';
+  }
+}
+
+function getSelectedTrends(sysId) {
+  return [...document.querySelectorAll(`.trend-cb[data-sys="${sysId}"]`)]
+    .filter(b => b.checked)
+    .map(b => ({ pid: b.dataset.pid, section: b.dataset.section, label: b.dataset.label }));
+}
+
+// Pull the last 6 visits for this client and build a series for each selected
+// trend. Reads live from Sheets — nothing is stored on the device.
+async function buildTrendSeries(systemsData) {
+  const wanted = systemsData.filter(s => s.trends && s.trends.length);
+  if (!wanted.length) return {};
+
+  let rows;
+  try {
+    const res  = await fetch(`${APPS_SCRIPT_URL}?sheet=Reports&db=${SERVICE_DB}`);
+    const json = await res.json();
+    if (!json.success || !json.data || json.data.length < 2) return {};
+    rows = json.data.slice(1);
+  } catch (e) {
+    console.error('Trend history fetch failed:', e);
+    return {};
+  }
+
+  const key = String(state.client?.code ?? '').trim().toLowerCase();
+  const past = rows
+    .map(r => ({ ref:r[0], timestamp:r[1], clientCode:r[3],
+                 systemsRaw:r[12], createdAt:r[14] }))
+    .filter(r => r.ref && r.clientCode &&
+                 String(r.clientCode).trim().toLowerCase() === key)
+    .map(r => ({ ...r, date: histDate(r) }))
+    .sort((a, b) => a.date - b.date);
+
+  const out = {};
+  wanted.forEach(sys => {
+    out[sys.id] = sys.trends.map(t => {
+      const points = [];
+      past.forEach(rep => {
+        const systems = parseHistSystems(rep.systemsRaw);
+        // match the same system by name, falling back to type
+        const match = systems.find(s => (s.name && s.name === sys.name)) ||
+                      systems.find(s => s.type === sys.type);
+        if (!match) return;
+        const v = readHistValue(match, t, sys.type);
+        if (v !== null) points.push({ date: rep.date, value: v });
+      });
+      // include the reading just entered, if present
+      const nowVal = currentTrendValue(sys, t);
+      if (nowVal !== null) points.push({ date: new Date(), value: nowVal });
+      return { label: t.label, pid: t.pid, points: points.slice(-6) };
+    }).filter(sr => sr.points.length >= 2);   // a single point is not a trend
+  });
+  return out;
+}
+
+// Read a trend value out of a stored system, recomputing the derived ones
+// because older reports may not have saved them.
+function readHistValue(sysObj, trend, sysType) {
+  const def = findParamDefSec(sysType, trend.label, trend.section);
+  const sections = (sysObj.sections && Object.keys(sysObj.sections).length)
+    ? sysObj.sections : null;
+
+  const pick = (section, label) => {
+    if (sections) {
+      const sec = sections[section];
+      if (sec && sec[label] !== undefined) return parseFloat(sec[label]);
+      for (const s of Object.values(sections)) {
+        if (s && s[label] !== undefined) return parseFloat(s[label]);
+      }
+      return NaN;
+    }
+    const r = sysObj.readings || {};
+    return r[label] !== undefined ? parseFloat(r[label]) : NaN;
+  };
+
+  // Derived values: recompute from their inputs so history stays consistent
+  if (trend.pid === 'bw_cyc') {
+    const bw = pick('Boiler Water', 'Chloride');
+    const fw = pick('Feed Water', 'Chloride');
+    if (!isNaN(bw) && !isNaN(fw) && fw > 0) return +(bw / fw).toFixed(1);
+    return null;
+  }
+  if (trend.pid === 'fw_cret') {
+    const sw = pick('Softener Water', 'TDS');
+    const fw = pick('Feed Water', 'TDS');
+    if (!isNaN(sw) && !isNaN(fw) && sw > 0) {
+      const pct = (1 - fw / sw) * 100;
+      return pct > 0 ? +pct.toFixed(1) : null;
+    }
+    return null;
+  }
+
+  const label = def ? def.label : trend.label;
+  const v = pick(trend.section, label);
+  return isNaN(v) ? null : v;
+}
+
+// The value for this trend in the report being written right now
+function currentTrendValue(sys, trend) {
+  const def = findParamDefSec(sys.type, trend.label, trend.section);
+  const label = def ? def.label : trend.label;
+  const sec = sys.sections && sys.sections[trend.section];
+  let raw = sec ? sec[label] : undefined;
+  if (raw === undefined && sys.readings) raw = sys.readings[label];
+  const v = parseFloat(raw);
+  return isNaN(v) ? null : v;
+}
+
+// Draw a trend chart to a canvas and return a PNG data URL for the PDF.
+function drawTrendChartPng(series, systemName) {
+  const W = 1100, H = 420, S = 2;   // supersample for a crisp PDF image
+  const canvas = document.createElement('canvas');
+  canvas.width = W * S; canvas.height = H * S;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(S, S);
+
+  const def = findParamDefSecById(series.pid);
+  const pts = series.points;
+  const P = { t: 54, r: 30, b: 58, l: 84 };
+  const iw = W - P.l - P.r, ih = H - P.t - P.b;
+
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, W, H);
+
+  // Title
+  ctx.fillStyle = '#0a1628';
+  ctx.font = 'bold 22px Arial, sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText(`${series.label}${def && def.unit && def.unit !== '—' ? ' (' + def.unit + ')' : ''}`, P.l, 26);
+  ctx.fillStyle = '#64748b';
+  ctx.font = '15px Arial, sans-serif';
+  ctx.fillText(`${systemName} — last ${pts.length} visits`, P.l, 46);
+
+  const values = pts.map(p => p.value);
+  let lo = Math.min(...values), hi = Math.max(...values);
+  const hasBand = def && isFinite(def.min) && isFinite(def.max) && def.max < 9999 && !def.noLimit;
+  if (hasBand) { lo = Math.min(lo, def.min); hi = Math.max(hi, def.max); }
+  if (lo === hi) { lo -= 1; hi += 1; }
+  const pad = (hi - lo) * 0.15;
+  lo -= pad; hi += pad;
+
+  const n = pts.length;
+  const xAt = i => P.l + (n === 1 ? iw / 2 : (i / (n - 1)) * iw);
+  const yAt = v => P.t + ih - ((v - lo) / (hi - lo)) * ih;
+
+  // Safe range band
+  if (hasBand) {
+    const yTop = yAt(def.max), yBot = yAt(def.min);
+    ctx.fillStyle = '#dcfce7';
+    ctx.fillRect(P.l, Math.min(yTop, yBot), iw, Math.abs(yBot - yTop));
+    ctx.strokeStyle = '#86efac'; ctx.lineWidth = 1.5; ctx.setLineDash([6, 4]);
+    [yTop, yBot].forEach(y => {
+      ctx.beginPath(); ctx.moveTo(P.l, y); ctx.lineTo(P.l + iw, y); ctx.stroke();
+    });
+    ctx.setLineDash([]);
+  }
+
+  // Gridlines + y labels
+  ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 1;
+  ctx.fillStyle = '#64748b'; ctx.font = '14px Arial, sans-serif'; ctx.textAlign = 'right';
+  for (let i = 0; i <= 4; i++) {
+    const v = lo + (hi - lo) * (i / 4), y = yAt(v);
+    ctx.beginPath(); ctx.moveTo(P.l, y); ctx.lineTo(P.l + iw, y); ctx.stroke();
+    ctx.fillText(fmtTrend(v), P.l - 10, y + 5);
+  }
+
+  // Axis
+  ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(P.l, P.t + ih); ctx.lineTo(P.l + iw, P.t + ih); ctx.stroke();
+
+  // Line
+  if (n > 1) {
+    ctx.strokeStyle = '#1a56db'; ctx.lineWidth = 3;
+    ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+    ctx.beginPath();
+    pts.forEach((p, i) => i ? ctx.lineTo(xAt(i), yAt(p.value)) : ctx.moveTo(xAt(i), yAt(p.value)));
+    ctx.stroke();
+  }
+
+  // Points, values and dates
+  ctx.textAlign = 'center';
+  pts.forEach((p, i) => {
+    const x = xAt(i), y = yAt(p.value);
+    const bad = hasBand && (p.value < def.min || p.value > def.max);
+    ctx.beginPath(); ctx.arc(x, y, 6.5, 0, Math.PI * 2);
+    ctx.fillStyle = bad ? '#ef4444' : '#10b981'; ctx.fill();
+    ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2.5; ctx.stroke();
+
+    ctx.fillStyle = '#0a1628'; ctx.font = 'bold 14px Arial, sans-serif';
+    ctx.fillText(fmtTrend(p.value), x, y - 14);
+
+    ctx.fillStyle = '#64748b'; ctx.font = '13px Arial, sans-serif';
+    ctx.fillText(p.date.toLocaleDateString('en-GB', { day:'2-digit', month:'short' }), x, P.t + ih + 22);
+    ctx.fillText(String(p.date.getFullYear()).slice(2), x, P.t + ih + 38);
+  });
+
+  return canvas.toDataURL('image/png');
+}
+
+function findParamDefSecById(pid) {
+  for (const type of Object.keys(PARAMS))
+    for (const sec of PARAMS[type].sections)
+      for (const p of sec.params)
+        if (p.id === pid) return p;
+  return null;
+}
+
+function fmtTrend(n) {
+  if (!isFinite(n)) return '—';
+  return Math.abs(n) >= 100 ? n.toFixed(0) : Math.abs(n) >= 10 ? n.toFixed(1) : n.toFixed(2);
+}
+
 // ══════════════════════════════════════════
 async function loadEngineers() {
   // Dummy engineers while sheet is being populated
@@ -1106,6 +1415,7 @@ function addSystem(type) {
           <div id="tp-${id}" style="display:flex;flex-direction:column;gap:8px"></div>
           <button onclick="addTreatmentProduct(${id})" class="btn btn-secondary btn-sm" style="margin-top:8px;font-size:11px">+ Add Product</button>
         </div>
+        ${buildTrendPicker(id, type)}
       </div>
     </div>`;
 
@@ -1182,6 +1492,89 @@ function onParamInput(input, sysId, paramId) {
   if (paramId === 'bw_palk' || paramId === 'bw_malk') {
     calcOHAlk(sysId);
   }
+  // LSI auto-calc (cooling tower)
+  if (['cw_ph','cw_ca','cw_alk','cw_tds','cw_temp'].includes(paramId)) {
+    calcLSI(sysId);
+  }
+  // Cycles of Concentration (boiler): Boiler Chloride ÷ Feed Chloride
+  if (paramId === 'bw_cl' || paramId === 'fw_cl') {
+    calcCycles(sysId);
+  }
+  // Estimated condensate return (boiler): from Softener vs Feed TDS
+  if (paramId === 'sw_tds' || paramId === 'fw_tds') {
+    calcCondReturn(sysId);
+  }
+}
+
+// Cycles of Concentration = Boiler Water Chloride ÷ Feed Water Chloride
+// Chloride is used because it does not precipitate, volatilise or react.
+function calcCycles(sysId) {
+  const bwCl = parseFloat(document.getElementById(`inp-${sysId}-bw_cl`)?.value);
+  const fwCl = parseFloat(document.getElementById(`inp-${sysId}-fw_cl`)?.value);
+  const out  = document.getElementById(`inp-${sysId}-bw_cyc`);
+  const dot  = document.getElementById(`dot-${sysId}-bw_cyc`);
+  if (!out) return;
+  if (isNaN(bwCl) || isNaN(fwCl) || fwCl <= 0) {
+    out.value = '';
+    if (dot) dot.className = 'status-dot calc';
+    return;
+  }
+  out.value = (bwCl / fwCl).toFixed(1);
+  if (dot) dot.className = 'status-dot calc';
+}
+
+// Estimated Condensate Return % from a TDS mass balance.
+// Assumes condensate TDS is negligible, so it is an estimate, not a measurement.
+//   Return % = (1 - Feed TDS / Softener TDS) x 100
+function calcCondReturn(sysId) {
+  const swTds = parseFloat(document.getElementById(`inp-${sysId}-sw_tds`)?.value);
+  const fwTds = parseFloat(document.getElementById(`inp-${sysId}-fw_tds`)?.value);
+  const out   = document.getElementById(`inp-${sysId}-fw_cret`);
+  const dot   = document.getElementById(`dot-${sysId}-fw_cret`);
+  if (!out) return;
+  if (isNaN(swTds) || isNaN(fwTds) || swTds <= 0) {
+    out.value = '';
+    if (dot) dot.className = 'status-dot calc';
+    return;
+  }
+  const pct = (1 - (fwTds / swTds)) * 100;
+  // Feed TDS above softener TDS means no dilution is happening — show nothing
+  // rather than a misleading negative number.
+  out.value = pct > 0 ? pct.toFixed(1) : '';
+  if (dot) dot.className = 'status-dot calc';
+}
+
+function calcLSI(sysId) {
+  const pH   = parseFloat(document.getElementById(`inp-${sysId}-cw_ph`)?.value);
+  const ca   = parseFloat(document.getElementById(`inp-${sysId}-cw_ca`)?.value);
+  const alk  = parseFloat(document.getElementById(`inp-${sysId}-cw_alk`)?.value);
+  const tds  = parseFloat(document.getElementById(`inp-${sysId}-cw_tds`)?.value);
+  const temp = parseFloat(document.getElementById(`inp-${sysId}-cw_temp`)?.value);
+  const out  = document.getElementById(`inp-${sysId}-cw_lsi`);
+  const dot  = document.getElementById(`dot-${sysId}-cw_lsi`);
+  if (!out) return;
+  if (isNaN(pH) || isNaN(ca) || isNaN(alk) || isNaN(temp) || ca <= 0 || alk <= 0) {
+    out.value = '';
+    if (dot) dot.className = 'status-dot calc';
+    return;
+  }
+  // pHs = (9.3 + A + B) - (C + D)
+  const A = (!isNaN(tds) && tds > 0) ? (Math.log10(tds) - 1) / 10 : 0;
+  const B = (() => {
+    const tbl = [[0,2.60],[5,2.50],[10,2.44],[15,2.34],[20,2.22],[25,2.10],[30,1.97],
+                 [35,1.84],[40,1.70],[45,1.55],[50,1.40],[55,1.25],[60,1.10],[70,0.83],[80,0.62]];
+    for (let i = 0; i < tbl.length - 1; i++) {
+      if (temp >= tbl[i][0] && temp <= tbl[i+1][0]) {
+        const t = (temp - tbl[i][0]) / (tbl[i+1][0] - tbl[i][0]);
+        return tbl[i][1] + t * (tbl[i+1][1] - tbl[i][1]);
+      }
+    }
+    return temp < 0 ? 2.60 : 0.62;
+  })();
+  const C = Math.log10(ca) - 0.4;
+  const D = Math.log10(alk);
+  out.value = (pH - ((9.3 + A + B) - (C + D))).toFixed(2);
+  if (dot) dot.className = 'status-dot calc';
 }
 
 function calcOHAlk(sysId) {
@@ -1238,7 +1631,8 @@ function collectSystems() {
         }
       });
     }
-    return { id: sys.id, type: sys.type, stype: def, name, sections, readings, recommendations: rec, treatment };
+    const trends = getSelectedTrends(sys.id);
+    return { id: sys.id, type: sys.type, stype: def, name, sections, readings, recommendations: rec, treatment, trends };
   });
 }
 
@@ -1335,9 +1729,16 @@ async function submitReport() {
     ];
     await postToSheets('Reports', row);
 
+    // Build trend charts if the engineer selected any
+    let trendSeries = {};
+    if (systemsData.some(sy => sy.trends && sy.trends.length)) {
+      showLoading('Building performance trends...');
+      trendSeries = await buildTrendSeries(systemsData);
+    }
+
     // Generate PDF
     showLoading('Generating PDF...');
-    const pdfResult = await generatePDF(systemsData, visitType, visitNotes, prospectName, prospectContact);
+    const pdfResult = await generatePDF(systemsData, visitType, visitNotes, prospectName, prospectContact, trendSeries);
     const pdfUri = pdfResult.dataUri;
     const pdfBase64Clean = pdfResult.base64Clean;
 
@@ -1524,6 +1925,11 @@ function buildEmailBody(systemsData, visitType, visitNotes, prospectName, prospe
     body += `</div>`;
   });
 
+  // Trend charts live in the PDF only — point the reader there
+  if (systemsData.some(sy => sy.trends && sy.trends.length)) {
+    body += `<div style="margin-top:16px;padding:10px 14px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;font-size:11px;color:#1e3a5f">📈 Performance trend charts for the last visits are included in the attached PDF report.</div>`;
+  }
+
   body += `<div style="margin-top:16px;padding:10px 14px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;text-align:center;font-size:11px;color:#166534">📄 A PDF copy has been automatically saved on the engineer's device.</div>`;
 
   // PDF Download Button (if link available)
@@ -1603,7 +2009,8 @@ function addTextToPDF(doc, text, x, y, maxWidth, fontSize, color, bold) {
   return imgH;
 }
 
-async function generatePDF(systemsData, visitType, visitNotes, prospectName, prospectContact) {
+async function generatePDF(systemsData, visitType, visitNotes, prospectName, prospectContact, trendSeries) {
+  trendSeries = trendSeries || {};
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
   const W = 210, M = 14, CW = W - M*2;
@@ -1830,6 +2237,38 @@ async function generatePDF(systemsData, visitType, visitNotes, prospectName, pro
       y += 3;
     }
 
+    // Performance trend charts (only when the engineer selected them)
+    const seriesList = trendSeries[sys.id] || [];
+    if (seriesList.length) {
+      const chartH = 52;   // mm — keeps roughly the canvas aspect ratio
+      seriesList.forEach((series, si) => {
+        if (y + chartH + 12 > 280) { doc.addPage(); y = 16; }
+        if (si === 0) {
+          doc.setFillColor(241,245,249);
+          doc.rect(M, y, CW, 7, 'F');
+          doc.setTextColor(30,41,59);
+          doc.setFont('helvetica','bold'); doc.setFontSize(8);
+          doc.text('PERFORMANCE TRENDS', M+3, y+5);
+          y += 9;
+        }
+        try {
+          const png = drawTrendChartPng(series, sys.name);
+          doc.addImage(png, 'PNG', M, y, CW, chartH);
+          y += chartH + 4;
+        } catch (e) {
+          console.error('Trend chart failed:', e);
+        }
+      });
+      // Make the basis of the estimate explicit for the client
+      if (seriesList.some(sr => sr.pid === 'fw_cret')) {
+        doc.setFont('helvetica','italic'); doc.setFontSize(7);
+        doc.setTextColor(100,116,139);
+        doc.text('Condensate return is estimated from a TDS mass balance and is approximate.', M, y+2);
+        y += 6;
+      }
+      y += 2;
+    }
+
     y += 5;
   });
 
@@ -1934,7 +2373,7 @@ updateClock();
 setInterval(updateClock, 30000);
 
 // ─── VERSION CHECK — auto-refresh when new version deployed ───
-const APP_VERSION = '2.4.1';
+const APP_VERSION = '2.5.0';
 const storedVer = localStorage.getItem('pwt_app_version');
 if (storedVer && storedVer !== APP_VERSION) {
   localStorage.removeItem('pwt_engineers_cache');
