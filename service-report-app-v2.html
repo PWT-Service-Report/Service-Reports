@@ -1884,7 +1884,12 @@ function buildEmailBody(systemsData, visitType, visitNotes, prospectName, prospe
         const p = row.p;
         const v = row.v;
         const numV = parseFloat(v);
-        const statusColor = !isNaN(numV) ? (p.calc ? '#3b82f6' : (numV >= p.min && numV <= p.max ? '#10b981' : '#ef4444')) : '#94a3b8';
+        const hasRange = !p.noLimit && isFinite(p.min) && isFinite(p.max) && p.max < 9999;
+        const inRange  = hasRange && numV >= p.min && numV <= p.max;
+        const statusColor = isNaN(numV) ? '#94a3b8'
+                          : !hasRange   ? (p.calc ? '#3b82f6' : '#94a3b8')
+                          : inRange     ? (p.calc ? '#3b82f6' : '#10b981')
+                                        : '#ef4444';
         const bg = i % 2 === 0 ? '#ffffff' : '#f8fafc';
         body += `<tr style="background:${bg}">
           <td style="padding:7px 14px;font-size:12px;color:#334155;border-top:1px solid #e2e8f0;width:50%">${p.label}</td>
@@ -1949,64 +1954,129 @@ function buildEmailBody(systemsData, visitType, visitNotes, prospectName, prospe
 // PDF GENERATION
 // ══════════════════════════════════════════
 // Helper: render Arabic or mixed text to image and add to PDF
+// Draws text that may be Arabic, Latin, or mixed.
+//
+// IMPORTANT: `y` is the TOP of the text block in BOTH branches, and the
+// returned value is the block's height in mm. Latin text goes through jsPDF
+// (which positions by baseline, so we add the ascent); Arabic is rendered to a
+// canvas and placed as an image (positioned by its top). Keeping one
+// convention is what stops headings from sitting above their coloured bars.
+const PT_TO_MM = 0.3528;
+
 function addTextToPDF(doc, text, x, y, maxWidth, fontSize, color, bold) {
-  // Detect if text contains Arabic
+  text = String(text == null ? '' : text);
+  if (!text) return 0;
+
   const hasArabic = /[؀-ۿݐ-ݿࢠ-ࣿﭐ-﷿ﹰ-﻿]/.test(text);
-  
+  const lineH = fontSize * PT_TO_MM * 1.15;   // mm per line
+
   if (!hasArabic) {
-    // Regular Latin text — use normal jsPDF
     doc.setFontSize(fontSize);
-    doc.setTextColor(...color);
+    doc.setTextColor(color[0], color[1], color[2]);
     doc.setFont('helvetica', bold ? 'bold' : 'normal');
     const lines = doc.splitTextToSize(text, maxWidth);
-    doc.text(lines, x, y);
-    return lines.length * (fontSize * 0.4);
+    // jsPDF draws from the baseline — drop by roughly the cap height so the
+    // caller's y behaves as the top of the block.
+    const firstBaseline = y + fontSize * PT_TO_MM * 0.82;
+    doc.text(lines, x, firstBaseline);
+    return lines.length * lineH;
   }
-  
-  // Arabic text — render via canvas (RTL, right-aligned)
+
+  // ── Arabic (or mixed) — render to canvas, place as image ──
+  const scale  = 4;              // supersample for a crisp PDF image
+  const mmToPx = 3.7795;
+  const maxPx  = maxWidth * scale * mmToPx;
+  const fontPx = fontSize * scale;
+  const linePx = fontPx * 1.35;  // tighter than before; was 2x and left big gaps
+
   const canvas = document.createElement('canvas');
-  const scale = 4; // High DPI
-  const mmToPx = 3.78;
-  const canvasWidth = maxWidth * scale * mmToPx;
-  const lineHeight = fontSize * 2 * scale;
-  
   const ctx = canvas.getContext('2d');
-  ctx.font = `${bold ? 'bold' : 'normal'} ${fontSize * scale}px Arial, sans-serif`;
-  
-  // Word wrap with RTL
-  const words = text.split(' ');
+  const fontSpec = `${bold ? 'bold ' : ''}${fontPx}px Arial, sans-serif`;
+  ctx.font = fontSpec;
+
+  // Word wrap
+  const words = text.split(/\s+/).filter(Boolean);
+  const lines = [];
   let line = '';
-  let lines = [];
   for (const word of words) {
-    const test = line + word + ' ';
-    if (ctx.measureText(test).width > canvasWidth - 20 && line !== '') {
-      lines.push(line.trim());
-      line = word + ' ';
+    const test = line ? line + ' ' + word : word;
+    if (ctx.measureText(test).width > maxPx && line) {
+      lines.push(line);
+      line = word;
     } else {
       line = test;
     }
   }
-  if (line.trim()) lines.push(line.trim());
-  
-  canvas.width = canvasWidth;
-  canvas.height = lineHeight * lines.length + 10;
-  
-  // Re-set font after resize (canvas resize resets context)
-  ctx.font = `${bold ? 'bold' : 'normal'} ${fontSize * scale}px Arial, sans-serif`;
+  if (line) lines.push(line);
+  if (!lines.length) return 0;
+
+  // Size the canvas to the actual text, not the full column, so the block can
+  // be placed at x without a wide empty gap beside it.
+  let widestPx = 0;
+  for (const l of lines) widestPx = Math.max(widestPx, ctx.measureText(l).width);
+  const padPx = fontPx * 0.25;
+  const canvasW = Math.min(Math.ceil(widestPx + padPx * 2), Math.ceil(maxPx));
+  const canvasH = Math.ceil(linePx * lines.length + padPx);
+
+  canvas.width  = canvasW;
+  canvas.height = canvasH;
+
+  // Resizing the canvas resets the context — re-apply everything.
+  ctx.font = fontSpec;
   ctx.fillStyle = `rgb(${color[0]},${color[1]},${color[2]})`;
-  ctx.direction = 'rtl';
   ctx.textAlign = 'right';
-  
+  ctx.textBaseline = 'alphabetic';
+  try { ctx.direction = 'rtl'; } catch (e) {}
+
   lines.forEach((l, i) => {
-    ctx.fillText(l, canvasWidth - 8, lineHeight * (i + 1) - 4);
+    ctx.fillText(l, canvasW - padPx, linePx * (i + 1) - linePx * 0.28);
   });
-  
-  const imgData = canvas.toDataURL('image/png');
-  const imgH = (canvas.height / scale / mmToPx);
-  const imgW = maxWidth;
-  doc.addImage(imgData, 'PNG', x, y, imgW, imgH);
-  
+
+  const imgW = canvasW / scale / mmToPx;
+  const imgH = canvasH / scale / mmToPx;
+  doc.addImage(canvas.toDataURL('image/png'), 'PNG', x, y, imgW, imgH);
   return imgH;
+}
+
+// Same wrapping maths as addTextToPDF but draws nothing — lets a caller size
+// a background box before the text goes on top of it.
+function measureTextHeight(doc, text, maxWidth, fontSize, bold) {
+  text = String(text == null ? '' : text);
+  if (!text) return 0;
+  const hasArabic = /[؀-ۿݐ-ݿࢠ-ࣿﭐ-﷿ﹰ-﻿]/.test(text);
+  const lineH = fontSize * PT_TO_MM * 1.15;
+
+  if (!hasArabic) {
+    doc.setFontSize(fontSize);
+    doc.setFont('helvetica', bold ? 'bold' : 'normal');
+    return doc.splitTextToSize(text, maxWidth).length * lineH;
+  }
+
+  const scale = 4, mmToPx = 3.7795;
+  const maxPx = maxWidth * scale * mmToPx;
+  const fontPx = fontSize * scale;
+  const linePx = fontPx * 1.35;
+  const ctx = document.createElement('canvas').getContext('2d');
+  ctx.font = `${bold ? 'bold ' : ''}${fontPx}px Arial, sans-serif`;
+
+  const words = text.split(/\s+/).filter(Boolean);
+  let lines = 0, line = '';
+  for (const word of words) {
+    const test = line ? line + ' ' + word : word;
+    if (ctx.measureText(test).width > maxPx && line) { lines++; line = word; }
+    else line = test;
+  }
+  if (line) lines++;
+  const padPx = fontPx * 0.25;
+  return (linePx * lines + padPx) / scale / mmToPx;
+}
+
+// Vertically centres a single line of text inside a bar of height `barH`
+// whose top edge is at `y`. Returns the bar height so callers can advance.
+function addTextCentered(doc, text, x, y, barH, maxWidth, fontSize, color, bold) {
+  const approxH = fontSize * PT_TO_MM * 1.15;
+  return addTextToPDF(doc, text, x, y + Math.max((barH - approxH) / 2, 0),
+                      maxWidth, fontSize, color, bold);
 }
 
 async function generatePDF(systemsData, visitType, visitNotes, prospectName, prospectContact, trendSeries) {
@@ -2047,7 +2117,7 @@ async function generatePDF(systemsData, visitType, visitNotes, prospectName, pro
     doc.setFontSize(9); doc.setFont('helvetica','bold');
     doc.text('FREE WATER ANALYSIS VISIT', M+3, y+7);
     const prospectFull = `Prospect: ${prospectName}${prospectContact ? ' · '+prospectContact : ''}`;
-    addTextToPDF(doc, prospectFull, M+3, y+11, CW-6, 8, [146,64,14], false);
+    addTextToPDF(doc, prospectFull, M+3, y+10, CW-6, 8, [146,64,14], false);
     y += 24;
   }
 
@@ -2063,16 +2133,16 @@ async function generatePDF(systemsData, visitType, visitNotes, prospectName, pro
   doc.setTextColor(10,22,40);
   doc.setFontSize(8.5); doc.setFont('helvetica','bold');
   const clientLabel = state.client?.name || prospectName || 'Free Visit';
-  addTextToPDF(doc, clientLabel, M+3, y+8, 58, 8.5, [10,22,40], true);
-  addTextToPDF(doc, state.engineer?.name||'', M+65, y+8, 50, 8.5, [10,22,40], true);
+  addTextToPDF(doc, clientLabel, M+3, y+7.5, 58, 8.5, [10,22,40], true);
+  addTextToPDF(doc, state.engineer?.name||'', M+65, y+7.5, 50, 8.5, [10,22,40], true);
   doc.setFontSize(7.5); doc.setFont('helvetica','normal'); doc.setTextColor(10,22,40);
   doc.text(visitType.slice(0,20), M+120, y+13);
   doc.text(state.timestamp.split(',')[0], M+168, y+13);
   y += 22;
 
   if (visitNotes) {
-    addTextToPDF(doc, 'Notes: ' + visitNotes, M, y, CW, 8, [100,116,139], false);
-    y += 7;
+    const notesH = addTextToPDF(doc, 'Notes: ' + visitNotes, M, y, CW, 8, [100,116,139], false);
+    y += notesH + 4;   // advance by real height — a long Arabic note is taller
   }
 
   // Systems
@@ -2082,7 +2152,7 @@ async function generatePDF(systemsData, visitType, visitNotes, prospectName, pro
     // System header — may be Arabic
     doc.setFillColor(26,86,219);
     doc.rect(M, y, CW, 8, 'F');
-    addTextToPDF(doc, sys.name, M+3, y+1.5, CW-6, 9, [255,255,255], true);
+    addTextCentered(doc, sys.name, M+3, y, 8, CW-6, 9, [255,255,255], true);
     y += 11;
 
     // Use sections if available, else fallback
@@ -2138,7 +2208,13 @@ async function generatePDF(systemsData, visitType, visitNotes, prospectName, pro
         // Status dot
         if (!isNaN(numV)) {
           const ok = numV >= p.min && numV <= p.max;
-          doc.setFillColor(...(p.calc ? [59,130,246] : ok ? [16,185,129] : [239,68,68]));
+          // An out-of-range reading is red even when auto-calculated —
+          // a high LSI must not look healthy to the client.
+          const hasRange = !p.noLimit && isFinite(p.min) && isFinite(p.max) && p.max < 9999;
+          const dotColor = !hasRange ? (p.calc ? [59,130,246] : [148,163,184])
+                         : ok        ? (p.calc ? [59,130,246] : [16,185,129])
+                                     : [239,68,68];
+          doc.setFillColor(dotColor[0], dotColor[1], dotColor[2]);
           doc.circle(M+163, y+3, 2.2, 'F');
         }
         y += 7;
@@ -2148,59 +2224,35 @@ async function generatePDF(systemsData, visitType, visitNotes, prospectName, pro
 
     // Recommendations
     if (sys.recommendations) {
-      if (y > 260) { doc.addPage(); y = 16; }
-      const recText = sys.recommendations;
-      const hasArabic = /[\u0600-\u06FF]/.test(recText);
-      
-      // Step 1: measure text height — account for newlines
-      const recLinesSplit = recText.split(/\n/).filter(l => l.trim());
-      let textH = 0;
-      for (const rl of recLinesSplit) {
-        if (/[\u0600-\u06FF]/.test(rl)) {
-          textH += 7;
-        } else {
-          doc.setFontSize(8);
-          const sub = doc.splitTextToSize(rl, CW - 8);
-          textH += sub.length * 5 + 2;
-        }
-      }
-      textH = Math.max(textH, 6);
-      
-      const labelH = 7; // height for "Recommendations:" label
-      const padding = 4;
-      const totalH = labelH + textH + padding * 2;
-      
-      // Draw background box
+      const recLines = String(sys.recommendations).split(/\n/);
+      const LBL_H = 6, PAD = 4, GAP = 1.5;
+
+      // Measure first so the box is exactly as tall as its contents —
+      // Arabic and Latin lines have genuinely different heights.
+      const measured = recLines.map(l =>
+        l.trim() ? measureTextHeight(doc, l, CW - 8, 8, false) : 3
+      );
+      const textH  = measured.reduce((a, b) => a + b, 0) + GAP * Math.max(recLines.length - 1, 0);
+      const totalH = LBL_H + Math.max(textH, 5) + PAD * 2;
+
+      if (y + totalH > 280) { doc.addPage(); y = 16; }
+
       doc.setFillColor(239,246,255);
       doc.rect(M, y, CW, totalH, 'F');
       doc.setDrawColor(191,219,254);
       doc.rect(M, y, CW, totalH, 'S');
-      
-      // Draw label
+
       doc.setFont('helvetica','bold');
       doc.setFontSize(8);
       doc.setTextColor(30,58,95);
-      doc.text('Recommendations:', M+3, y + padding + 4);
-      
-      // Draw text below label — handle newlines
-      const recLines = recText.split(/\n/);
-      let ty = y + labelH + padding;
-      for (const rline of recLines) {
-        if (!rline.trim()) { ty += 4; continue; }
-        const lineHasArabic = /[\u0600-\u06FF]/.test(rline);
-        if (lineHasArabic) {
-          addTextToPDF(doc, rline, M+3, ty, CW-6, 8, [30,58,95], false);
-          ty += 7;
-        } else {
-          doc.setFont('helvetica','normal');
-          doc.setFontSize(8);
-          doc.setTextColor(30,58,95);
-          const sublines = doc.splitTextToSize(rline, CW-8);
-          doc.text(sublines, M+3, ty + 4);
-          ty += sublines.length * 5 + 2;
-        }
-      }
-      
+      doc.text('Recommendations:', M+3, y + PAD + 3.5);
+
+      let ty = y + PAD + LBL_H;
+      recLines.forEach((rline, i) => {
+        if (!rline.trim()) { ty += measured[i]; return; }
+        ty += addTextToPDF(doc, rline, M+3, ty, CW-8, 8, [30,58,95], false) + GAP;
+      });
+
       y += totalH + 4;
     }
 
@@ -2228,7 +2280,7 @@ async function generatePDF(systemsData, visitType, visitNotes, prospectName, pro
         doc.setDrawColor(226,232,240);
         doc.line(M, y+6, M+CW, y+6);
 
-        addTextToPDF(doc, t.product, M+3, y+4.5, 80, 8, [10,22,40], true);
+        addTextCentered(doc, t.product, M+3, y, 7, 80, 8, [10,22,40], true);
         doc.setFont('helvetica','normal'); doc.setTextColor(51,65,85); doc.setFontSize(8);
         doc.text(t.dosage || '—', M+90, y+4.5);
         doc.text(t.stock || '—',  M+145, y+4.5);
@@ -2373,7 +2425,7 @@ updateClock();
 setInterval(updateClock, 30000);
 
 // ─── VERSION CHECK — auto-refresh when new version deployed ───
-const APP_VERSION = '2.5.0';
+const APP_VERSION = '2.5.1';
 const storedVer = localStorage.getItem('pwt_app_version');
 if (storedVer && storedVer !== APP_VERSION) {
   localStorage.removeItem('pwt_engineers_cache');
