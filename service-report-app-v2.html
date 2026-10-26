@@ -1963,7 +1963,7 @@ function buildEmailBody(systemsData, visitType, visitNotes, prospectName, prospe
 // convention is what stops headings from sitting above their coloured bars.
 const PT_TO_MM = 0.3528;
 
-function addTextToPDF(doc, text, x, y, maxWidth, fontSize, color, bold) {
+function addTextToPDF(doc, text, x, y, maxWidth, fontSize, color, bold, bgColor) {
   text = String(text == null ? '' : text);
   if (!text) return 0;
 
@@ -2023,6 +2023,9 @@ function addTextToPDF(doc, text, x, y, maxWidth, fontSize, color, bold) {
 
   // Resizing the canvas resets the context — re-apply everything.
   ctx.font = fontSpec;
+  const bg = bgColor || [255,255,255];
+  ctx.fillStyle = `rgb(${bg[0]},${bg[1]},${bg[2]})`;
+  ctx.fillRect(0, 0, canvasW, canvasH);
   ctx.fillStyle = `rgb(${color[0]},${color[1]},${color[2]})`;
   ctx.textAlign = 'right';
   ctx.textBaseline = 'alphabetic';
@@ -2034,7 +2037,7 @@ function addTextToPDF(doc, text, x, y, maxWidth, fontSize, color, bold) {
 
   const imgW = canvasW / scale / mmToPx;
   const imgH = canvasH / scale / mmToPx;
-  doc.addImage(canvas.toDataURL('image/png'), 'PNG', x, y, imgW, imgH);
+  doc.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', x, y, imgW, imgH);
   return imgH;
 }
 
@@ -2073,10 +2076,10 @@ function measureTextHeight(doc, text, maxWidth, fontSize, bold) {
 
 // Vertically centres a single line of text inside a bar of height `barH`
 // whose top edge is at `y`. Returns the bar height so callers can advance.
-function addTextCentered(doc, text, x, y, barH, maxWidth, fontSize, color, bold) {
+function addTextCentered(doc, text, x, y, barH, maxWidth, fontSize, color, bold, bgColor) {
   const approxH = fontSize * PT_TO_MM * 1.15;
   return addTextToPDF(doc, text, x, y + Math.max((barH - approxH) / 2, 0),
-                      maxWidth, fontSize, color, bold);
+                      maxWidth, fontSize, color, bold, bgColor);
 }
 
 async function generatePDF(systemsData, visitType, visitNotes, prospectName, prospectContact, trendSeries) {
@@ -2117,7 +2120,7 @@ async function generatePDF(systemsData, visitType, visitNotes, prospectName, pro
     doc.setFontSize(9); doc.setFont('helvetica','bold');
     doc.text('FREE WATER ANALYSIS VISIT', M+3, y+7);
     const prospectFull = `Prospect: ${prospectName}${prospectContact ? ' · '+prospectContact : ''}`;
-    addTextToPDF(doc, prospectFull, M+3, y+10, CW-6, 8, [146,64,14], false);
+    addTextToPDF(doc, prospectFull, M+3, y+10, CW-6, 8, [146,64,14], false, [255,248,225]);
     y += 24;
   }
 
@@ -2133,15 +2136,15 @@ async function generatePDF(systemsData, visitType, visitNotes, prospectName, pro
   doc.setTextColor(10,22,40);
   doc.setFontSize(8.5); doc.setFont('helvetica','bold');
   const clientLabel = state.client?.name || prospectName || 'Free Visit';
-  addTextToPDF(doc, clientLabel, M+3, y+7.5, 58, 8.5, [10,22,40], true);
-  addTextToPDF(doc, state.engineer?.name||'', M+65, y+7.5, 50, 8.5, [10,22,40], true);
+  addTextToPDF(doc, clientLabel, M+3, y+7.5, 58, 8.5, [10,22,40], true, [232,240,254]);
+  addTextToPDF(doc, state.engineer?.name||'', M+65, y+7.5, 50, 8.5, [10,22,40], true, [232,240,254]);
   doc.setFontSize(7.5); doc.setFont('helvetica','normal'); doc.setTextColor(10,22,40);
   doc.text(visitType.slice(0,20), M+120, y+13);
   doc.text(state.timestamp.split(',')[0], M+168, y+13);
   y += 22;
 
   if (visitNotes) {
-    const notesH = addTextToPDF(doc, 'Notes: ' + visitNotes, M, y, CW, 8, [100,116,139], false);
+    const notesH = addTextToPDF(doc, 'Notes: ' + visitNotes, M, y, CW, 8, [100,116,139], false, [255,255,255]);
     y += notesH + 4;   // advance by real height — a long Arabic note is taller
   }
 
@@ -2152,7 +2155,7 @@ async function generatePDF(systemsData, visitType, visitNotes, prospectName, pro
     // System header — may be Arabic
     doc.setFillColor(26,86,219);
     doc.rect(M, y, CW, 8, 'F');
-    addTextCentered(doc, sys.name, M+3, y, 8, CW-6, 9, [255,255,255], true);
+    addTextCentered(doc, sys.name, M+3, y, 8, CW-6, 9, [255,255,255], true, [26,86,219]);
     y += 11;
 
     // Use sections if available, else fallback
@@ -2250,7 +2253,7 @@ async function generatePDF(systemsData, visitType, visitNotes, prospectName, pro
       let ty = y + PAD + LBL_H;
       recLines.forEach((rline, i) => {
         if (!rline.trim()) { ty += measured[i]; return; }
-        ty += addTextToPDF(doc, rline, M+3, ty, CW-8, 8, [30,58,95], false) + GAP;
+        ty += addTextToPDF(doc, rline, M+3, ty, CW-8, 8, [30,58,95], false, [239,246,255]) + GAP;
       });
 
       y += totalH + 4;
@@ -2280,7 +2283,7 @@ async function generatePDF(systemsData, visitType, visitNotes, prospectName, pro
         doc.setDrawColor(226,232,240);
         doc.line(M, y+6, M+CW, y+6);
 
-        addTextCentered(doc, t.product, M+3, y, 7, 80, 8, [10,22,40], true);
+        addTextCentered(doc, t.product, M+3, y, 7, 80, 8, [10,22,40], true, [255,255,255]);
         doc.setFont('helvetica','normal'); doc.setTextColor(51,65,85); doc.setFontSize(8);
         doc.text(t.dosage || '—', M+90, y+4.5);
         doc.text(t.stock || '—',  M+145, y+4.5);
@@ -2425,7 +2428,7 @@ updateClock();
 setInterval(updateClock, 30000);
 
 // ─── VERSION CHECK — auto-refresh when new version deployed ───
-const APP_VERSION = '2.5.1';
+const APP_VERSION = '2.5.2';
 const storedVer = localStorage.getItem('pwt_app_version');
 if (storedVer && storedVer !== APP_VERSION) {
   localStorage.removeItem('pwt_engineers_cache');
