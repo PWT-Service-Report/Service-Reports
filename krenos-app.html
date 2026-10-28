@@ -1,0 +1,2552 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Krenos">
+<meta name="theme-color" content="#0a1628">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+<title>Krenos — Water Management System</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.58.0/dist/umd/supabase.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --navy:    #0a1628;
+  --blue:    #1a56db;
+  --sky:     #3b82f6;
+  --cyan:    #06b6d4;
+  --slate:   #334155;
+  --muted:   #64748b;
+  --border:  #e2e8f0;
+  --surface: #f8fafc;
+  --white:   #ffffff;
+  --green:   #10b981;
+  --amber:   #f59e0b;
+  --red:     #ef4444;
+  --radius:  12px;
+  --shadow:  0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.06);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+body { font-family: 'IBM Plex Sans', sans-serif; background: var(--surface); color: var(--navy); min-height: 100vh; max-width: 500px; margin: 0 auto; }
+
+/* APP BAR */
+.app-bar { background: var(--navy); padding: 14px 18px; position: sticky; top: 0; z-index: 50; display: flex; align-items: center; gap: 12px; }
+.app-bar-logo { width: 36px; height: 36px; background: linear-gradient(135deg, var(--sky), var(--cyan)); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; color: white; flex-shrink: 0; }
+.app-bar-info { flex: 1; }
+.app-bar-info h1 { color: white; font-size: 15px; font-weight: 600; }
+.app-bar-info p { color: rgba(255,255,255,0.5); font-size: 11px; }
+.app-bar-time { font-family: ui-monospace, 'SF Mono', Consolas, monospace; font-size: 10px; color: var(--cyan); text-align: right; line-height: 1.5; }
+
+/* SCREENS */
+.screen { display: none; padding: 18px; animation: fadeUp 0.2s ease; }
+.screen.active { display: block; }
+@keyframes fadeUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+
+/* PROGRESS */
+.progress-wrap { margin-bottom: 18px; }
+.progress-steps { display: flex; gap: 5px; }
+.progress-step { flex: 1; height: 3px; background: var(--border); border-radius: 3px; transition: background 0.3s; }
+.progress-step.done { background: var(--sky); }
+.progress-step.active { background: var(--cyan); }
+.progress-label { font-size: 10px; color: var(--muted); margin-top: 5px; font-weight: 500; }
+
+/* SECTION LABEL */
+.section-label { font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; margin-top: 20px; }
+.section-label:first-child { margin-top: 0; }
+
+/* CARD */
+.card { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); margin-bottom: 12px; }
+.card-body { padding: 14px; }
+
+/* ENGINEER GRID */
+.eng-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 7px; }
+.eng-btn { padding: 9px 10px; border: 1.5px solid var(--border); border-radius: 8px; background: var(--white); font-family: 'IBM Plex Sans', sans-serif; font-size: 12px; font-weight: 500; color: var(--slate); cursor: pointer; transition: all 0.15s; text-align: center; }
+.eng-btn:active, .eng-btn.selected { background: var(--sky); border-color: var(--sky); color: white; }
+
+/* CLIENT LIST */
+.search-wrap { position: relative; margin-bottom: 10px; }
+.search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 14px; pointer-events: none; }
+.search-input { width: 100%; padding: 11px 12px 11px 36px; border: 1.5px solid var(--border); border-radius: var(--radius); font-family: 'IBM Plex Sans', sans-serif; font-size: 14px; background: var(--white); color: var(--navy); outline: none; }
+.search-input:focus { border-color: var(--sky); }
+.client-list { display: flex; flex-direction: column; gap: 7px; }
+.client-item { background: var(--white); border: 1.5px solid var(--border); border-radius: var(--radius); padding: 12px 14px; display: flex; align-items: center; gap: 10px; cursor: pointer; transition: all 0.15s; box-shadow: var(--shadow); }
+.client-item:active { border-color: var(--sky); background: #eff6ff; }
+.client-avatar { width: 38px; height: 38px; border-radius: 9px; background: linear-gradient(135deg, var(--navy), var(--blue)); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; color: white; flex-shrink: 0; }
+.client-info { flex: 1; min-width: 0; }
+.client-name { font-weight: 600; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.client-meta { font-size: 10px; color: var(--muted); margin-top: 2px; font-family: ui-monospace, 'SF Mono', Consolas, monospace; }
+
+/* REPORT HERO */
+.report-hero { background: linear-gradient(135deg, var(--navy), #1e3a5f); padding: 18px; margin: -18px -18px 18px; }
+.report-hero-title { color: white; font-size: 17px; font-weight: 700; }
+.report-hero-sub { color: rgba(255,255,255,0.55); font-size: 11px; margin-top: 3px; font-family: ui-monospace, 'SF Mono', Consolas, monospace; }
+.report-hero-badges { display: flex; gap: 6px; margin-top: 12px; flex-wrap: wrap; }
+.hero-badge { background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2); color: white; padding: 3px 9px; border-radius: 20px; font-size: 10px; font-weight: 500; }
+
+/* SYSTEM TABS */
+.sys-tabs { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; margin-bottom: 14px; scrollbar-width: none; }
+.sys-tabs::-webkit-scrollbar { display: none; }
+.sys-tab { flex-shrink: 0; padding: 6px 13px; border-radius: 20px; border: 1.5px solid var(--border); background: var(--white); font-family: 'IBM Plex Sans', sans-serif; font-size: 11px; font-weight: 600; color: var(--muted); cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+.sys-tab.active { background: var(--navy); border-color: var(--navy); color: white; }
+.sys-panel { display: none; }
+.sys-panel.active { display: block; }
+
+/* SUBSECTION */
+.subsection { background: var(--surface); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; border: 1px solid var(--border); }
+.subsection-title { font-size: 10px; font-weight: 700; color: var(--sky); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+.subsection-title::after { content:''; flex:1; height:1px; background: var(--border); }
+
+/* PARAM ROW */
+.param-row { display: flex; align-items: center; gap: 8px; padding: 7px 0; border-bottom: 1px solid var(--border); }
+.param-row:last-child { border-bottom: none; padding-bottom: 0; }
+.param-label { flex: 1; font-size: 12px; font-weight: 500; color: var(--slate); }
+.param-unit { font-size: 9px; color: var(--muted); font-family: ui-monospace, 'SF Mono', Consolas, monospace; min-width: 30px; text-align: center; }
+.param-input { width: 78px; padding: 6px 8px; border: 1.5px solid var(--border); border-radius: 7px; font-family: ui-monospace, 'SF Mono', Consolas, monospace; font-size: 13px; font-weight: 500; color: var(--navy); text-align: center; background: var(--white); outline: none; transition: border-color 0.15s; -moz-appearance: textfield; }
+.param-input::-webkit-outer-spin-button, .param-input::-webkit-inner-spin-button { -webkit-appearance: none; }
+.param-input:focus { border-color: var(--sky); }
+.param-input.out-of-range { border-color: var(--red); background: #fef2f2; color: var(--red); }
+.param-input.in-range { border-color: var(--green); }
+.param-input[readonly] { background: #f0f7ff; color: var(--blue); border-color: #bfdbfe; font-weight: 700; }
+.status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--border); flex-shrink: 0; transition: background 0.2s; }
+.status-dot.ok { background: var(--green); }
+.status-dot.bad { background: var(--red); }
+.status-dot.calc { background: var(--blue); }
+
+/* FORM */
+.form-row { margin-bottom: 12px; }
+.form-label { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 5px; display: block; }
+.form-input, .form-select { width: 100%; padding: 10px 12px; border: 1.5px solid var(--border); border-radius: var(--radius); font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; color: var(--navy); background: var(--white); outline: none; transition: border-color 0.2s; appearance: none; }
+.form-input:focus, .form-select:focus { border-color: var(--sky); }
+.rec-textarea { width: 100%; min-height: 80px; padding: 10px 12px; border: 1.5px solid var(--border); border-radius: var(--radius); font-family: 'IBM Plex Sans', sans-serif; font-size: 12px; color: var(--navy); background: var(--white); outline: none; resize: vertical; line-height: 1.6; }
+.rec-textarea:focus { border-color: var(--sky); }
+
+/* BUTTONS */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 12px 18px; border-radius: var(--radius); border: none; font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.15s; width: 100%; }
+.btn-primary { background: var(--blue); color: white; box-shadow: 0 4px 12px rgba(26,86,219,0.3); }
+.btn-secondary { background: var(--surface); color: var(--slate); border: 1.5px solid var(--border); }
+.btn-success { background: var(--green); color: white; box-shadow: 0 4px 12px rgba(16,185,129,0.3); font-size: 15px; padding: 14px; }
+.btn-danger { background: #fee2e2; color: var(--red); border: 1.5px solid #fca5a5; }
+.btn-sm { padding: 7px 12px; font-size: 11px; width: auto; border-radius: 8px; }
+.btn-row { display: flex; gap: 8px; }
+.btn-row .btn { flex: 1; }
+
+/* ADD SYSTEM */
+.add-sys-row { display: flex; gap: 7px; flex-wrap: wrap; margin-top: 10px; }
+.add-sys-btn { padding: 6px 11px; border: 1.5px dashed var(--border); border-radius: 20px; background: transparent; font-family: 'IBM Plex Sans', sans-serif; font-size: 10px; font-weight: 600; color: var(--muted); cursor: pointer; transition: all 0.15s; }
+.add-sys-btn:hover { border-color: var(--sky); color: var(--sky); border-style: solid; }
+
+/* FREE VISIT BADGE */
+.free-visit-badge { background: linear-gradient(135deg, #f59e0b, #f97316); color: white; padding: 3px 10px; border-radius: 20px; font-size: 10px; font-weight: 700; }
+
+/* LOADING */
+.loading-overlay { display: none; position: fixed; inset: 0; background: rgba(10,22,40,0.6); z-index: 200; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
+.loading-overlay.show { display: flex; }
+.loading-box { background: white; border-radius: 16px; padding: 28px 36px; text-align: center; }
+.spinner { width: 36px; height: 36px; border: 3px solid var(--border); border-top-color: var(--sky); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 12px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-text { font-size: 12px; color: var(--muted); font-weight: 500; }
+
+/* TOAST */
+.toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--navy); color: white; padding: 10px 18px; border-radius: 100px; font-size: 12px; font-weight: 500; z-index: 300; white-space: nowrap; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+.toast.show { opacity: 1; }
+.toast.success { background: var(--green); }
+.toast.error { background: var(--red); }
+
+/* SUCCESS */
+.success-icon { width: 68px; height: 68px; background: linear-gradient(135deg, var(--green), #34d399); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 30px; margin: 0 auto 18px; box-shadow: 0 8px 24px rgba(16,185,129,0.3); }
+.success-title { font-size: 20px; font-weight: 700; text-align: center; }
+.success-sub { font-size: 12px; color: var(--muted); text-align: center; margin-top: 6px; line-height: 1.6; }
+.success-ref { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 16px; margin: 18px 0; font-family: ui-monospace, 'SF Mono', Consolas, monospace; font-size: 12px; text-align: center; font-weight: 500; }
+.email-sent-row { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: #d1fae5; border-radius: 8px; font-size: 11px; color: #065f46; font-weight: 500; margin-bottom: 6px; }
+
+/* MODAL BOTTOM SHEET */
+.bottom-sheet { display: none; position: fixed; inset: 0; background: rgba(10,22,40,0.5); z-index: 150; align-items: flex-end; }
+.bottom-sheet.show { display: flex; }
+.bottom-sheet-box { background: white; width: 100%; border-radius: 20px 20px 0 0; padding: 22px 18px; max-height: 85vh; overflow-y: auto; }
+.bottom-sheet-handle { width: 36px; height: 4px; background: var(--border); border-radius: 2px; margin: 0 auto 18px; }
+.bottom-sheet-title { font-size: 16px; font-weight: 700; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; }
+.close-btn { border: none; background: var(--surface); color: var(--muted); width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; }
+
+/* CHIP */
+.chip-pending { background: #fef3c7; color: #92400e; padding: 3px 9px; border-radius: 20px; font-size: 10px; font-weight: 600; }
+
+.divider { height: 1px; background: var(--border); margin: 14px 0; }
+
+/* ── LOGIN ── */
+#loginScreen { position: fixed; inset: 0; z-index: 400; background: linear-gradient(160deg, var(--navy) 0%, #1e3a5f 100%); display: flex; align-items: center; justify-content: center; padding: 24px; }
+#loginScreen.hidden { display: none; }
+.login-box { width: 100%; max-width: 360px; }
+.login-brand { text-align: center; margin-bottom: 28px; }
+.login-logo { width: 62px; height: 62px; margin: 0 auto 14px; border-radius: 15px; background: linear-gradient(135deg, var(--sky), var(--cyan)); display: flex; align-items: center; justify-content: center; font-size: 27px; font-weight: 700; color: #fff; }
+.login-brand h1 { color: #fff; font-size: 25px; font-weight: 700; letter-spacing: -0.3px; }
+.login-brand h1 sup { font-size: 10px; opacity: 0.75; }
+.login-brand p { color: rgba(255,255,255,0.55); font-size: 12px; margin-top: 4px; }
+.login-card { background: #fff; border-radius: 16px; padding: 24px 20px; box-shadow: 0 18px 50px rgba(0,0,0,0.3); }
+.login-field { margin-bottom: 14px; }
+.login-field label { display: block; font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 6px; }
+.login-field input { width: 100%; padding: 13px 14px; border: 1.5px solid var(--border); border-radius: 10px; font-family: inherit; font-size: 15px; color: var(--navy); outline: none; -webkit-appearance: none; }
+.login-field input:focus { border-color: var(--sky); }
+.login-btn { width: 100%; padding: 14px; border: none; border-radius: 10px; background: linear-gradient(135deg, var(--blue), var(--sky)); color: #fff; font-family: inherit; font-size: 15px; font-weight: 600; cursor: pointer; margin-top: 4px; }
+.login-btn:disabled { opacity: 0.6; }
+.login-error { background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; font-size: 12.5px; padding: 10px 12px; border-radius: 9px; margin-bottom: 14px; display: none; line-height: 1.45; }
+.login-error.show { display: block; }
+.login-hint { text-align: center; font-size: 11px; color: rgba(255,255,255,0.4); margin-top: 18px; line-height: 1.6; }
+
+/* who is signed in */
+.me-bar { display: flex; align-items: center; gap: 9px; padding: 9px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; margin-bottom: 14px; }
+.me-avatar { width: 32px; height: 32px; border-radius: 8px; background: linear-gradient(135deg, var(--navy), var(--blue)); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; flex-shrink: 0; }
+.me-info { flex: 1; min-width: 0; }
+.me-name { font-size: 13.5px; font-weight: 600; color: var(--navy); }
+.me-role { font-size: 10.5px; color: var(--muted); }
+.me-out { background: none; border: none; color: var(--muted); font-size: 11px; font-family: inherit; cursor: pointer; padding: 6px 9px; border-radius: 7px; }
+.me-out:active { background: var(--border); }
+
+/* TRENDS */
+.trend-opts { display: flex; flex-direction: column; gap: 6px; }
+.trend-opt { display: flex; align-items: center; gap: 8px; padding: 7px 10px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; font-size: 12px; color: var(--slate); cursor: pointer; }
+.trend-opt input { width: 16px; height: 16px; accent-color: var(--sky); flex-shrink: 0; }
+.trend-opt input:disabled + span { color: var(--muted); opacity: 0.5; }
+.trend-note { font-size: 10px; color: var(--sky); font-weight: 600; margin-top: 6px; min-height: 13px; }
+
+/* HISTORY */
+.hist-sys { margin-bottom: 14px; }
+.hist-sys:last-child { margin-bottom: 0; }
+.hist-sys-name { font-size: 11px; font-weight: 700; color: var(--sky); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+.hist-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.hist-table th { text-align: left; padding: 5px 6px; font-size: 9px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.7px; border-bottom: 1.5px solid var(--border); white-space: nowrap; }
+.hist-table th.num, .hist-table td.num { text-align: center; font-family: ui-monospace, 'SF Mono', Consolas, monospace; }
+.hist-table td { padding: 6px; border-bottom: 1px solid var(--border); }
+.hist-table tr:last-child td { border-bottom: none; }
+.hist-param { font-weight: 500; color: var(--slate); }
+.hist-val { font-weight: 700; }
+.hist-val.ok  { color: var(--green); }
+.hist-val.bad { color: var(--red); }
+.hist-val.old { color: var(--muted); font-weight: 500; }
+.hist-trend { font-size: 11px; }
+.hist-trend.up   { color: var(--red); }
+.hist-trend.down { color: var(--blue); }
+.hist-trend.flat { color: var(--muted); }
+.hist-date-head { font-size: 9px; color: var(--muted); font-weight: 600; }
+.hist-rec { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 8px 10px; margin-top: 8px; }
+.hist-rec-date { font-size: 9px; color: var(--blue); font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 3px; }
+.hist-rec-text { font-size: 11px; color: var(--slate); line-height: 1.5; }
+.hist-empty { color: var(--muted); font-size: 12px; text-align: center; padding: 14px; }
+</style>
+</head>
+<body>
+
+<!-- APP BAR -->
+<div class="app-bar">
+  <div class="app-bar-logo">K</div>
+  <div class="app-bar-info">
+    <h1>Krenos<span style="font-size:9px;vertical-align:super;margin-left:2px;opacity:0.8">™</span> <span style="font-size:10px;background:rgba(255,255,255,0.15);padding:2px 7px;border-radius:10px;margin-left:4px">v2</span></h1>
+    <p>Water Management System</p>
+  </div>
+  <div class="app-bar-time" id="appBarTime"></div>
+</div>
+
+<!-- ══════════ LOGIN ══════════ -->
+<div id="loginScreen">
+  <div class="login-box">
+    <div class="login-brand">
+      <div class="login-logo">K</div>
+      <h1>Krenos<sup>™</sup></h1>
+      <p>Water Management System</p>
+    </div>
+    <div class="login-card">
+      <div class="login-error" id="loginError"></div>
+      <form onsubmit="doLogin(event)">
+        <div class="login-field">
+          <label for="loginEmail">Email</label>
+          <input type="email" id="loginEmail" autocomplete="username"
+                 inputmode="email" autocapitalize="none" spellcheck="false"
+                 placeholder="name@pwtinternational.com" required>
+        </div>
+        <div class="login-field">
+          <label for="loginPass">Password</label>
+          <input type="password" id="loginPass" autocomplete="current-password" required>
+        </div>
+        <button type="submit" class="login-btn" id="loginBtn">Sign in</button>
+      </form>
+    </div>
+    <div class="login-hint">Use your company email.<br>Ask the office if you need your password reset.</div>
+  </div>
+</div>
+
+<!-- ══════════ SCREEN 1: SELECT ══════════ -->
+<div class="screen active" id="screen-client">
+  <div class="progress-wrap">
+    <div class="progress-steps">
+      <div class="progress-step active"></div>
+      <div class="progress-step"></div>
+      <div class="progress-step"></div>
+    </div>
+    <div class="progress-label">Step 1 of 3 — Select Client</div>
+  </div>
+
+  <div class="me-bar">
+    <div class="me-avatar" id="meAvatar">—</div>
+    <div class="me-info">
+      <div class="me-name" id="meName">—</div>
+      <div class="me-role" id="meRole">—</div>
+    </div>
+    <button class="me-out" onclick="doLogout()">Sign out</button>
+  </div>
+
+  <div class="section-label">Visit Type</div>
+  <div class="card">
+    <div class="card-body" style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-primary btn-sm" style="width:auto;flex:1" onclick="setVisitMode('service')">🔧 Service Visit</button>
+      <button class="btn btn-sm" id="freeVisitBtn" style="width:auto;flex:1;background:#fff8e1;color:#92400e;border:1.5px solid #fde68a" onclick="setVisitMode('free')">🆓 Free Water Analysis</button>
+    </div>
+  </div>
+
+  <div class="section-label">Select Client</div>
+  <div class="search-wrap">
+    <span class="search-icon">🔍</span>
+    <input type="text" class="search-input" id="clientSearch" placeholder="Search client name or code..." oninput="filterClients()">
+  </div>
+  <div class="client-list" id="clientList">
+    <div style="text-align:center;padding:28px;color:var(--muted);font-size:12px">Loading clients...</div>
+  </div>
+  <div style="margin-top:12px">
+    <button class="btn btn-secondary btn-sm" onclick="showSheet('addClientSheet')">+ Add New Client</button>
+  </div>
+</div>
+
+<!-- ══════════ SCREEN 2: REPORT ══════════ -->
+<div class="screen" id="screen-report">
+  <div class="progress-wrap">
+    <div class="progress-steps">
+      <div class="progress-step done"></div>
+      <div class="progress-step active"></div>
+      <div class="progress-step"></div>
+    </div>
+    <div class="progress-label">Step 2 of 3 — Fill Report</div>
+  </div>
+
+  <div class="report-hero" id="reportHero"></div>
+
+  <!-- PREVIOUS VISITS -->
+  <div id="histSection" style="display:none">
+    <div class="section-label" style="display:flex;align-items:center;justify-content:space-between">
+      <span>Previous Visits</span>
+      <button class="btn btn-sm" id="histToggleBtn" style="width:auto;background:var(--surface);color:var(--sky);border:1.5px solid var(--border);font-size:11px" onclick="toggleHistory()">📈 Show</button>
+    </div>
+    <div class="card" id="histCard" style="display:none">
+      <div class="card-body" id="histBody">
+        <div style="color:var(--muted);font-size:12px;text-align:center;padding:10px">Loading history…</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-label">Visit Details</div>
+  <div class="card">
+    <div class="card-body">
+      <div class="form-row">
+        <label class="form-label">Visit Type</label>
+        <select class="form-select" id="visitType">
+          <option>Monthly Follow-up</option>
+          <option>Bi-monthly Follow-up</option>
+          <option>Emergency Visit</option>
+          <option>Quarterly Review</option>
+          <option>Free Water Analysis</option>
+        </select>
+      </div>
+      <div class="form-row" style="margin-bottom:0">
+        <label class="form-label">Notes</label>
+        <input type="text" class="form-input" id="visitNotes" placeholder="Optional visit notes...">
+      </div>
+    </div>
+  </div>
+
+  <!-- FREE VISIT SECTION -->
+  <div id="freeVisitSection" style="display:none">
+    <div class="section-label">Prospect Details <span class="free-visit-badge">Free Visit</span></div>
+    <div class="card">
+      <div class="card-body">
+        <div class="form-row">
+          <label class="form-label">Prospect Company Name</label>
+          <input type="text" class="form-input" id="prospectName" placeholder="e.g. Al Ahram Beverages">
+        </div>
+        <div class="form-row">
+          <label class="form-label">Contact Person</label>
+          <input type="text" class="form-input" id="prospectContact" placeholder="Name & title">
+        </div>
+        <div class="form-row">
+          <label class="form-label">Phone</label>
+          <input type="text" class="form-input" id="prospectPhone" placeholder="01xxxxxxxxx">
+        </div>
+        <div class="form-row" style="margin-bottom:0">
+          <label class="form-label">Region</label>
+          <select class="form-select" id="prospectRegion">
+            <option>Borg El Arab</option><option>Alexandria</option><option>Amreyah</option>
+            <option>Sadat</option><option>October</option><option>Cairo</option>
+            <option>Obour</option><option>Badr</option><option>Nobareya</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-label">Systems & Analysis</div>
+  <div class="sys-tabs" id="sysTabs"></div>
+  <div id="sysPanels"></div>
+  <div class="add-sys-row">
+    <button class="add-sys-btn" onclick="addSystem('boiler')">🔥 Add Boiler</button>
+    <button class="add-sys-btn" onclick="addSystem('cooling')">❄️ Add Cooling Tower</button>
+    <button class="add-sys-btn" onclick="addSystem('closed')">🔄 Add Closed Loop</button>
+    <button class="add-sys-btn" onclick="addSystem('pool')">🏊 Add Swimming Pool</button>
+    <button class="add-sys-btn" onclick="addSystem('raw')">🚰 Add Raw Water</button>
+  </div>
+
+  <div style="margin-top:20px">
+    <div class="btn-row">
+      <button class="btn btn-secondary" onclick="goScreen('client')">← Back</button>
+      <button class="btn btn-primary" onclick="goScreen('review')">Review →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ SCREEN 3: REVIEW ══════════ -->
+<div class="screen" id="screen-review">
+  <div class="progress-wrap">
+    <div class="progress-steps">
+      <div class="progress-step done"></div>
+      <div class="progress-step done"></div>
+      <div class="progress-step active"></div>
+    </div>
+    <div class="progress-label">Step 3 of 3 — Review & Submit</div>
+  </div>
+  <div class="section-label">Report Summary</div>
+  <div class="card" id="reviewCard"></div>
+  <div class="section-label">Recipients</div>
+  <div class="card">
+    <div class="card-body" id="emailRecipients"></div>
+  </div>
+  <div style="margin-top:8px">
+    <div class="btn-row" style="margin-bottom:10px">
+      <button class="btn btn-secondary" onclick="goScreen('report')">← Back</button>
+    </div>
+    <button class="btn btn-success" onclick="submitReport()">✓ Submit & Send Report</button>
+  </div>
+</div>
+
+<!-- ══════════ SCREEN 4: SUCCESS ══════════ -->
+<div class="screen" id="screen-success">
+  <div style="padding-top:36px">
+    <div class="success-icon">✓</div>
+    <div class="success-title">Report Submitted!</div>
+    <div class="success-sub">Saved to archive and sent successfully.</div>
+    <div class="success-ref" id="successRef">REF: —</div>
+    <div id="emailsSent"></div>
+    <button class="btn btn-primary" style="margin-top:16px" onclick="resetApp()">+ New Report</button>
+  </div>
+</div>
+
+<!-- ══════════ ADD CLIENT SHEET ══════════ -->
+<div class="bottom-sheet" id="addClientSheet">
+  <div class="bottom-sheet-box">
+    <div class="bottom-sheet-handle"></div>
+    <div class="bottom-sheet-title">
+      Add New Client
+      <button class="close-btn" onclick="hideSheet('addClientSheet')">✕</button>
+    </div>
+    <div class="form-row"><label class="form-label">Company Name *</label><input type="text" class="form-input" id="nc_name" placeholder="e.g. Delta Textile Co."></div>
+    <div class="form-row"><label class="form-label">Region</label>
+      <select class="form-select" id="nc_region">
+        <option>Borg El Arab</option><option>Alexandria</option><option>Amreyah</option>
+        <option>Sadat</option><option>October</option><option>Cairo</option>
+        <option>Obour</option><option>Badr</option><option>Nobareya</option>
+      </select>
+    </div>
+    <div class="form-row"><label class="form-label">Client Email</label><input type="email" class="form-input" id="nc_email" placeholder="maintenance@company.com"></div>
+    <div class="form-row"><label class="form-label">Assigned Engineer</label><select class="form-select" id="nc_engineer"></select></div>
+    <button class="btn btn-primary" style="margin-top:16px" onclick="saveNewClient()">Save Client</button>
+  </div>
+</div>
+
+<!-- LOADING -->
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="loading-box">
+    <div class="spinner"></div>
+    <div class="loading-text" id="loadingText">Please wait...</div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════
+// CONFIG
+// ══════════════════════════════════════════
+// ══════════════════════════════════════════
+//  SUPABASE CONNECTION
+//  Both values are safe to ship in the page: the anon key only works
+//  through the security policies in the database.
+//  Find them in Supabase → Project Settings → API.
+// ══════════════════════════════════════════
+const SUPABASE_URL      = 'https://txuyhzsudtrnmlangukb.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dXloenN1ZHRybm1sYW5ndWtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTMxODIzOTIsImV4cCI6MjEwODc1ODM5Mn0.72OMcc51II5qKE36Xns2hiI-g-xQMJHlj_JvKdXcXs8';
+
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: { persistSession: true, autoRefreshToken: true },
+});
+const MANAGEMENT_EMAIL = 'ahmed.atef@pwtinternational.com';
+
+// ══════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════
+let state = {
+  engineer: null,
+  client: null,
+  visitMode: 'service', // 'service' | 'free'
+  systems: [],
+  sysCounter: 0,
+  reportRef: '',
+  timestamp: ''
+};
+let allClients   = [];
+let allEngineers = [];
+
+// ══════════════════════════════════════════
+// PARAMETERS
+// ══════════════════════════════════════════
+const PARAMS = {
+  boiler: {
+    icon: '🔥', label: 'Boiler',
+    sections: [
+      { title: 'Softener Water', params: [
+        { id:'sw_ph',   label:'pH',             unit:'—',     min:6.5,  max:8.5  },
+        { id:'sw_tds',  label:'TDS',            unit:'ppm',   min:0,    max:1000 },
+        { id:'sw_hard', label:'Total Hardness', unit:'ppm',   min:0,    max:5    },
+      ]},
+      { title: 'Feed Water', params: [
+        { id:'fw_ph',   label:'pH',             unit:'—',     min:7.0,  max:9.0  },
+        { id:'fw_tds',  label:'TDS',            unit:'ppm',   min:0,    max:500  },
+        { id:'fw_hard', label:'Total Hardness', unit:'ppm',   min:0,    max:5    },
+        { id:'fw_ca',   label:'Ca Hardness',    unit:'ppm',   min:0,    max:3    },
+        { id:'fw_malk', label:'M-Alkalinity',   unit:'ppm',   min:0,    max:9999 },
+        { id:'fw_cl',   label:'Chloride',       unit:'ppm',   min:0,    max:9999 },
+        { id:'fw_fe',   label:'Iron',           unit:'ppm',   min:0,    max:0.3  },
+        { id:'fw_cl2',  label:'Free Chlorine',  unit:'ppm',   min:0,    max:0.1  },
+        { id:'fw_cret', label:'Est. Condensate Return', unit:'%', min:0, max:100, calc:true },
+      ]},
+      { title: 'Boiler Water', params: [
+        { id:'bw_ph',   label:'pH',             unit:'—',     min:10.5, max:12.0 },
+        { id:'bw_tds',  label:'TDS',            unit:'ppm',   min:0,    max:3500 },
+        { id:'bw_palk', label:'P-Alkalinity',   unit:'ppm',   min:100,  max:600  },
+        { id:'bw_malk', label:'M-Alkalinity',   unit:'ppm',   min:150,  max:800  },
+        { id:'bw_ohalk',label:'OH Alkalinity',  unit:'ppm',   min:0,    max:200, calc:true },
+        { id:'bw_cl',   label:'Chloride',       unit:'ppm',   min:0,    max:200  },
+        { id:'bw_so3',  label:'Sulfite',        unit:'ppm',   min:20,   max:60   },
+        { id:'bw_po4',  label:'Phosphate',      unit:'ppm',   min:20,   max:50   },
+        { id:'bw_si',   label:'Silica',         unit:'ppm',   min:0,    max:150  },
+        { id:'bw_tan',  label:'Tannin',         unit:'ppm',   min:100,  max:160  },
+        { id:'bw_cyc',  label:'Cycles of Concentration', unit:'—', calc:true, noLimit:true },
+      ]},
+      { title: 'Condensate Return', params: [
+        { id:'cr_ph',   label:'pH',             unit:'—',     min:8.3,  max:9.5  },
+        { id:'cr_cond', label:'Conductivity',   unit:'µS/cm', min:0,    max:20   },
+        { id:'cr_fe',   label:'Iron',           unit:'ppm',   min:0,    max:0.1  },
+      ]},
+    ]
+  },
+  cooling: {
+    icon: '❄️', label: 'Cooling Tower',
+    sections: [
+      { title: 'Make-up Water', params: [
+        { id:'mu_ph',   label:'pH',             unit:'—',     min:6.5,  max:8.5  },
+        { id:'mu_tds',  label:'TDS',            unit:'ppm',   min:0,    max:1000 },
+        { id:'mu_hard', label:'Total Hardness', unit:'ppm',   min:0,    max:400  },
+        { id:'mu_ca',   label:'Ca Hardness',    unit:'ppm',   min:0,    max:300  },
+        { id:'mu_alk',  label:'M-Alkalinity',   unit:'ppm',   min:0,    max:300  },
+        { id:'mu_cl',   label:'Chloride',       unit:'ppm',   min:0,    max:200  },
+      ]},
+      { title: 'Circuit Water', params: [
+        { id:'cw_temp', label:'Temperature',    unit:'°C',    min:20,   max:50   },
+        { id:'cw_ph',   label:'pH',             unit:'—',     min:7.0,  max:9.0  },
+        { id:'cw_cond', label:'Conductivity',   unit:'µS/cm', min:0,    max:3000 },
+        { id:'cw_tds',  label:'TDS',            unit:'ppm',   min:0,    max:2000 },
+        { id:'cw_hard', label:'Total Hardness', unit:'ppm',   min:0,    max:800  },
+        { id:'cw_ca',   label:'Ca Hardness',    unit:'ppm',   min:0,    max:600  },
+        { id:'cw_alk',  label:'M-Alkalinity',   unit:'ppm',   min:0,    max:600  },
+        { id:'cw_cl',   label:'Chloride',       unit:'ppm',   min:0,    max:500  },
+        { id:'cw_fcl',  label:'Free Chlorine',  unit:'ppm',   min:0.2,  max:1.0  },
+        { id:'cw_fe',   label:'Iron',           unit:'ppm',   min:0,    max:1.0  },
+        { id:'cw_zn',   label:'Zinc',           unit:'ppm',   min:0,    max:2.0  },
+        { id:'cw_opo4', label:'Ortho-Phosphate',unit:'ppm',   min:0,    max:10   },
+        { id:'cw_tpo4', label:'Total Phosphate',unit:'ppm',   min:0,    max:15   },
+        { id:'cw_phos', label:'Phosphonate',    unit:'ppm',   min:0,    max:10   },
+        { id:'cw_lsi',  label:'LSI',            unit:'—',     min:-0.5, max:0.5, calc:true },
+      ]},
+    ]
+  },
+  closed: {
+    icon: '🔄', label: 'Closed Loop',
+    sections: [
+      { title: 'Closed Loop Parameters', params: [
+        { id:'cl_ph',   label:'pH',             unit:'—',     min:8.0,  max:10.0 },
+        { id:'cl_cond', label:'Conductivity',   unit:'µS/cm', min:0,    max:3000 },
+        { id:'cl_hard', label:'Total Hardness', unit:'ppm',   min:0,    max:200  },
+        { id:'cl_fe',   label:'Iron',           unit:'ppm',   min:0,    max:1.0  },
+        { id:'cl_inh',  label:'Inhibitor Level',unit:'ppm',   min:1000, max:1600 },
+        { id:'cl_turb', label:'Turbidity',      unit:'NTU',   min:0,    max:5    },
+      ]},
+    ]
+  },
+  pool: {
+    icon: '🏊', label: 'Swimming Pool',
+    sections: [
+      { title: 'Pool Water Analysis', params: [
+        { id:'pl_fcl',  label:'Free Chlorine',   unit:'ppm',   min:1,    max:3    },
+        { id:'pl_ph',   label:'pH',              unit:'—',     min:7.2,  max:7.8  },
+        { id:'pl_cya',  label:'Cyanuric Acid',   unit:'ppm',   min:30,   max:70   },
+        { id:'pl_alk',  label:'Total Alkalinity',unit:'ppm',   min:100,  max:150  },
+        { id:'pl_ca',   label:'Calcium Hardness',unit:'ppm',   min:100,  max:400  },
+        { id:'pl_tds',  label:'TDS',             unit:'ppm',   min:0,    max:1500 },
+      ]},
+    ]
+  },
+  raw: {
+    icon: '🚰', label: 'Raw Water',
+    sections: [
+      { title: 'Raw Water Analysis', params: [
+        { id:'rw_ph',   label:'pH',             unit:'—',     min:6.5,  max:8.5  },
+        { id:'rw_tds',  label:'TDS',            unit:'ppm',   min:0,    max:1000 },
+        { id:'rw_hard', label:'Total Hardness', unit:'ppm',   min:0,    max:500  },
+        { id:'rw_ca',   label:'Ca Hardness',    unit:'ppm',   min:0,    max:400  },
+        { id:'rw_alk',  label:'M-Alkalinity',   unit:'ppm',   min:0,    max:400  },
+        { id:'rw_turb', label:'Turbidity',      unit:'NTU',   min:0,    max:10   },
+        { id:'rw_fe',   label:'Iron',           unit:'ppm',   min:0,    max:0.3  },
+        { id:'rw_cl2',  label:'Free Chlorine',  unit:'ppm',   min:0,    max:1.0  },
+        { id:'rw_so4',  label:'Sulfate',        unit:'ppm',   min:0,    max:400  },
+        { id:'rw_si',   label:'Silica',         unit:'ppm',   min:0,    max:50   },
+      ]},
+    ]
+  }
+};
+
+// ══════════════════════════════════════════
+// PERFORMANCE TRENDS
+// ══════════════════════════════════════════
+// Curated per system — these are the readings that tell the client a story
+// about performance, not every parameter on the form.
+const TREND_CANDIDATES = {
+  boiler: [
+    { id:'bw_cyc',  section:'Boiler Water',      label:'Cycles of Concentration' },
+    { id:'fw_cret', section:'Feed Water',        label:'Est. Condensate Return' },
+    { id:'bw_tds',  section:'Boiler Water',      label:'Boiler Water TDS' },
+    { id:'fw_hard', section:'Feed Water',        label:'Feed Water Hardness' },
+    { id:'cr_fe',   section:'Condensate Return', label:'Condensate Iron' },
+    { id:'bw_po4',  section:'Boiler Water',      label:'Phosphate' },
+  ],
+  cooling: [
+    { id:'cw_lsi',  section:'Circuit Water', label:'LSI' },
+    { id:'cw_tds',  section:'Circuit Water', label:'Circuit Water TDS' },
+    { id:'cw_fcl',  section:'Circuit Water', label:'Free Chlorine' },
+    { id:'cw_fe',   section:'Circuit Water', label:'Iron' },
+    { id:'cw_tpo4', section:'Circuit Water', label:'Total Phosphate' },
+  ],
+  closed: [
+    { id:'cl_inh',  section:'Closed Loop Parameters', label:'Inhibitor Level' },
+    { id:'cl_fe',   section:'Closed Loop Parameters', label:'Iron' },
+    { id:'cl_cond', section:'Closed Loop Parameters', label:'Conductivity' },
+  ],
+  raw: [
+    { id:'rw_tds',  section:'Raw Water Analysis', label:'TDS' },
+    { id:'rw_hard', section:'Raw Water Analysis', label:'Total Hardness' },
+    { id:'rw_turb', section:'Raw Water Analysis', label:'Turbidity' },
+  ],
+  // Swimming pools intentionally have no trend charts.
+  pool: [],
+};
+
+const MAX_TRENDS = 3;
+
+function buildTrendPicker(sysId, type) {
+  const cands = TREND_CANDIDATES[type] || [];
+  if (!cands.length) return '';
+  const boxes = cands.map(c => `
+    <label class="trend-opt">
+      <input type="checkbox" class="trend-cb" data-sys="${sysId}"
+             data-pid="${c.id}" data-section="${c.section}" data-label="${escAttr(c.label)}"
+             onchange="onTrendToggle(${sysId})">
+      <span>${escAttr(c.label)}</span>
+    </label>`).join('');
+  return `
+    <div style="margin-top:14px">
+      <div class="subsection-title">Performance Trends <span style="font-size:9px;color:var(--muted);text-transform:none;letter-spacing:0">(optional)</span></div>
+      <div style="font-size:10px;color:var(--muted);margin-bottom:8px">
+        Adds a chart of the last 6 visits to the client's report. Select up to ${MAX_TRENDS}.
+      </div>
+      <div class="trend-opts" id="trend-opts-${sysId}">${boxes}</div>
+      <div class="trend-note" id="trend-note-${sysId}"></div>
+    </div>`;
+}
+
+function onTrendToggle(sysId) {
+  const boxes = [...document.querySelectorAll(`.trend-cb[data-sys="${sysId}"]`)];
+  const checked = boxes.filter(b => b.checked);
+  // Enforce the cap by disabling the rest once the limit is reached
+  boxes.forEach(b => { b.disabled = !b.checked && checked.length >= MAX_TRENDS; });
+  const note = document.getElementById(`trend-note-${sysId}`);
+  if (note) {
+    note.textContent = checked.length
+      ? `${checked.length} of ${MAX_TRENDS} selected — charts will be added to the report`
+      : '';
+  }
+}
+
+function getSelectedTrends(sysId) {
+  return [...document.querySelectorAll(`.trend-cb[data-sys="${sysId}"]`)]
+    .filter(b => b.checked)
+    .map(b => ({ pid: b.dataset.pid, section: b.dataset.section, label: b.dataset.label }));
+}
+
+// Pull the last 6 visits for this client and build a series for each selected
+// trend. Reads live from Sheets — nothing is stored on the device.
+async function buildTrendSeries(systemsData) {
+  const wanted = systemsData.filter(s => s.trends && s.trends.length);
+  if (!wanted.length) return {};
+
+  if (!state.client?.id) return {};
+
+  let rows;
+  try {
+    const { data, error } = await sb
+      .from('reports')
+      .select('ref, systems, created_at, submitted_at')
+      .eq('client_id', state.client.id)
+      .order('created_at', { ascending: false })
+      .limit(12);
+    if (error) throw error;
+    rows = data || [];
+  } catch (e) {
+    console.error('Trend history fetch failed:', e);
+    return {};
+  }
+
+  const past = rows
+    .map(r => ({
+      ref: r.ref,
+      systemsRaw: r.systems,
+      createdAt: r.submitted_at || r.created_at,
+      date: new Date(r.submitted_at || r.created_at),
+    }))
+    .filter(r => !isNaN(r.date))
+    .sort((a, b) => a.date - b.date);
+
+  const out = {};
+  wanted.forEach(sys => {
+    out[sys.id] = sys.trends.map(t => {
+      const points = [];
+      past.forEach(rep => {
+        const systems = parseHistSystems(rep.systemsRaw);
+        // match the same system by name, falling back to type
+        const match = systems.find(s => (s.name && s.name === sys.name)) ||
+                      systems.find(s => s.type === sys.type);
+        if (!match) return;
+        const v = readHistValue(match, t, sys.type);
+        if (v !== null) points.push({ date: rep.date, value: v });
+      });
+      // include the reading just entered, if present
+      const nowVal = currentTrendValue(sys, t);
+      if (nowVal !== null) points.push({ date: new Date(), value: nowVal });
+      return { label: t.label, pid: t.pid, points: points.slice(-6) };
+    }).filter(sr => sr.points.length >= 2);   // a single point is not a trend
+  });
+  return out;
+}
+
+// Read a trend value out of a stored system, recomputing the derived ones
+// because older reports may not have saved them.
+function readHistValue(sysObj, trend, sysType) {
+  const def = findParamDefSec(sysType, trend.label, trend.section);
+  const sections = (sysObj.sections && Object.keys(sysObj.sections).length)
+    ? sysObj.sections : null;
+
+  const pick = (section, label) => {
+    if (sections) {
+      const sec = sections[section];
+      if (sec && sec[label] !== undefined) return parseFloat(sec[label]);
+      for (const s of Object.values(sections)) {
+        if (s && s[label] !== undefined) return parseFloat(s[label]);
+      }
+      return NaN;
+    }
+    const r = sysObj.readings || {};
+    return r[label] !== undefined ? parseFloat(r[label]) : NaN;
+  };
+
+  // Derived values: recompute from their inputs so history stays consistent
+  if (trend.pid === 'bw_cyc') {
+    const bw = pick('Boiler Water', 'Chloride');
+    const fw = pick('Feed Water', 'Chloride');
+    if (!isNaN(bw) && !isNaN(fw) && fw > 0) return +(bw / fw).toFixed(1);
+    return null;
+  }
+  if (trend.pid === 'fw_cret') {
+    const sw = pick('Softener Water', 'TDS');
+    const fw = pick('Feed Water', 'TDS');
+    if (!isNaN(sw) && !isNaN(fw) && sw > 0) {
+      const pct = (1 - fw / sw) * 100;
+      return pct > 0 ? +pct.toFixed(1) : null;
+    }
+    return null;
+  }
+
+  const label = def ? def.label : trend.label;
+  const v = pick(trend.section, label);
+  return isNaN(v) ? null : v;
+}
+
+// The value for this trend in the report being written right now
+function currentTrendValue(sys, trend) {
+  const def = findParamDefSec(sys.type, trend.label, trend.section);
+  const label = def ? def.label : trend.label;
+  const sec = sys.sections && sys.sections[trend.section];
+  let raw = sec ? sec[label] : undefined;
+  if (raw === undefined && sys.readings) raw = sys.readings[label];
+  const v = parseFloat(raw);
+  return isNaN(v) ? null : v;
+}
+
+// Draw a trend chart to a canvas and return a PNG data URL for the PDF.
+function drawTrendChartPng(series, systemName) {
+  const W = 1100, H = 420, S = 2;   // supersample for a crisp PDF image
+  const canvas = document.createElement('canvas');
+  canvas.width = W * S; canvas.height = H * S;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(S, S);
+
+  const def = findParamDefSecById(series.pid);
+  const pts = series.points;
+  const P = { t: 54, r: 30, b: 58, l: 84 };
+  const iw = W - P.l - P.r, ih = H - P.t - P.b;
+
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, W, H);
+
+  // Title
+  ctx.fillStyle = '#0a1628';
+  ctx.font = 'bold 22px Arial, sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText(`${series.label}${def && def.unit && def.unit !== '—' ? ' (' + def.unit + ')' : ''}`, P.l, 26);
+  ctx.fillStyle = '#64748b';
+  ctx.font = '15px Arial, sans-serif';
+  ctx.fillText(`${systemName} — last ${pts.length} visits`, P.l, 46);
+
+  const values = pts.map(p => p.value);
+  let lo = Math.min(...values), hi = Math.max(...values);
+  const hasBand = def && isFinite(def.min) && isFinite(def.max) && def.max < 9999 && !def.noLimit;
+  if (hasBand) { lo = Math.min(lo, def.min); hi = Math.max(hi, def.max); }
+  if (lo === hi) { lo -= 1; hi += 1; }
+  const pad = (hi - lo) * 0.15;
+  lo -= pad; hi += pad;
+
+  const n = pts.length;
+  const xAt = i => P.l + (n === 1 ? iw / 2 : (i / (n - 1)) * iw);
+  const yAt = v => P.t + ih - ((v - lo) / (hi - lo)) * ih;
+
+  // Safe range band
+  if (hasBand) {
+    const yTop = yAt(def.max), yBot = yAt(def.min);
+    ctx.fillStyle = '#dcfce7';
+    ctx.fillRect(P.l, Math.min(yTop, yBot), iw, Math.abs(yBot - yTop));
+    ctx.strokeStyle = '#86efac'; ctx.lineWidth = 1.5; ctx.setLineDash([6, 4]);
+    [yTop, yBot].forEach(y => {
+      ctx.beginPath(); ctx.moveTo(P.l, y); ctx.lineTo(P.l + iw, y); ctx.stroke();
+    });
+    ctx.setLineDash([]);
+  }
+
+  // Gridlines + y labels
+  ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 1;
+  ctx.fillStyle = '#64748b'; ctx.font = '14px Arial, sans-serif'; ctx.textAlign = 'right';
+  for (let i = 0; i <= 4; i++) {
+    const v = lo + (hi - lo) * (i / 4), y = yAt(v);
+    ctx.beginPath(); ctx.moveTo(P.l, y); ctx.lineTo(P.l + iw, y); ctx.stroke();
+    ctx.fillText(fmtTrend(v), P.l - 10, y + 5);
+  }
+
+  // Axis
+  ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(P.l, P.t + ih); ctx.lineTo(P.l + iw, P.t + ih); ctx.stroke();
+
+  // Line
+  if (n > 1) {
+    ctx.strokeStyle = '#1a56db'; ctx.lineWidth = 3;
+    ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+    ctx.beginPath();
+    pts.forEach((p, i) => i ? ctx.lineTo(xAt(i), yAt(p.value)) : ctx.moveTo(xAt(i), yAt(p.value)));
+    ctx.stroke();
+  }
+
+  // Points, values and dates
+  ctx.textAlign = 'center';
+  pts.forEach((p, i) => {
+    const x = xAt(i), y = yAt(p.value);
+    const bad = hasBand && (p.value < def.min || p.value > def.max);
+    ctx.beginPath(); ctx.arc(x, y, 6.5, 0, Math.PI * 2);
+    ctx.fillStyle = bad ? '#ef4444' : '#10b981'; ctx.fill();
+    ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2.5; ctx.stroke();
+
+    ctx.fillStyle = '#0a1628'; ctx.font = 'bold 14px Arial, sans-serif';
+    ctx.fillText(fmtTrend(p.value), x, y - 14);
+
+    ctx.fillStyle = '#64748b'; ctx.font = '13px Arial, sans-serif';
+    ctx.fillText(p.date.toLocaleDateString('en-GB', { day:'2-digit', month:'short' }), x, P.t + ih + 22);
+    ctx.fillText(String(p.date.getFullYear()).slice(2), x, P.t + ih + 38);
+  });
+
+  return canvas.toDataURL('image/png');
+}
+
+function findParamDefSecById(pid) {
+  for (const type of Object.keys(PARAMS))
+    for (const sec of PARAMS[type].sections)
+      for (const p of sec.params)
+        if (p.id === pid) return p;
+  return null;
+}
+
+function fmtTrend(n) {
+  if (!isFinite(n)) return '—';
+  return Math.abs(n) >= 100 ? n.toFixed(0) : Math.abs(n) >= 10 ? n.toFixed(1) : n.toFixed(2);
+}
+
+// ══════════════════════════════════════════
+// AUTH — who is using the app
+// ══════════════════════════════════════════
+let me = null;          // the signed-in engineer's row
+
+async function doLogin(ev) {
+  ev.preventDefault();
+  const btn   = document.getElementById('loginBtn');
+  const errEl = document.getElementById('loginError');
+  const email = document.getElementById('loginEmail').value.trim();
+  const pass  = document.getElementById('loginPass').value;
+
+  errEl.classList.remove('show');
+  btn.disabled = true;
+  btn.textContent = 'Signing in…';
+
+  try {
+    const { error } = await sb.auth.signInWithPassword({ email, password: pass });
+    if (error) throw error;
+    await afterLogin();
+  } catch (e) {
+    const msg = /invalid login/i.test(e.message || '')
+      ? 'Wrong email or password.'
+      : /network|fetch/i.test(e.message || '')
+        ? 'No connection. Check your internet and try again.'
+        : (e.message || 'Could not sign in.');
+    errEl.textContent = msg;
+    errEl.classList.add('show');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Sign in';
+  }
+}
+
+async function doLogout() {
+  if (!confirm('Sign out of Krenos?')) return;
+  await sb.auth.signOut();
+  location.reload();
+}
+
+// Runs after a successful sign-in and on every app start with a live session.
+async function afterLogin() {
+  const { data: { user } } = await sb.auth.getUser();
+  if (!user) { showLogin(); return; }
+
+  const { data: eng, error } = await sb
+    .from('engineers')
+    .select('id, code, name, email, role, active')
+    .eq('id', user.id)
+    .maybeSingle();
+
+  if (error || !eng) {
+    await sb.auth.signOut();
+    showLogin('Your account is not set up yet. Contact the office.');
+    return;
+  }
+  if (!eng.active) {
+    await sb.auth.signOut();
+    showLogin('This account has been deactivated.');
+    return;
+  }
+
+  me = eng;
+  state.engineer = { code: eng.code || '', name: eng.name, email: eng.email, id: eng.id };
+
+  document.getElementById('meAvatar').textContent = (eng.name || '?').charAt(0).toUpperCase();
+  document.getElementById('meName').textContent   = eng.name;
+  document.getElementById('meRole').textContent   =
+    (eng.role === 'admin' ? 'Administrator' : 'Engineer') + (eng.code ? ' · ' + eng.code : '');
+
+  document.getElementById('loginScreen').classList.add('hidden');
+  await loadClients();
+}
+
+function showLogin(message) {
+  const el = document.getElementById('loginScreen');
+  el.classList.remove('hidden');
+  if (message) {
+    const errEl = document.getElementById('loginError');
+    errEl.textContent = message;
+    errEl.classList.add('show');
+  }
+}
+
+// ══════════════════════════════════════════
+// VISIT MODE
+// ══════════════════════════════════════════
+function setVisitMode(mode) {
+  state.visitMode = mode;
+  document.getElementById('freeVisitBtn').style.background = mode === 'free' ? '#f59e0b' : '#fff8e1';
+  document.getElementById('freeVisitBtn').style.color = mode === 'free' ? 'white' : '#92400e';
+  if (mode === 'free') {
+    document.getElementById('visitType').value = 'Free Water Analysis';
+  }
+}
+
+// ══════════════════════════════════════════
+// CLIENTS
+// ══════════════════════════════════════════
+// The database decides what comes back: an engineer only ever receives
+// their own clients, so there is nothing to filter on the device.
+async function loadClients() {
+  const listEl = document.getElementById('clientList');
+  try {
+    const { data, error } = await sb
+      .from('clients')
+      .select('id, code, name, region, email, frequency, engineer_id, is_prospect')
+      .eq('active', true)
+      .order('name');
+    if (error) throw error;
+
+    allClients = (data || []).map(c => ({
+      id:       c.id,
+      code:     c.code || '',
+      name:     c.name || '',
+      region:   c.region || '',
+      email:    c.email || '',
+      freq:     c.frequency || '',
+      engineer: c.engineer_id || '',
+      isProspect: !!c.is_prospect,
+    }));
+
+    try {
+      localStorage.setItem('krenos_clients_cache',
+        JSON.stringify({ data: allClients, ts: Date.now() }));
+    } catch (e) {}
+
+    renderClients(allClients);
+  } catch (e) {
+    // Offline or server down — fall back to the last list we saw
+    let restored = false;
+    try {
+      const cached = JSON.parse(localStorage.getItem('krenos_clients_cache') || 'null');
+      if (cached && cached.data && cached.data.length) {
+        allClients = cached.data;
+        renderClients(allClients);
+        showToast('Offline — showing saved client list');
+        restored = true;
+      }
+    } catch (e2) {}
+    if (!restored && listEl) {
+      listEl.innerHTML =
+        '<div style="text-align:center;padding:28px;color:var(--muted);font-size:12px">' +
+        'Could not load clients. Check your connection and pull to refresh.</div>';
+    }
+  }
+}
+
+let visibleClients = [];   // exactly what is on screen right now
+
+function escAttr(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c =>
+    ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+}
+
+function renderClients(clients) {
+  const list = document.getElementById('clientList');
+  visibleClients = clients.slice();   // keep the exact list the user sees
+  if (!clients.length) {
+    list.innerHTML = '<div style="text-align:center;padding:24px;color:var(--muted);font-size:12px">No clients found</div>';
+    return;
+  }
+  // Bind by index into visibleClients — never inject the code into the HTML,
+  // otherwise a quote in a name or code breaks the handler and can select the wrong client.
+  list.innerHTML = clients.map((c, i) => `
+    <div class="client-item" onclick="selectClientAt(${i})">
+      <div class="client-avatar">${escAttr(c.name.charAt(0))}</div>
+      <div class="client-info">
+        <div class="client-name">${escAttr(c.name)}</div>
+        <div class="client-meta">${escAttr(c.code)} · ${escAttr(c.region)}${c.freq ? ' · ' + escAttr(c.freq) : ''}</div>
+      </div>
+      <span style="color:var(--muted);font-size:16px">›</span>
+    </div>`).join('');
+}
+
+// "1", 1, "001", " 001 " must all match
+function normEngCode(v) {
+  if (v === null || v === undefined) return '';
+  const s = String(v).trim();
+  if (s === '') return '';
+  if (/^\d+$/.test(s)) return String(parseInt(s, 10));
+  return s.toLowerCase();
+}
+
+function filterClients() {
+  const q = document.getElementById('clientSearch').value.toLowerCase();
+  // No engineer filter here: the database already returned only this
+  // engineer's clients, so anything in allClients is theirs to see.
+  const list = q
+    ? allClients.filter(c => c.name.toLowerCase().includes(q) ||
+                             c.code.toLowerCase().includes(q))
+    : allClients;
+  renderClients(list);
+}
+
+// ── Visit location ──────────────────────────────────────────────
+// Read once when the report is opened. The engineer is told about this
+// at install time and grants the browser permission then; nothing about
+// the location is shown in the app. It appears only in the dashboard.
+let visitLocation = null;
+
+function captureLocation() {
+  visitLocation = null;
+  if (!navigator.geolocation) return;
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      visitLocation = {
+        lat: pos.coords.latitude,
+        lng: pos.coords.longitude,
+        accuracy: pos.coords.accuracy,
+      };
+    },
+    () => { /* denied, unavailable or timed out — submit without it */ },
+    { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 }
+  );
+}
+
+// Picks the client the user actually tapped, by position in the rendered list.
+function selectClientAt(index) {
+  const c = visibleClients[index];
+  if (!c) { showToast('Could not open that client — please refresh', 'error'); return; }
+  selectClientObj(c);
+}
+
+function selectClient(code) {
+  const key = String(code).trim().toLowerCase();
+  const c = allClients.find(x => String(x.code).trim().toLowerCase() === key);
+  if (!c) { showToast('Client not found', 'error'); return; }
+  selectClientObj(c);
+}
+
+function selectClientObj(client) {
+  if (!state.engineer) { showToast('Please sign in first', 'error'); return; }
+  state.client = client;
+  if (!state.client) return;
+  captureLocation();   // silent; result is attached at submit time
+
+  const now = new Date();
+  const dateStr = now.toISOString().slice(0,10).replace(/-/g,'');
+  const reg  = state.client.region.toUpperCase().replace(/\s/g,'').slice(0,4);
+  const eng  = state.engineer.code;
+  state.reportRef  = `SRV-${dateStr}-${reg}-${eng}-${String(Math.floor(Math.random()*99)+1).padStart(2,'0')}`;
+  state.timestamp  = now.toLocaleString('en-GB');
+
+  document.getElementById('reportHero').innerHTML = `
+    <div class="report-hero-title">${state.client.name}</div>
+    <div class="report-hero-sub">${state.reportRef} · ${state.timestamp}</div>
+    <div class="report-hero-badges">
+      <span class="hero-badge">👤 ${state.engineer.name}</span>
+      <span class="hero-badge">📍 ${state.client.region}</span>
+      <span class="hero-badge">🔄 ${state.client.freq}</span>
+      ${state.visitMode === 'free' ? '<span class="hero-badge" style="background:rgba(245,158,11,0.3)">🆓 Free Visit</span>' : ''}
+    </div>`;
+
+  // Reset systems
+  state.systems = [];
+  state.sysCounter = 0;
+  document.getElementById('sysTabs').innerHTML = '';
+  document.getElementById('sysPanels').innerHTML = '';
+
+  // Show/hide free visit section
+  document.getElementById('freeVisitSection').style.display = state.visitMode === 'free' ? 'block' : 'none';
+  if (state.visitMode === 'free') document.getElementById('visitType').value = 'Free Water Analysis';
+
+  // Previous visits — only meaningful for existing clients
+  resetHistoryUI();
+  if (state.visitMode === 'service') {
+    document.getElementById('histSection').style.display = 'block';
+    loadClientHistory(state.client.id);
+  }
+
+  goScreen('report');
+}
+
+// ══════════════════════════════════════════
+// CLIENT HISTORY (previous visits)
+// ══════════════════════════════════════════
+let historyData = null;      // parsed previous reports for this client
+let historyLoaded = false;
+
+function resetHistoryUI() {
+  historyData = null;
+  historyLoaded = false;
+  document.getElementById('histSection').style.display = 'none';
+  document.getElementById('histCard').style.display = 'none';
+  document.getElementById('histToggleBtn').textContent = '📈 Show';
+  document.getElementById('histBody').innerHTML =
+    '<div class="hist-empty">Loading history…</div>';
+}
+
+function toggleHistory() {
+  const card = document.getElementById('histCard');
+  const btn  = document.getElementById('histToggleBtn');
+  const open = card.style.display !== 'none';
+  card.style.display = open ? 'none' : 'block';
+  btn.textContent = open ? '📈 Show' : '✕ Hide';
+}
+
+async function loadClientHistory(clientId) {
+  try {
+    // Ask only for this client's last three visits — the device no longer
+    // downloads every report and sifts through them.
+    const { data, error } = await sb
+      .from('reports')
+      .select('ref, engineer_name, systems, created_at, submitted_at')
+      .eq('client_id', clientId)
+      .order('created_at', { ascending: false })
+      .limit(3);
+    if (error) throw error;
+
+    if (!data || !data.length) {
+      document.getElementById('histBody').innerHTML =
+        '<div class="hist-empty">No previous visits recorded</div>';
+      return;
+    }
+
+    const rows = data.map(r => ({
+      ref: r.ref,
+      engName: r.engineer_name || '',
+      systemsRaw: r.systems,
+      createdAt: r.submitted_at || r.created_at,
+    }));
+
+    historyData = rows;
+    historyLoaded = true;
+    renderClientHistory();
+  } catch (e) {
+    document.getElementById('histBody').innerHTML =
+      '<div class="hist-empty">Could not load history — check your connection</div>';
+  }
+}
+
+function histDate(r) {
+  if (r.createdAt) {
+    const d = new Date(r.createdAt);
+    if (!isNaN(d.getTime())) return d;
+  }
+  if (r.timestamp) {
+    const m = String(r.timestamp).match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+    if (m) return new Date(+m[3], +m[2] - 1, +m[1]);
+    const d = new Date(r.timestamp);
+    if (!isNaN(d.getTime())) return d;
+  }
+  return new Date(0);
+}
+
+function renderClientHistory() {
+  const body = document.getElementById('histBody');
+  if (!historyData || historyData.length === 0) {
+    body.innerHTML = '<div class="hist-empty">No previous visits for this client</div>';
+    return;
+  }
+
+  // visits are newest-first; build a column per visit
+  const visits = historyData.map(r => ({
+    date: histDate(r),
+    ref: r.ref,
+    eng: r.engName || '',
+    systems: parseHistSystems(r.systemsRaw),
+  }));
+
+  // Collect systems across visits, keyed by name
+  const sysMap = {};
+  visits.forEach((v, vi) => {
+    v.systems.forEach(sys => {
+      const name = sys.name || (PARAMS[sys.type]?.label) || sys.type || 'System';
+      if (!sysMap[name]) sysMap[name] = { type: sys.type, rows: {}, recs: [] };
+      const entry = sysMap[name];
+      // per-section readings so duplicate labels keep their own limits
+      const sections = (sys.sections && Object.keys(sys.sections).length)
+        ? sys.sections
+        : { '': sys.readings || {} };
+      Object.entries(sections).forEach(([secTitle, readings]) => {
+        Object.entries(readings || {}).forEach(([label, val]) => {
+          const num = parseFloat(val);
+          if (isNaN(num)) return;
+          const rowKey = secTitle ? `${secTitle}||${label}` : label;
+          if (!entry.rows[rowKey]) {
+            entry.rows[rowKey] = {
+              label, section: secTitle,
+              def: findParamDefSec(sys.type, label, secTitle),
+              values: new Array(visits.length).fill(null),
+            };
+          }
+          entry.rows[rowKey].values[vi] = num;
+        });
+      });
+      if (sys.recommendations) {
+        entry.recs.push({ date: v.date, text: sys.recommendations });
+      }
+    });
+  });
+
+  const names = Object.keys(sysMap);
+  if (!names.length) {
+    body.innerHTML = '<div class="hist-empty">No readings in previous visits</div>';
+    return;
+  }
+
+  const dateHead = visits.map(v =>
+    `<th class="num hist-date-head">${v.date.toLocaleDateString('en-GB', { day:'2-digit', month:'short' })}</th>`
+  ).join('');
+
+  let html = '';
+  names.forEach(name => {
+    const entry = sysMap[name];
+    const rowKeys = Object.keys(entry.rows);
+    if (!rowKeys.length) return;
+
+    html += `<div class="hist-sys">
+      <div class="hist-sys-name">${name}</div>
+      <table class="hist-table">
+        <thead><tr><th>Parameter</th>${dateHead}<th class="num">Trend</th></tr></thead>
+        <tbody>`;
+
+    rowKeys.forEach(k => {
+      const row = entry.rows[k];
+      const def = row.def;
+      const label = row.section ? `${row.label} <span style="font-size:9px;color:var(--muted)">${row.section}</span>` : row.label;
+
+      const cells = row.values.map((v, i) => {
+        if (v === null || v === undefined) return `<td class="num" style="color:var(--muted)">—</td>`;
+        const bad = def && (v < def.min || v > def.max);
+        // i === 0 is the most recent visit — emphasise it
+        const cls = i === 0 ? (bad ? 'hist-val bad' : 'hist-val ok') : 'hist-val old';
+        return `<td class="num"><span class="${cls}">${fmtHist(v)}</span></td>`;
+      }).join('');
+
+      // Trend: most recent vs the previous one that has a value
+      let trend = '<span class="hist-trend flat">—</span>';
+      const latest = row.values[0];
+      const prev = row.values.slice(1).find(v => v !== null && v !== undefined);
+      if (latest !== null && prev !== null && prev !== undefined) {
+        const d = latest - prev;
+        if (Math.abs(d) < 1e-9) trend = '<span class="hist-trend flat">=</span>';
+        else if (d > 0) trend = `<span class="hist-trend up">▲ ${fmtHist(Math.abs(d))}</span>`;
+        else trend = `<span class="hist-trend down">▼ ${fmtHist(Math.abs(d))}</span>`;
+      }
+
+      html += `<tr>
+        <td class="hist-param">${label}</td>
+        ${cells}
+        <td class="num">${trend}</td>
+      </tr>`;
+    });
+
+    html += `</tbody></table>`;
+
+    // Last recommendation for this system
+    if (entry.recs.length) {
+      const last = entry.recs[0];
+      html += `<div class="hist-rec">
+        <div class="hist-rec-date">Last recommendation · ${last.date.toLocaleDateString('en-GB')}</div>
+        <div class="hist-rec-text">${escapeHistHtml(last.text)}</div>
+      </div>`;
+    }
+    html += `</div>`;
+  });
+
+  html += `<div style="font-size:10px;color:var(--muted);font-style:italic;margin-top:10px;text-align:center">
+    Showing the last ${visits.length} visit${visits.length > 1 ? 's' : ''} · newest first
+  </div>`;
+
+  body.innerHTML = html;
+}
+
+function parseHistSystems(raw) {
+  if (!raw) return [];
+  try { return typeof raw === 'string' ? JSON.parse(raw) : raw; } catch (e) { return []; }
+}
+
+function findParamDefSec(type, label, sectionTitle) {
+  const def = PARAMS[type];
+  if (!def) return null;
+  if (sectionTitle) {
+    const sec = def.sections.find(s => s.title === sectionTitle);
+    if (sec) {
+      const p = sec.params.find(p => p.label === label);
+      if (p) return p;
+    }
+  }
+  for (const sec of def.sections)
+    for (const p of sec.params)
+      if (p.label === label) return p;
+  return null;
+}
+
+function fmtHist(n) {
+  if (!isFinite(n)) return '—';
+  return Math.abs(n) >= 100 ? n.toFixed(0) : Math.abs(n) >= 10 ? n.toFixed(1) : n.toFixed(2);
+}
+
+function escapeHistHtml(s) {
+  return String(s).replace(/[&<>"']/g, c =>
+    ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+}
+
+// ══════════════════════════════════════════
+// ADD CLIENT
+// ══════════════════════════════════════════
+async function saveNewClient() {
+  const name   = document.getElementById('nc_name').value.trim();
+  const region = document.getElementById('nc_region').value;
+  const email  = document.getElementById('nc_email').value.trim();
+  if (!name) { showToast('Company name required', 'error'); return; }
+
+  showLoading('Saving client...');
+  try {
+    // A prospect code that will not collide with another engineer's:
+    // the database rejects a duplicate, so retry with the next number.
+    let saved = null, lastErr = null;
+    for (let attempt = 0; attempt < 5 && !saved; attempt++) {
+      const { count } = await sb.from('clients')
+        .select('id', { count: 'exact', head: true })
+        .like('code', 'PROS-%');
+      const code = 'PROS-' + String((count || 0) + 1 + attempt).padStart(3, '0');
+
+      const { data, error } = await sb.from('clients').insert({
+        code,
+        name,
+        region,
+        email: email || null,
+        engineer_id: me?.id || null,
+        is_prospect: true,
+      }).select().single();
+
+      if (!error) { saved = data; break; }
+      lastErr = error;
+      if (error.code !== '23505') break;   // not a duplicate — real failure
+    }
+    if (!saved) throw lastErr || new Error('Could not save');
+
+    allClients.push({
+      id: saved.id, code: saved.code, name: saved.name,
+      region: saved.region || '', email: saved.email || '',
+      freq: '', engineer: saved.engineer_id || '', isProspect: true,
+    });
+    allClients.sort((a, b) => a.name.localeCompare(b.name));
+    renderClients(allClients);
+    hideSheet('addClientSheet');
+    showToast('Client saved ✓', 'success');
+    ['nc_name', 'nc_email'].forEach(id => document.getElementById(id).value = '');
+  } catch (e) {
+    showToast(e.message || 'Error saving', 'error');
+  }
+  hideLoading();
+}
+
+// ══════════════════════════════════════════
+// SYSTEMS
+// ══════════════════════════════════════════
+function addSystem(type) {
+  const id   = ++state.sysCounter;
+  const def  = PARAMS[type];
+  state.systems.push({ id, type });
+
+  // Tab
+  const tab = document.createElement('button');
+  tab.className = 'sys-tab';
+  tab.id = `sys-tab-${id}`;
+  tab.innerHTML = `${def.icon} ${def.label} #${id}`;
+  tab.onclick = () => switchTab(id);
+  document.getElementById('sysTabs').appendChild(tab);
+
+  // Panel
+  const panel = document.createElement('div');
+  panel.className = 'sys-panel';
+  panel.id = `sys-panel-${id}`;
+
+  let sectionsHTML = '';
+  def.sections.forEach(sec => {
+    const rows = sec.params.map(p => {
+      if (p.calc) {
+        return `
+          <div class="param-row">
+            <div class="status-dot calc" id="dot-${id}-${p.id}"></div>
+            <div class="param-label">${p.label} <span style="font-size:9px;color:var(--blue)">(auto)</span></div>
+            <div class="param-unit">${p.unit}</div>
+            <input type="number" class="param-input" id="inp-${id}-${p.id}" readonly placeholder="auto" step="0.01">
+          </div>`;
+      }
+      return `
+        <div class="param-row">
+          <div class="status-dot" id="dot-${id}-${p.id}"></div>
+          <div class="param-label">${p.label}</div>
+          <div class="param-unit">${p.unit}</div>
+          <input type="number" class="param-input" id="inp-${id}-${p.id}"
+            placeholder="—" step="0.01"
+            data-min="${p.min}" data-max="${p.max}"
+            oninput="onParamInput(this,'${id}','${p.id}')">
+        </div>`;
+    }).join('');
+    sectionsHTML += `
+      <div class="subsection">
+        <div class="subsection-title">${sec.title}</div>
+        ${rows}
+      </div>`;
+  });
+
+  panel.innerHTML = `
+    <div class="card">
+      <div class="card-body">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+          <input type="text" class="form-input" id="sysname-${id}" value="${def.label} #${id}"
+            style="font-weight:600;font-size:13px;padding:7px 10px"
+            oninput="updateTabLabel(${id},this.value)">
+          <button onclick="removeSystem(${id})" class="btn btn-danger btn-sm" style="width:auto;white-space:nowrap">🗑 Remove</button>
+        </div>
+        ${sectionsHTML}
+        <div style="margin-top:12px">
+          <div class="subsection-title">Recommendations</div>
+          <textarea class="rec-textarea" id="rec-${id}" placeholder="Enter recommendations for this system..."></textarea>
+        </div>
+        <div style="margin-top:14px">
+          <div class="subsection-title">Treatment Program</div>
+          <div id="tp-${id}" style="display:flex;flex-direction:column;gap:8px"></div>
+          <button onclick="addTreatmentProduct(${id})" class="btn btn-secondary btn-sm" style="margin-top:8px;font-size:11px">+ Add Product</button>
+        </div>
+        ${buildTrendPicker(id, type)}
+      </div>
+    </div>`;
+
+  document.getElementById('sysPanels').appendChild(panel);
+  switchTab(id);
+}
+
+function addTreatmentProduct(sysId) {
+  const container = document.getElementById(`tp-${sysId}`);
+  if (!container) return;
+  const idx = container.children.length;
+  const row = document.createElement('div');
+  row.style.cssText = 'background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px;position:relative';
+  row.innerHTML = `
+    <button onclick="this.parentElement.remove()" style="position:absolute;top:6px;right:8px;background:none;border:none;color:#ef4444;cursor:pointer;font-size:14px;font-weight:bold">✕</button>
+    <div style="display:grid;grid-template-columns:1fr;gap:6px">
+      <div>
+        <label style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.7px">Product</label>
+        <input type="text" class="form-input tp-product" placeholder="e.g. Product code" style="font-size:12px;padding:7px 9px;margin-top:2px">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+        <div>
+          <label style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.7px">Dosage (kg/day)</label>
+          <input type="number" step="0.01" class="form-input tp-dosage" placeholder="0" style="font-size:12px;padding:7px 9px;margin-top:2px">
+        </div>
+        <div>
+          <label style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.7px">Stock (kg)</label>
+          <input type="number" step="0.01" class="form-input tp-stock" placeholder="0" style="font-size:12px;padding:7px 9px;margin-top:2px">
+        </div>
+      </div>
+    </div>`;
+  container.appendChild(row);
+}
+
+function switchTab(id) {
+  document.querySelectorAll('.sys-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.sys-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById(`sys-tab-${id}`)?.classList.add('active');
+  document.getElementById(`sys-panel-${id}`)?.classList.add('active');
+}
+
+function updateTabLabel(id, val) {
+  const t = document.getElementById(`sys-tab-${id}`);
+  const def = PARAMS[state.systems.find(s=>s.id===id)?.type];
+  if (t && def) t.textContent = `${def.icon} ${val}`;
+}
+
+function removeSystem(id) {
+  if (!confirm('Remove this system?')) return;
+  document.getElementById(`sys-tab-${id}`)?.remove();
+  document.getElementById(`sys-panel-${id}`)?.remove();
+  state.systems = state.systems.filter(s => s.id !== id);
+  if (state.systems.length) switchTab(state.systems[state.systems.length-1].id);
+}
+
+function onParamInput(input, sysId, paramId) {
+  const val  = parseFloat(input.value);
+  const min  = parseFloat(input.dataset.min);
+  const max  = parseFloat(input.dataset.max);
+  const dot  = document.getElementById(`dot-${sysId}-${paramId}`);
+
+  if (input.value === '') {
+    input.className = 'param-input';
+    dot.className   = 'status-dot';
+  } else if (val >= min && val <= max) {
+    input.className = 'param-input in-range';
+    dot.className   = 'status-dot ok';
+  } else {
+    input.className = 'param-input out-of-range';
+    dot.className   = 'status-dot bad';
+  }
+
+  // OH Alkalinity auto-calc: 2P - M
+  if (paramId === 'bw_palk' || paramId === 'bw_malk') {
+    calcOHAlk(sysId);
+  }
+  // LSI auto-calc (cooling tower)
+  if (['cw_ph','cw_ca','cw_alk','cw_tds','cw_temp'].includes(paramId)) {
+    calcLSI(sysId);
+  }
+  // Cycles of Concentration (boiler): Boiler Chloride ÷ Feed Chloride
+  if (paramId === 'bw_cl' || paramId === 'fw_cl') {
+    calcCycles(sysId);
+  }
+  // Estimated condensate return (boiler): from Softener vs Feed TDS
+  if (paramId === 'sw_tds' || paramId === 'fw_tds') {
+    calcCondReturn(sysId);
+  }
+}
+
+// Cycles of Concentration = Boiler Water Chloride ÷ Feed Water Chloride
+// Chloride is used because it does not precipitate, volatilise or react.
+function calcCycles(sysId) {
+  const bwCl = parseFloat(document.getElementById(`inp-${sysId}-bw_cl`)?.value);
+  const fwCl = parseFloat(document.getElementById(`inp-${sysId}-fw_cl`)?.value);
+  const out  = document.getElementById(`inp-${sysId}-bw_cyc`);
+  const dot  = document.getElementById(`dot-${sysId}-bw_cyc`);
+  if (!out) return;
+  if (isNaN(bwCl) || isNaN(fwCl) || fwCl <= 0) {
+    out.value = '';
+    if (dot) dot.className = 'status-dot calc';
+    return;
+  }
+  out.value = (bwCl / fwCl).toFixed(1);
+  if (dot) dot.className = 'status-dot calc';
+}
+
+// Estimated Condensate Return % from a TDS mass balance.
+// Assumes condensate TDS is negligible, so it is an estimate, not a measurement.
+//   Return % = (1 - Feed TDS / Softener TDS) x 100
+function calcCondReturn(sysId) {
+  const swTds = parseFloat(document.getElementById(`inp-${sysId}-sw_tds`)?.value);
+  const fwTds = parseFloat(document.getElementById(`inp-${sysId}-fw_tds`)?.value);
+  const out   = document.getElementById(`inp-${sysId}-fw_cret`);
+  const dot   = document.getElementById(`dot-${sysId}-fw_cret`);
+  if (!out) return;
+  if (isNaN(swTds) || isNaN(fwTds) || swTds <= 0) {
+    out.value = '';
+    if (dot) dot.className = 'status-dot calc';
+    return;
+  }
+  const pct = (1 - (fwTds / swTds)) * 100;
+  // Feed TDS above softener TDS means no dilution is happening — show nothing
+  // rather than a misleading negative number.
+  out.value = pct > 0 ? pct.toFixed(1) : '';
+  if (dot) dot.className = 'status-dot calc';
+}
+
+function calcLSI(sysId) {
+  const pH   = parseFloat(document.getElementById(`inp-${sysId}-cw_ph`)?.value);
+  const ca   = parseFloat(document.getElementById(`inp-${sysId}-cw_ca`)?.value);
+  const alk  = parseFloat(document.getElementById(`inp-${sysId}-cw_alk`)?.value);
+  const tds  = parseFloat(document.getElementById(`inp-${sysId}-cw_tds`)?.value);
+  const temp = parseFloat(document.getElementById(`inp-${sysId}-cw_temp`)?.value);
+  const out  = document.getElementById(`inp-${sysId}-cw_lsi`);
+  const dot  = document.getElementById(`dot-${sysId}-cw_lsi`);
+  if (!out) return;
+  if (isNaN(pH) || isNaN(ca) || isNaN(alk) || isNaN(temp) || ca <= 0 || alk <= 0) {
+    out.value = '';
+    if (dot) dot.className = 'status-dot calc';
+    return;
+  }
+  // pHs = (9.3 + A + B) - (C + D)
+  const A = (!isNaN(tds) && tds > 0) ? (Math.log10(tds) - 1) / 10 : 0;
+  const B = (() => {
+    const tbl = [[0,2.60],[5,2.50],[10,2.44],[15,2.34],[20,2.22],[25,2.10],[30,1.97],
+                 [35,1.84],[40,1.70],[45,1.55],[50,1.40],[55,1.25],[60,1.10],[70,0.83],[80,0.62]];
+    for (let i = 0; i < tbl.length - 1; i++) {
+      if (temp >= tbl[i][0] && temp <= tbl[i+1][0]) {
+        const t = (temp - tbl[i][0]) / (tbl[i+1][0] - tbl[i][0]);
+        return tbl[i][1] + t * (tbl[i+1][1] - tbl[i][1]);
+      }
+    }
+    return temp < 0 ? 2.60 : 0.62;
+  })();
+  const C = Math.log10(ca) - 0.4;
+  const D = Math.log10(alk);
+  out.value = (pH - ((9.3 + A + B) - (C + D))).toFixed(2);
+  if (dot) dot.className = 'status-dot calc';
+}
+
+function calcOHAlk(sysId) {
+  const pAlk = parseFloat(document.getElementById(`inp-${sysId}-bw_palk`)?.value) || 0;
+  const mAlk = parseFloat(document.getElementById(`inp-${sysId}-bw_malk`)?.value) || 0;
+  const ohInp = document.getElementById(`inp-${sysId}-bw_ohalk`);
+  const ohDot = document.getElementById(`dot-${sysId}-bw_ohalk`);
+  if (!ohInp) return;
+  if (pAlk > 0 || mAlk > 0) {
+    const oh = (2 * pAlk) - mAlk;
+    ohInp.value = oh >= 0 ? oh.toFixed(1) : 0;
+    ohDot.className = 'status-dot calc';
+  } else {
+    ohInp.value = '';
+  }
+}
+
+// ══════════════════════════════════════════
+// COLLECT DATA
+// ══════════════════════════════════════════
+function collectSystems() {
+  return state.systems.map(sys => {
+    const def     = PARAMS[sys.type];
+    const name    = document.getElementById(`sysname-${sys.id}`)?.value || def.label;
+    const rec     = document.getElementById(`rec-${sys.id}`)?.value || '';
+    // Collect readings per section to avoid mixing
+    const sections = {};
+    def.sections.forEach(sec => {
+      const secReadings = {};
+      sec.params.forEach(p => {
+        const el = document.getElementById(`inp-${sys.id}-${p.id}`);
+        const v  = el?.value;
+        if (v !== '' && v !== undefined && v !== null) {
+          secReadings[p.label] = v;
+        }
+      });
+      if (Object.keys(secReadings).length > 0) {
+        sections[sec.title] = secReadings;
+      }
+    });
+    // Flatten for email/sheets compatibility
+    const readings = {};
+    Object.values(sections).forEach(sr => Object.assign(readings, sr));
+    // Collect treatment program
+    const treatment = [];
+    const tpContainer = document.getElementById(`tp-${sys.id}`);
+    if (tpContainer) {
+      tpContainer.querySelectorAll(':scope > div').forEach(row => {
+        const product = row.querySelector('.tp-product')?.value?.trim() || '';
+        const dosage  = row.querySelector('.tp-dosage')?.value || '';
+        const stock   = row.querySelector('.tp-stock')?.value || '';
+        if (product) {
+          treatment.push({ product, dosage, stock });
+        }
+      });
+    }
+    const trends = getSelectedTrends(sys.id);
+    return { id: sys.id, type: sys.type, stype: def, name, sections, readings, recommendations: rec, treatment, trends };
+  });
+}
+
+// ══════════════════════════════════════════
+// REVIEW
+// ══════════════════════════════════════════
+function buildReview() {
+  const systemsData = collectSystems();
+  const visitType   = document.getElementById('visitType').value;
+  const visitNotes  = document.getElementById('visitNotes').value;
+
+  const sysSummary = systemsData.map(sys => {
+    const filled     = Object.values(sys.readings).filter(v => v !== '').length;
+    const outRange   = Object.entries(sys.readings).filter(([k,v]) => {
+      const p = findParamDef(sys.type, k);
+      return p && parseFloat(v) !== NaN && (parseFloat(v) < p.min || parseFloat(v) > p.max);
+    }).length;
+    return `
+      <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border)">
+        <span style="font-size:18px">${sys.stype.icon}</span>
+        <div style="flex:1">
+          <div style="font-weight:600;font-size:12px">${sys.name}</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px">${filled} readings · ${outRange > 0 ? `<span style="color:var(--red)">${outRange} out of range</span>` : '<span style="color:var(--green)">All in range</span>'}</div>
+          ${sys.recommendations ? `<div style="font-size:10px;color:var(--slate);margin-top:3px;font-style:italic">"${sys.recommendations.slice(0,55)}${sys.recommendations.length>55?'...':''}"</div>` : ''}
+        </div>
+      </div>`;
+  }).join('');
+
+  document.getElementById('reviewCard').innerHTML = `
+    <div class="card-body">
+      <div style="display:flex;justify-content:space-between;margin-bottom:10px">
+        <div>
+          <div style="font-weight:700;font-size:14px">${state.client?.name || 'Free Visit'}</div>
+          <div style="font-size:10px;color:var(--muted);font-family:'ui-monospace, SF Mono, Consolas',monospace;margin-top:2px">${state.reportRef}</div>
+        </div>
+        <span class="chip-pending">Pending</span>
+      </div>
+      <div style="font-size:11px;color:var(--slate);margin-bottom:10px"><strong>Visit:</strong> ${visitType}${visitNotes ? ' — '+visitNotes : ''}</div>
+      ${sysSummary || '<div style="color:var(--muted);font-size:12px;text-align:center;padding:16px">No systems added</div>'}
+    </div>`;
+
+  // Recipients
+  const eng = state.engineer;
+  const cli = state.client;
+  document.getElementById('emailRecipients').innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:7px">
+      <div style="display:flex;gap:8px;font-size:11px;color:var(--slate);align-items:center">
+        <span>📧</span><strong>Office:</strong> <span style="font-family:'ui-monospace, SF Mono, Consolas',monospace;font-size:10px">${MANAGEMENT_EMAIL}</span>
+      </div>
+      <div style="display:flex;gap:8px;font-size:11px;color:var(--slate);align-items:center">
+        <span>📧</span><strong>Client:</strong> <span style="font-family:'ui-monospace, SF Mono, Consolas',monospace;font-size:10px">${cli?.email || '—'}</span>
+      </div>
+      <div style="display:flex;gap:8px;font-size:11px;color:var(--slate);align-items:center">
+        <span>📧</span><strong>Engineer:</strong> <span style="font-family:'ui-monospace, SF Mono, Consolas',monospace;font-size:10px">${eng?.email || '—'}</span>
+      </div>
+    </div>`;
+}
+
+// ══════════════════════════════════════════
+// SUBMIT
+// ══════════════════════════════════════════
+async function submitReport() {
+  // The id is minted here, on the device, BEFORE anything is sent. If the
+  // connection drops and the app retries, the database rejects the second
+  // insert on this primary key — so a visit can never be filed twice.
+  const reportId = (crypto.randomUUID
+    ? crypto.randomUUID()
+    : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+        const r = Math.random() * 16 | 0;
+        return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+      }));
+
+  showLoading('Saving report...');
+  try {
+    const systemsData = collectSystems();
+    const visitType   = document.getElementById('visitType').value;
+    const visitNotes  = document.getElementById('visitNotes').value;
+    const clientEmail = state.client?.email || '';
+    const engEmail    = state.engineer?.email || '';
+
+    const prospectName    = document.getElementById('prospectName')?.value || '';
+    const prospectContact = document.getElementById('prospectContact')?.value || '';
+    const prospectPhone   = document.getElementById('prospectPhone')?.value || '';
+    const prospectRegion  = document.getElementById('prospectRegion')?.value || '';
+
+    // ── 1. Write the record first, so the visit is never lost ──
+    const { error: insErr } = await sb.from('reports').insert({
+      id:            reportId,
+      ref:           state.reportRef,
+      client_id:     state.client?.id || null,
+      engineer_id:   me.id,
+      client_name:   state.client?.name   || prospectName || 'Free Visit',
+      client_code:   state.client?.code   || 'FREE-VISIT',
+      engineer_name: state.engineer?.name || '',
+      region:        state.client?.region || prospectRegion || '',
+      visit_mode:    state.visitMode,
+      visit_type:    visitType,
+      notes:         visitNotes,
+      systems:       systemsData,
+      prospect_contact: prospectContact || null,
+      prospect_phone:   prospectPhone   || null,
+      gps_lat:       visitLocation?.lat      ?? null,
+      gps_lng:       visitLocation?.lng      ?? null,
+      gps_accuracy:  visitLocation?.accuracy ?? null,
+      submitted_at:  new Date().toISOString(),
+    });
+    if (insErr) {
+      if (insErr.code === '23505') throw new Error('This report was already submitted.');
+      throw insErr;
+    }
+
+    // ── 2. Trend charts, if the engineer asked for them ──
+    let trendSeries = {};
+    if (systemsData.some(sy => sy.trends && sy.trends.length)) {
+      showLoading('Building performance trends...');
+      trendSeries = await buildTrendSeries(systemsData);
+    }
+
+    // ── 3. The PDF ──
+    showLoading('Generating PDF...');
+    const pdfResult = await generatePDF(systemsData, visitType, visitNotes,
+                                        prospectName, prospectContact, trendSeries);
+
+    // ── 4. Hand off to the server: upload to Drive, send the emails ──
+    showLoading('Sending reports...');
+    const emailBody = buildEmailBody(systemsData, visitType, visitNotes,
+                                     prospectName, prospectContact, prospectPhone, '');
+    let delivered = false;
+    try {
+      const { data: fnData, error: fnErr } = await sb.functions.invoke('deliver-report', {
+        body: {
+          report_id:   reportId,
+          ref:         state.reportRef,
+          client_name: state.client?.name || prospectName || 'Free Visit',
+          pdf_base64:  pdfResult.base64Clean,
+          email_html:  emailBody,
+          recipients: {
+            management: MANAGEMENT_EMAIL,
+            client:     state.visitMode === 'free' ? '' : clientEmail,
+            engineer:   engEmail,
+          },
+        },
+      });
+      if (fnErr) throw fnErr;
+      delivered = !!(fnData && fnData.success);
+    } catch (e) {
+      console.error('Delivery failed:', e);
+    }
+
+    downloadPDF(pdfResult.dataUri, state.reportRef);
+    hideLoading();
+
+    // ── 5. Confirmation ──
+    document.getElementById('successRef').textContent = state.reportRef;
+    const rows = [
+      { label: 'Technical Office', email: MANAGEMENT_EMAIL },
+      { label: 'Client',           email: state.visitMode === 'free'
+                                            ? 'Not sent (free visit)'
+                                            : (clientEmail || 'No email on file') },
+      { label: 'Engineer',         email: engEmail || 'No email on file' },
+    ];
+    document.getElementById('emailsSent').innerHTML = delivered
+      ? rows.map(r => `<div class="email-sent-row">✓ <strong>${r.label}:</strong> ${r.email}</div>`).join('')
+      : `<div class="email-sent-row" style="color:#92400e">
+           ⚠ Report saved, but the emails could not be sent just now.
+           The office can resend it from the dashboard.
+         </div>`;
+
+    goScreen('success');
+  } catch (err) {
+    hideLoading();
+    showToast('Error: ' + (err.message || 'Could not submit'), 'error');
+    console.error(err);
+  }
+}
+
+// ══════════════════════════════════════════
+// EMAIL BODY
+// ══════════════════════════════════════════
+function buildEmailBody(systemsData, visitType, visitNotes, prospectName, prospectContact, prospectPhone, pdfLink) {
+  let body = '';
+
+  if (visitNotes) {
+    body += `<p style="font-size:12px;color:#666;font-style:italic;margin:0 0 14px;padding:8px 12px;background:#f8fafc;border-radius:6px">📝 ${visitNotes}</p>`;
+  }
+
+  if (prospectName) {
+    body += `
+      <div style="margin-bottom:16px;padding:12px 14px;background:#fff8e1;border:1px solid #fde68a;border-radius:8px;font-size:12px">
+        <strong style="color:#92400e">🆓 Free Water Analysis Visit</strong><br>
+        <span style="color:#78350f">Prospect: ${prospectName}</span><br>
+        ${prospectContact ? `<span style="color:#78350f">Contact: ${prospectContact}</span><br>` : ''}
+        ${prospectPhone   ? `<span style="color:#78350f">Phone: ${prospectPhone}</span>` : ''}
+      </div>`;
+  }
+
+  systemsData.forEach(sys => {
+    const def = PARAMS[sys.type];
+    if (!def) return;
+
+    body += `<div style="margin-bottom:18px;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden">`;
+    body += `<div style="font-size:13px;font-weight:700;color:#fff;padding:9px 14px;background:#1a56db">${def.icon} ${sys.name}</div>`;
+
+    // Iterate through DEFINED sections in order — strict isolation per section
+    def.sections.forEach(sec => {
+      // Get this section's data only (no fallback to flat readings)
+      const secData = (sys.sections && sys.sections[sec.title]) || null;
+      if (!secData) return; // Skip section if no data for it
+
+      const rows = [];
+      sec.params.forEach(p => {
+        const v = secData[p.label];
+        if (v !== undefined && v !== '' && v !== null) {
+          rows.push({ p, v });
+        }
+      });
+
+      if (rows.length === 0) return;
+
+      // Section sub-header — bold, consistent styling
+      body += `<div style="background:#f1f5f9;padding:7px 14px;font-size:11px;font-weight:700;color:#1e293b;text-transform:uppercase;letter-spacing:0.8px;border-top:1px solid #e2e8f0">${sec.title}</div>`;
+
+      // Table
+      body += `<table style="width:100%;border-collapse:collapse">`;
+      rows.forEach((row, i) => {
+        const p = row.p;
+        const v = row.v;
+        const numV = parseFloat(v);
+        const hasRange = !p.noLimit && isFinite(p.min) && isFinite(p.max) && p.max < 9999;
+        const inRange  = hasRange && numV >= p.min && numV <= p.max;
+        const statusColor = isNaN(numV) ? '#94a3b8'
+                          : !hasRange   ? (p.calc ? '#3b82f6' : '#94a3b8')
+                          : inRange     ? (p.calc ? '#3b82f6' : '#10b981')
+                                        : '#ef4444';
+        const bg = i % 2 === 0 ? '#ffffff' : '#f8fafc';
+        body += `<tr style="background:${bg}">
+          <td style="padding:7px 14px;font-size:12px;color:#334155;border-top:1px solid #e2e8f0;width:50%">${p.label}</td>
+          <td style="padding:7px 12px;font-size:12px;font-weight:700;color:#0a1628;border-top:1px solid #e2e8f0;font-family:monospace">${v}</td>
+          <td style="padding:7px 12px;font-size:10px;color:#94a3b8;border-top:1px solid #e2e8f0;font-family:monospace">${p.unit}</td>
+          <td style="padding:7px 10px;border-top:1px solid #e2e8f0;text-align:center;width:30px">
+            <span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${statusColor}"></span>
+          </td>
+        </tr>`;
+      });
+      body += `</table>`;
+    });
+
+    if (sys.recommendations) {
+      body += `<div style="padding:10px 14px;background:#eff6ff;border-top:1px solid #bfdbfe;font-size:12px;color:#1e3a5f"><strong>Recommendations:</strong> ${sys.recommendations}</div>`;
+    }
+
+    // Treatment Program
+    if (sys.treatment && sys.treatment.length > 0) {
+      body += `<div style="background:#f1f5f9;padding:7px 14px;font-size:11px;font-weight:700;color:#1e293b;text-transform:uppercase;letter-spacing:0.8px;border-top:1px solid #e2e8f0">TREATMENT PROGRAM</div>`;
+      body += `<table style="width:100%;border-collapse:collapse">`;
+      body += `<tr style="background:#f8fafc">
+        <td style="padding:6px 14px;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.6px;border-top:1px solid #e2e8f0">Product</td>
+        <td style="padding:6px 14px;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.6px;border-top:1px solid #e2e8f0">Dosage (kg/day)</td>
+        <td style="padding:6px 14px;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.6px;border-top:1px solid #e2e8f0">Stock (kg)</td>
+      </tr>`;
+      sys.treatment.forEach((t, i) => {
+        const bg = i % 2 === 0 ? '#ffffff' : '#f8fafc';
+        body += `<tr style="background:${bg}">
+          <td style="padding:7px 14px;font-size:12px;font-weight:600;color:#0a1628;border-top:1px solid #e2e8f0">${t.product}</td>
+          <td style="padding:7px 14px;font-size:12px;color:#334155;border-top:1px solid #e2e8f0;font-family:monospace">${t.dosage || '—'}</td>
+          <td style="padding:7px 14px;font-size:12px;color:#334155;border-top:1px solid #e2e8f0;font-family:monospace">${t.stock || '—'}</td>
+        </tr>`;
+      });
+      body += `</table>`;
+    }
+
+    body += `</div>`;
+  });
+
+  // Trend charts live in the PDF only — point the reader there
+  if (systemsData.some(sy => sy.trends && sy.trends.length)) {
+    body += `<div style="margin-top:16px;padding:10px 14px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;font-size:11px;color:#1e3a5f">📈 Performance trend charts for the last visits are included in the attached PDF report.</div>`;
+  }
+
+  body += `<div style="margin-top:16px;padding:10px 14px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;text-align:center;font-size:11px;color:#166534">📄 A PDF copy has been automatically saved on the engineer's device.</div>`;
+
+  // PDF Download Button (if link available)
+  if (pdfLink) {
+    body += `
+      <div style="margin-top:24px;padding:20px;background:linear-gradient(135deg,#1a56db,#3b82f6);border-radius:12px;text-align:center">
+        <div style="color:rgba(255,255,255,0.85);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1.2px;margin-bottom:10px">Full Report Available</div>
+        <a href="${pdfLink}" target="_blank" style="display:inline-block;background:white;color:#1a56db;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;box-shadow:0 4px 12px rgba(0,0,0,0.15)">📄 Download PDF Report</a>
+        <div style="color:rgba(255,255,255,0.7);font-size:11px;margin-top:10px">Click to view or download the complete service report</div>
+      </div>`;
+  }
+
+  return body;
+}
+
+// ══════════════════════════════════════════
+// PDF GENERATION
+// ══════════════════════════════════════════
+// Helper: render Arabic or mixed text to image and add to PDF
+// Draws text that may be Arabic, Latin, or mixed.
+//
+// IMPORTANT: `y` is the TOP of the text block in BOTH branches, and the
+// returned value is the block's height in mm. Latin text goes through jsPDF
+// (which positions by baseline, so we add the ascent); Arabic is rendered to a
+// canvas and placed as an image (positioned by its top). Keeping one
+// convention is what stops headings from sitting above their coloured bars.
+const PT_TO_MM = 0.3528;
+
+function addTextToPDF(doc, text, x, y, maxWidth, fontSize, color, bold, bgColor) {
+  text = String(text == null ? '' : text);
+  if (!text) return 0;
+
+  const hasArabic = /[؀-ۿݐ-ݿࢠ-ࣿﭐ-﷿ﹰ-﻿]/.test(text);
+  const lineH = fontSize * PT_TO_MM * 1.15;   // mm per line
+
+  if (!hasArabic) {
+    doc.setFontSize(fontSize);
+    doc.setTextColor(color[0], color[1], color[2]);
+    doc.setFont('helvetica', bold ? 'bold' : 'normal');
+    const lines = doc.splitTextToSize(text, maxWidth);
+    // jsPDF draws from the baseline — drop by roughly the cap height so the
+    // caller's y behaves as the top of the block.
+    const firstBaseline = y + fontSize * PT_TO_MM * 0.82;
+    doc.text(lines, x, firstBaseline);
+    return lines.length * lineH;
+  }
+
+  // ── Arabic (or mixed) — render to canvas, place as image ──
+  const scale  = 4;              // supersample for a crisp PDF image
+  const mmToPx = 3.7795;
+  const maxPx  = maxWidth * scale * mmToPx;
+  const fontPx = fontSize * scale;
+  const linePx = fontPx * 1.35;  // tighter than before; was 2x and left big gaps
+
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  const fontSpec = `${bold ? 'bold ' : ''}${fontPx}px Arial, sans-serif`;
+  ctx.font = fontSpec;
+
+  // Word wrap
+  const words = text.split(/\s+/).filter(Boolean);
+  const lines = [];
+  let line = '';
+  for (const word of words) {
+    const test = line ? line + ' ' + word : word;
+    if (ctx.measureText(test).width > maxPx && line) {
+      lines.push(line);
+      line = word;
+    } else {
+      line = test;
+    }
+  }
+  if (line) lines.push(line);
+  if (!lines.length) return 0;
+
+  // Size the canvas to the actual text, not the full column, so the block can
+  // be placed at x without a wide empty gap beside it.
+  let widestPx = 0;
+  for (const l of lines) widestPx = Math.max(widestPx, ctx.measureText(l).width);
+  const padPx = fontPx * 0.25;
+  const canvasW = Math.min(Math.ceil(widestPx + padPx * 2), Math.ceil(maxPx));
+  const canvasH = Math.ceil(linePx * lines.length + padPx);
+
+  canvas.width  = canvasW;
+  canvas.height = canvasH;
+
+  // Resizing the canvas resets the context — re-apply everything.
+  ctx.font = fontSpec;
+  const bg = bgColor || [255,255,255];
+  ctx.fillStyle = `rgb(${bg[0]},${bg[1]},${bg[2]})`;
+  ctx.fillRect(0, 0, canvasW, canvasH);
+  ctx.fillStyle = `rgb(${color[0]},${color[1]},${color[2]})`;
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'alphabetic';
+  try { ctx.direction = 'rtl'; } catch (e) {}
+
+  lines.forEach((l, i) => {
+    ctx.fillText(l, canvasW - padPx, linePx * (i + 1) - linePx * 0.28);
+  });
+
+  const imgW = canvasW / scale / mmToPx;
+  const imgH = canvasH / scale / mmToPx;
+  doc.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', x, y, imgW, imgH);
+  return imgH;
+}
+
+// Same wrapping maths as addTextToPDF but draws nothing — lets a caller size
+// a background box before the text goes on top of it.
+function measureTextHeight(doc, text, maxWidth, fontSize, bold) {
+  text = String(text == null ? '' : text);
+  if (!text) return 0;
+  const hasArabic = /[؀-ۿݐ-ݿࢠ-ࣿﭐ-﷿ﹰ-﻿]/.test(text);
+  const lineH = fontSize * PT_TO_MM * 1.15;
+
+  if (!hasArabic) {
+    doc.setFontSize(fontSize);
+    doc.setFont('helvetica', bold ? 'bold' : 'normal');
+    return doc.splitTextToSize(text, maxWidth).length * lineH;
+  }
+
+  const scale = 4, mmToPx = 3.7795;
+  const maxPx = maxWidth * scale * mmToPx;
+  const fontPx = fontSize * scale;
+  const linePx = fontPx * 1.35;
+  const ctx = document.createElement('canvas').getContext('2d');
+  ctx.font = `${bold ? 'bold ' : ''}${fontPx}px Arial, sans-serif`;
+
+  const words = text.split(/\s+/).filter(Boolean);
+  let lines = 0, line = '';
+  for (const word of words) {
+    const test = line ? line + ' ' + word : word;
+    if (ctx.measureText(test).width > maxPx && line) { lines++; line = word; }
+    else line = test;
+  }
+  if (line) lines++;
+  const padPx = fontPx * 0.25;
+  return (linePx * lines + padPx) / scale / mmToPx;
+}
+
+// Vertically centres a single line of text inside a bar of height `barH`
+// whose top edge is at `y`. Returns the bar height so callers can advance.
+function addTextCentered(doc, text, x, y, barH, maxWidth, fontSize, color, bold, bgColor) {
+  const approxH = fontSize * PT_TO_MM * 1.15;
+  return addTextToPDF(doc, text, x, y + Math.max((barH - approxH) / 2, 0),
+                      maxWidth, fontSize, color, bold, bgColor);
+}
+
+async function generatePDF(systemsData, visitType, visitNotes, prospectName, prospectContact, trendSeries) {
+  trendSeries = trendSeries || {};
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
+  const W = 210, M = 14, CW = W - M*2;
+  let y = 0;
+
+  // Header
+  doc.setFillColor(10,22,40);
+  doc.rect(0,0,W,30,'F');
+  doc.setTextColor(255,255,255);
+  doc.setFontSize(15); doc.setFont('helvetica','bold');
+  doc.text('Krenos™', M, 12);
+  doc.setFontSize(8); doc.setFont('helvetica','normal');
+  doc.setTextColor(160,190,210);
+  doc.text('Water Management System — Service Report', M, 19);
+
+  // Ref badge
+  doc.setFillColor(41,182,246);
+  doc.roundedRect(W-M-58, 5, 58, 18, 3, 3, 'F');
+  doc.setTextColor(10,22,40);
+  doc.setFontSize(7); doc.setFont('helvetica','bold');
+  doc.text(state.reportRef, W-M-56, 12);
+  doc.setFont('helvetica','normal');
+  doc.text(state.timestamp, W-M-56, 18);
+
+  y = 36;
+
+  // Free visit banner
+  if (prospectName) {
+    doc.setFillColor(255, 248, 225);
+    doc.rect(M, y, CW, 20, 'F');
+    doc.setDrawColor(253, 230, 138);
+    doc.rect(M, y, CW, 20, 'S');
+    doc.setTextColor(146,64,14);
+    doc.setFontSize(9); doc.setFont('helvetica','bold');
+    doc.text('FREE WATER ANALYSIS VISIT', M+3, y+7);
+    const prospectFull = `Prospect: ${prospectName}${prospectContact ? ' · '+prospectContact : ''}`;
+    addTextToPDF(doc, prospectFull, M+3, y+10, CW-6, 8, [146,64,14], false, [255,248,225]);
+    y += 24;
+  }
+
+  // Info bar
+  doc.setFillColor(232,240,254);
+  doc.rect(M, y, CW, 18, 'F');
+  doc.setTextColor(100,116,139);
+  doc.setFontSize(7); doc.setFont('helvetica','bold');
+  doc.text('CLIENT',    M+3,     y+5);
+  doc.text('ENGINEER',  M+65,    y+5);
+  doc.text('VISIT TYPE',M+120,   y+5);
+  doc.text('DATE',      M+168,   y+5);
+  doc.setTextColor(10,22,40);
+  doc.setFontSize(8.5); doc.setFont('helvetica','bold');
+  const clientLabel = state.client?.name || prospectName || 'Free Visit';
+  addTextToPDF(doc, clientLabel, M+3, y+7.5, 58, 8.5, [10,22,40], true, [232,240,254]);
+  addTextToPDF(doc, state.engineer?.name||'', M+65, y+7.5, 50, 8.5, [10,22,40], true, [232,240,254]);
+  doc.setFontSize(7.5); doc.setFont('helvetica','normal'); doc.setTextColor(10,22,40);
+  doc.text(visitType.slice(0,20), M+120, y+13);
+  doc.text(state.timestamp.split(',')[0], M+168, y+13);
+  y += 22;
+
+  if (visitNotes) {
+    const notesH = addTextToPDF(doc, 'Notes: ' + visitNotes, M, y, CW, 8, [100,116,139], false, [255,255,255]);
+    y += notesH + 4;   // advance by real height — a long Arabic note is taller
+  }
+
+  // Systems
+  systemsData.forEach(sys => {
+    if (y > 245) { doc.addPage(); y = 16; }
+
+    // System header — may be Arabic
+    doc.setFillColor(26,86,219);
+    doc.rect(M, y, CW, 8, 'F');
+    addTextCentered(doc, sys.name, M+3, y, 8, CW-6, 9, [255,255,255], true, [26,86,219]);
+    y += 11;
+
+    // Use sections if available, else fallback
+    const def = PARAMS[sys.type];
+    const sectionsToRender = sys.sections || {};
+
+    def.sections.forEach(sec => {
+      // Get readings for this specific section only — strict isolation
+      const secData = (sys.sections && sys.sections[sec.title]) || null;
+      if (!secData) return;
+      const rows = sec.params.filter(p => {
+        return secData[p.label] !== undefined && secData[p.label] !== '';
+      });
+      if (rows.length === 0) return;
+
+      if (y > 255) { doc.addPage(); y = 16; }
+
+      // Section sub-header — bold, consistent styling
+      doc.setFillColor(241,245,249);
+      doc.rect(M, y, CW, 7, 'F');
+      doc.setTextColor(30,41,59);
+      doc.setFont('helvetica','bold'); doc.setFontSize(8);
+      doc.text(sec.title.toUpperCase(), M+3, y+5);
+      y += 8;
+
+      // Column headers
+      doc.setFontSize(7); doc.setTextColor(100,116,139); doc.setFont('helvetica','bold');
+      doc.text('PARAMETER', M+3, y+4);
+      doc.text('VALUE', M+100, y+4);
+      doc.text('UNIT', M+130, y+4);
+      doc.text('STATUS', M+158, y+4);
+      y += 6;
+
+      rows.forEach((p, i) => {
+        if (y > 272) { doc.addPage(); y = 16; }
+        if (i % 2 === 0) { doc.setFillColor(248,250,252); doc.rect(M, y-1, CW, 7, 'F'); }
+        doc.setDrawColor(226,232,240);
+        doc.line(M, y+6, M+CW, y+6);
+
+        // Get value from correct section only
+        const v = secData[p.label];
+        const numV = parseFloat(v);
+
+        doc.setTextColor(51,65,85); doc.setFont('helvetica','normal'); doc.setFontSize(8);
+        doc.text(p.label, M+3, y+4.5);
+
+        doc.setFont('helvetica','bold'); doc.setTextColor(10,22,40);
+        doc.text(String(v), M+100, y+4.5);
+
+        doc.setFont('helvetica','normal'); doc.setTextColor(100,116,139); doc.setFontSize(7);
+        doc.text(p.unit, M+130, y+4.5);
+
+        // Status dot
+        if (!isNaN(numV)) {
+          const ok = numV >= p.min && numV <= p.max;
+          // An out-of-range reading is red even when auto-calculated —
+          // a high LSI must not look healthy to the client.
+          const hasRange = !p.noLimit && isFinite(p.min) && isFinite(p.max) && p.max < 9999;
+          const dotColor = !hasRange ? (p.calc ? [59,130,246] : [148,163,184])
+                         : ok        ? (p.calc ? [59,130,246] : [16,185,129])
+                                     : [239,68,68];
+          doc.setFillColor(dotColor[0], dotColor[1], dotColor[2]);
+          doc.circle(M+163, y+3, 2.2, 'F');
+        }
+        y += 7;
+      });
+      y += 3;
+    });
+
+    // Recommendations
+    if (sys.recommendations) {
+      const recLines = String(sys.recommendations).split(/\n/);
+      const LBL_H = 6, PAD = 4, GAP = 1.5;
+
+      // Measure first so the box is exactly as tall as its contents —
+      // Arabic and Latin lines have genuinely different heights.
+      const measured = recLines.map(l =>
+        l.trim() ? measureTextHeight(doc, l, CW - 8, 8, false) : 3
+      );
+      const textH  = measured.reduce((a, b) => a + b, 0) + GAP * Math.max(recLines.length - 1, 0);
+      const totalH = LBL_H + Math.max(textH, 5) + PAD * 2;
+
+      if (y + totalH > 280) { doc.addPage(); y = 16; }
+
+      doc.setFillColor(239,246,255);
+      doc.rect(M, y, CW, totalH, 'F');
+      doc.setDrawColor(191,219,254);
+      doc.rect(M, y, CW, totalH, 'S');
+
+      doc.setFont('helvetica','bold');
+      doc.setFontSize(8);
+      doc.setTextColor(30,58,95);
+      doc.text('Recommendations:', M+3, y + PAD + 3.5);
+
+      let ty = y + PAD + LBL_H;
+      recLines.forEach((rline, i) => {
+        if (!rline.trim()) { ty += measured[i]; return; }
+        ty += addTextToPDF(doc, rline, M+3, ty, CW-8, 8, [30,58,95], false, [239,246,255]) + GAP;
+      });
+
+      y += totalH + 4;
+    }
+
+    // Treatment Program
+    if (sys.treatment && sys.treatment.length > 0) {
+      if (y > 240) { doc.addPage(); y = 16; }
+      // Header — bold, consistent styling
+      doc.setFillColor(241,245,249);
+      doc.rect(M, y, CW, 7, 'F');
+      doc.setTextColor(30,41,59);
+      doc.setFont('helvetica','bold'); doc.setFontSize(8);
+      doc.text('TREATMENT PROGRAM', M+3, y+5);
+      y += 8;
+
+      // Column headers
+      doc.setFontSize(7); doc.setTextColor(100,116,139); doc.setFont('helvetica','bold');
+      doc.text('PRODUCT',          M+3,    y+4);
+      doc.text('DOSAGE (kg/day)',  M+90,   y+4);
+      doc.text('STOCK (kg)',       M+145,  y+4);
+      y += 6;
+
+      sys.treatment.forEach((t, i) => {
+        if (y > 272) { doc.addPage(); y = 16; }
+        if (i % 2 === 0) { doc.setFillColor(248,250,252); doc.rect(M, y-1, CW, 7, 'F'); }
+        doc.setDrawColor(226,232,240);
+        doc.line(M, y+6, M+CW, y+6);
+
+        addTextCentered(doc, t.product, M+3, y, 7, 80, 8, [10,22,40], true, [255,255,255]);
+        doc.setFont('helvetica','normal'); doc.setTextColor(51,65,85); doc.setFontSize(8);
+        doc.text(t.dosage || '—', M+90, y+4.5);
+        doc.text(t.stock || '—',  M+145, y+4.5);
+        y += 7;
+      });
+      y += 3;
+    }
+
+    // Performance trend charts (only when the engineer selected them)
+    const seriesList = trendSeries[sys.id] || [];
+    if (seriesList.length) {
+      const chartH = 52;   // mm — keeps roughly the canvas aspect ratio
+      seriesList.forEach((series, si) => {
+        if (y + chartH + 12 > 280) { doc.addPage(); y = 16; }
+        if (si === 0) {
+          doc.setFillColor(241,245,249);
+          doc.rect(M, y, CW, 7, 'F');
+          doc.setTextColor(30,41,59);
+          doc.setFont('helvetica','bold'); doc.setFontSize(8);
+          doc.text('PERFORMANCE TRENDS', M+3, y+5);
+          y += 9;
+        }
+        try {
+          const png = drawTrendChartPng(series, sys.name);
+          doc.addImage(png, 'PNG', M, y, CW, chartH);
+          y += chartH + 4;
+        } catch (e) {
+          console.error('Trend chart failed:', e);
+        }
+      });
+      // Make the basis of the estimate explicit for the client
+      if (seriesList.some(sr => sr.pid === 'fw_cret')) {
+        doc.setFont('helvetica','italic'); doc.setFontSize(7);
+        doc.setTextColor(100,116,139);
+        doc.text('Condensate return is estimated from a TDS mass balance and is approximate.', M, y+2);
+        y += 6;
+      }
+      y += 2;
+    }
+
+    y += 5;
+  });
+
+  // Footer
+  doc.setFillColor(248,250,252);
+  doc.rect(0, 287, W, 10, 'F');
+  doc.setTextColor(148,163,184); doc.setFontSize(7); doc.setFont('helvetica','normal');
+  doc.text('Krenos™ · Water Management System · Automated Service Report', W/2, 293, { align:'center' });
+
+  // Return both: data URI (for download) and clean base64 (for email attachment)
+  const blob = doc.output('blob');
+  const arrayBuffer = await blob.arrayBuffer();
+  const bytes = new Uint8Array(arrayBuffer);
+  let binary = '';
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  const base64Clean = btoa(binary);
+  const dataUri = 'data:application/pdf;base64,' + base64Clean;
+  // Attach clean base64 as property so submit function can access it
+  dataUri.__cleanBase64 = base64Clean;
+  return { dataUri, base64Clean };
+}
+
+function findParamDef(type, label) {
+  const def = PARAMS[type];
+  if (!def) return null;
+  for (const sec of def.sections)
+    for (const p of sec.params)
+      if (p.label === label) return p;
+  return null;
+}
+
+function downloadPDF(dataUri, ref) {
+  const a = document.createElement('a');
+  a.href     = dataUri;
+  a.download = `${ref}.pdf`;
+  a.click();
+}
+
+// ══════════════════════════════════════════
+// NAVIGATION
+// ══════════════════════════════════════════
+function goScreen(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(`screen-${name}`).classList.add('active');
+  window.scrollTo(0,0);
+  if (name === 'review') buildReview();
+}
+
+function resetApp() {
+  state = { engineer:null, client:null, visitMode:'service', systems:[], sysCounter:0, reportRef:'', timestamp:'' };
+  document.querySelectorAll('.eng-btn').forEach(b => b.classList.remove('selected'));
+  document.getElementById('clientSearch').value = '';
+  renderClients(allClients);
+  goScreen('client');
+}
+
+// ══════════════════════════════════════════
+// UI HELPERS
+// ══════════════════════════════════════════
+function showSheet(id) { document.getElementById(id).classList.add('show'); }
+function hideSheet(id) { document.getElementById(id).classList.remove('show'); }
+function showLoading(text='Please wait...') {
+  document.getElementById('loadingText').textContent = text;
+  document.getElementById('loadingOverlay').classList.add('show');
+}
+function hideLoading() { document.getElementById('loadingOverlay').classList.remove('show'); }
+function showToast(msg, type='') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className   = `toast show ${type}`;
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+function updateClock() {
+  const n = new Date();
+  document.getElementById('appBarTime').innerHTML =
+    `${n.toLocaleDateString('en-GB')}<br>${n.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}`;
+}
+
+// Close bottom sheet on backdrop click
+document.querySelectorAll('.bottom-sheet').forEach(el => {
+  el.addEventListener('click', e => { if (e.target === el) el.classList.remove('show'); });
+});
+
+// ══════════════════════════════════════════
+// INIT — Defer data loading to let UI paint first
+// ══════════════════════════════════════════
+updateClock();
+setInterval(updateClock, 30000);
+
+// ─── VERSION CHECK — refresh cached lists when a new build ships ───
+const APP_VERSION = '3.0.0';
+const storedVer = localStorage.getItem('krenos_app_version');
+if (storedVer && storedVer !== APP_VERSION) {
+  localStorage.removeItem('krenos_clients_cache');
+  localStorage.setItem('krenos_app_version', APP_VERSION);
+  window.location.reload(true);
+} else {
+  localStorage.setItem('krenos_app_version', APP_VERSION);
+}
+
+// ─── START ───
+// A stored session keeps the engineer signed in between visits; without
+// one the login screen is already on top and simply stays there.
+(async () => {
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    if (session) await afterLogin();
+  } catch (e) {
+    console.error('Session check failed:', e);
+  }
+})();
+
+sb.auth.onAuthStateChange((event) => {
+  if (event === 'SIGNED_OUT') showLogin();
+});
+</script>
+</body>
+</html>
