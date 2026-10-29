@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy Policy — Krenos</title>
+<style>
+  :root{
+    --ink:#0d1b2a; --muted:#5a6b80; --line:#e3e8ef;
+    --bg:#ffffff; --panel:#f6f8fb; --accent:#1a4fd6;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --ink:#e8edf5; --muted:#9aa8bd; --line:#223049;
+      --bg:#0b1220; --panel:#111c30; --accent:#6c9bff;
+    }
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font:16px/1.7 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+  }
+  .wrap{max-width:760px;margin:0 auto;padding:52px 16px 72px}
+  h1{font-size:28px;margin:0 0 6px;letter-spacing:-.4px}
+  .date{color:var(--muted);font-size:14px;margin:0 0 34px}
+  h2{font-size:18px;margin:34px 0 10px;letter-spacing:-.2px}
+  p{margin:0 0 13px}
+  ul{margin:0 0 13px;padding-left:20px}
+  li{margin-bottom:7px}
+  .panel{
+    background:var(--panel);border:1px solid var(--line);
+    border-radius:12px;padding:18px 22px;margin:24px 0;
+  }
+  a{color:var(--accent)}
+  footer{
+    margin-top:48px;padding-top:18px;border-top:1px solid var(--line);
+    color:var(--muted);font-size:14px;
+  }
+  footer a{margin-right:16px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>Privacy Policy</h1>
+  <p class="date">Krenos™ Water Management System · Last updated 29 October 2026</p>
+
+  <p>
+    Krenos is a field reporting tool used by water treatment service providers.
+    It is not open to public sign-up: every account is created by the operating
+    company for one of its own engineers. This policy explains what the system
+    stores and why.
+  </p>
+
+  <h2>What we collect</h2>
+  <ul>
+    <li><strong>Engineer account details</strong> — name, work email and an
+        internal engineer code, entered by the operating company.</li>
+    <li><strong>Service report content</strong> — water analysis readings,
+        chemical dosages and stock levels, observations and recommendations,
+        entered by the engineer during a site visit.</li>
+    <li><strong>Client details</strong> — company name, site region and the
+        contact address the report is sent to.</li>
+    <li><strong>Visit location</strong> — approximate GPS coordinates recorded
+        when a report is submitted, used to confirm the visit took place on
+        site. Location is visible only to the operating company's management
+        and never appears in the report or the emails.</li>
+  </ul>
+
+  <p>
+    Krenos collects no advertising identifiers, runs no analytics or tracking
+    scripts, and builds no profile of its users beyond the above.
+  </p>
+
+  <h2>How it is used</h2>
+  <p>
+    The data is used solely to produce the service report, deliver it to the
+    people entitled to receive it, and keep a history so trends across visits
+    can be compared. It is never sold, rented, or shared for marketing.
+  </p>
+
+  <h2>Where it is stored</h2>
+  <ul>
+    <li><strong>Supabase</strong> (Frankfurt, EU) — accounts and report records,
+        in a database where each engineer can read only their own work.</li>
+    <li><strong>Google Drive</strong> — the generated PDF reports, in the
+        operating company's own Google account, filed by client.</li>
+    <li><strong>Resend</strong> — used to deliver the report emails.</li>
+  </ul>
+
+  <h2>Google user data</h2>
+  <div class="panel">
+    <p>
+      Krenos requests access to Google Drive for a single purpose: to upload the
+      PDF report it has just generated into the operating company's own Drive,
+      in a folder named after the client, and to produce a link so the recipients
+      can open it.
+    </p>
+    <p style="margin-bottom:0">
+      Krenos does not read, download, index, or analyse any other file in that
+      Drive. Google user data obtained through this access is not transferred to
+      any third party, is not used for advertising, and is not used to train any
+      model. Access can be withdrawn at any time by the account owner at
+      <a href="https://myaccount.google.com/permissions">myaccount.google.com/permissions</a>.
+    </p>
+  </div>
+
+  <h2>Who can see a report</h2>
+  <p>
+    A finished report goes to three places: the client contact, the engineer who
+    carried out the visit, and the operating company's management. Within the
+    system, an engineer sees only their own clients and their own reports;
+    management sees all of them.
+  </p>
+
+  <h2>How long it is kept</h2>
+  <p>
+    Service reports are business records and are kept for as long as the
+    operating company needs them. An engineer account is deactivated when the
+    person leaves, which immediately ends their access while leaving the reports
+    they filed intact.
+  </p>
+
+  <h2>Your rights</h2>
+  <p>
+    If you are a client whose site appears in these reports, or an engineer with
+    an account, you may ask for a copy of the data held about you, ask for it to
+    be corrected, or ask for it to be deleted where no legal or contractual
+    obligation requires it to be kept. Write to the address below.
+  </p>
+
+  <h2>Changes</h2>
+  <p>
+    If this policy changes materially, the date at the top of this page is
+    updated and the operating company notifies affected account holders.
+  </p>
+
+  <h2>Contact</h2>
+  <p>
+    <a href="mailto:pwtservicereports@gmail.com">pwtservicereports@gmail.com</a>
+  </p>
+
+  <footer>
+    <a href="krenos.html">Home</a>
+    <a href="terms.html">Terms of Service</a>
+  </footer>
+
+</div>
+</body>
+</html>
