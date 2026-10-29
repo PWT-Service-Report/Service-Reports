@@ -2041,7 +2041,9 @@ function buildEmailBody(systemsData, visitType, visitNotes, prospectName, prospe
     body += `<div style="margin-top:16px;padding:10px 14px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;font-size:11px;color:#1e3a5f">📈 Performance trend charts for the last visits are included in the attached PDF report.</div>`;
   }
 
-  body += `<div style="margin-top:16px;padding:10px 14px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;text-align:center;font-size:11px;color:#166534">📄 A PDF copy has been automatically saved on the engineer's device.</div>`;
+  // The PDF is attached to this email and filed on Drive by the
+  // delivery function, which also adds the download button below —
+  // so no note about the engineer's device belongs here any more.
 
   // PDF Download Button (if link available)
   if (pdfLink) {
