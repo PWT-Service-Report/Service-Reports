@@ -399,6 +399,27 @@ body { font-family: 'IBM Plex Sans', sans-serif; background: var(--surface); col
   </div>
 
   <div class="section-label">Systems & Analysis</div>
+
+  <!-- Only shown once a second boiler exists; there is nothing to
+       share when there is one. -->
+  <div id="sharedFeedRow" style="display:none;margin-bottom:12px">
+    <div class="card">
+      <div class="card-body" style="padding:11px 13px">
+        <label style="display:flex;align-items:flex-start;gap:9px;cursor:pointer">
+          <input type="checkbox" id="sharedFeedChk" checked
+                 style="margin-top:2px;width:17px;height:17px;flex:none">
+          <span>
+            <span style="font-weight:600;font-size:13px">One softener and feed tank for all boilers</span>
+            <span style="display:block;font-size:11px;color:var(--muted);margin-top:2px">
+              Leave this on and the shared samples are recorded once instead of per boiler.
+              Turn it off only if each boiler has its own.
+            </span>
+          </span>
+        </label>
+      </div>
+    </div>
+  </div>
+
   <div class="sys-tabs" id="sysTabs"></div>
   <div id="sysPanels"></div>
   <div class="add-sys-row">
@@ -1191,6 +1212,16 @@ function selectClientObj(client) {
   if (!state.client) return;
   captureLocation();   // silent; result is attached at submit time
 
+  // What we already know about this site's boilers, so the engineer is
+  // not asked twice for something that does not change.
+  loadBoilers(client.id)
+    .then(() => {
+      state.systems.filter(s => s.type === 'boiler').forEach(s => syncBoilerSpec(s.id));
+    })
+    .catch(() => {});
+  const chk = document.getElementById('sharedFeedChk');
+  if (chk) chk.checked = client.shared_feed !== false;
+
   const now = new Date();
   const dateStr = now.toISOString().slice(0,10).replace(/-/g,'');
   const reg  = state.client.region.toUpperCase().replace(/\s/g,'').slice(0,4);
@@ -1505,6 +1536,87 @@ async function saveNewClient() {
 // ══════════════════════════════════════════
 // SYSTEMS
 // ══════════════════════════════════════════
+// ══════════════════════════════════════════
+//  WHAT THE BOILER IS
+// ══════════════════════════════════════════
+// Capacity and pressure belong to the boiler, not to the visit, so they
+// are asked once and remembered. Pressure in particular decides which
+// limits apply — a 20 bar boiler does not share a 10 bar boiler's TDS
+// ceiling — so a report without it is a report judged against a guess.
+
+let knownBoilers = [];   // rows from the boilers table for this client
+
+async function loadBoilers(clientId) {
+  knownBoilers = [];
+  if (!clientId) return;
+  // Knowing the plant is a convenience. If the lookup fails — offline,
+  // or the table is not there yet — the engineer types the figures in
+  // as he would on a first visit, and the report is unaffected.
+  try {
+    const { data, error } = await sb
+      .from('boilers')
+      .select('id, name, capacity_tph, pressure_bar')
+      .eq('client_id', clientId);
+    if (!error && data) knownBoilers = data;
+  } catch (e) { /* leave knownBoilers empty */ }
+}
+
+// Matching is by name, trimmed and case-folded, because the engineer
+// retypes it each visit rather than picking from a list.
+function findKnownBoiler(name) {
+  const key = String(name || '').trim().toLowerCase();
+  if (!key) return null;
+  return knownBoilers.find(b => String(b.name).trim().toLowerCase() === key) || null;
+}
+
+function buildBoilerSpec(id) {
+  return `
+    <div class="subsection" id="spec-${id}">
+      <div class="subsection-title">Boiler Details</div>
+      <div style="display:flex;gap:8px">
+        <div style="flex:1">
+          <label style="font-size:10px;color:var(--muted);display:block;margin-bottom:3px">Capacity (ton/h)</label>
+          <input type="number" class="form-input" id="cap-${id}" step="0.1" placeholder="—"
+                 style="padding:7px 10px;font-size:13px">
+        </div>
+        <div style="flex:1">
+          <label style="font-size:10px;color:var(--muted);display:block;margin-bottom:3px">Pressure (bar)</label>
+          <input type="number" class="form-input" id="prs-${id}" step="0.1" placeholder="—"
+                 style="padding:7px 10px;font-size:13px">
+        </div>
+      </div>
+      <div id="spec-note-${id}" style="font-size:10px;color:var(--muted);margin-top:5px"></div>
+    </div>`;
+}
+
+// Fills the spec boxes from what is already on record, and says so, so
+// the engineer knows the blanks are the ones he has to answer.
+function syncBoilerSpec(id) {
+  const nameEl = document.getElementById(`sysname-${id}`);
+  const capEl  = document.getElementById(`cap-${id}`);
+  const prsEl  = document.getElementById(`prs-${id}`);
+  const noteEl = document.getElementById(`spec-note-${id}`);
+  if (!nameEl || !capEl || !prsEl) return;
+
+  const known = findKnownBoiler(nameEl.value);
+  if (known) {
+    if (!capEl.value && known.capacity_tph != null) capEl.value = known.capacity_tph;
+    if (!prsEl.value && known.pressure_bar != null) prsEl.value = known.pressure_bar;
+    if (noteEl) noteEl.textContent = 'On record from a previous visit — change it if the plant has.';
+  } else if (noteEl) {
+    noteEl.textContent = 'First visit to this boiler — entered once, then remembered.';
+  }
+}
+
+// The shared-supply question is about the site, not a boiler, so it is
+// asked once and only when there is more than one boiler to share.
+function refreshSharedFeedRow() {
+  const row = document.getElementById('sharedFeedRow');
+  if (!row) return;
+  const boilerCount = state.systems.filter(s => s.type === 'boiler').length;
+  row.style.display = boilerCount > 1 ? 'block' : 'none';
+}
+
 function addSystem(type) {
   const id   = ++state.sysCounter;
   const def  = PARAMS[type];
@@ -1562,6 +1674,7 @@ function addSystem(type) {
             oninput="updateTabLabel(${id},this.value)">
           <button onclick="removeSystem(${id})" class="btn btn-danger btn-sm" style="width:auto;white-space:nowrap">🗑 Remove</button>
         </div>
+        ${type === 'boiler' ? buildBoilerSpec(id) : ''}
         ${sectionsHTML}
         <div style="margin-top:12px">
           <div class="subsection-title">Recommendations</div>
@@ -1577,6 +1690,7 @@ function addSystem(type) {
     </div>`;
 
   document.getElementById('sysPanels').appendChild(panel);
+  if (type === 'boiler') { syncBoilerSpec(id); refreshSharedFeedRow(); }
   switchTab(id);
 }
 
@@ -1616,8 +1730,11 @@ function switchTab(id) {
 
 function updateTabLabel(id, val) {
   const t = document.getElementById(`sys-tab-${id}`);
-  const def = PARAMS[state.systems.find(s=>s.id===id)?.type];
+  const sys = state.systems.find(s => s.id === id);
+  const def = PARAMS[sys?.type];
   if (t && def) t.textContent = `${def.icon} ${val}`;
+  // Renaming a boiler may make it match one already on record.
+  if (sys?.type === 'boiler') syncBoilerSpec(id);
 }
 
 function removeSystem(id) {
@@ -1625,6 +1742,7 @@ function removeSystem(id) {
   document.getElementById(`sys-tab-${id}`)?.remove();
   document.getElementById(`sys-panel-${id}`)?.remove();
   state.systems = state.systems.filter(s => s.id !== id);
+  refreshSharedFeedRow();
   if (state.systems.length) switchTab(state.systems[state.systems.length-1].id);
 }
 
@@ -1800,6 +1918,46 @@ function calcOHAlk(sysId) {
 // ══════════════════════════════════════════
 // COLLECT DATA
 // ══════════════════════════════════════════
+// Writes what the engineer entered about the plant back to the client's
+// record, so the next visit starts with it filled in. Deliberately
+// separate from filing the report: if the engineer lacks permission on
+// this client, or the site is offline, the report still stands.
+async function rememberBoilers(systemsData) {
+  if (!state.client?.id) return;
+
+  const boilers = systemsData.filter(s => s.type === 'boiler' && s.spec);
+  for (const b of boilers) {
+    const known = findKnownBoiler(b.name);
+    const row = {
+      client_id:    state.client.id,
+      name:         b.name,
+      capacity_tph: b.spec.capacity_tph,
+      pressure_bar: b.spec.pressure_bar,
+      updated_at:   new Date().toISOString(),
+    };
+    if (known) {
+      await sb.from('boilers').update(row).eq('id', known.id);
+    } else {
+      await sb.from('boilers').insert(row);
+    }
+  }
+
+  // The shared-supply answer belongs to the site. Only send it when the
+  // engineer actually saw the question — with one boiler the checkbox is
+  // hidden, and a hidden control must not overwrite a real answer.
+  const row = document.getElementById('sharedFeedRow');
+  const chk = document.getElementById('sharedFeedChk');
+  if (row && chk && row.style.display !== 'none') {
+    const want = chk.checked;
+    if (want !== (state.client.shared_feed !== false)) {
+      const { error } = await sb.from('clients')
+        .update({ shared_feed: want })
+        .eq('id', state.client.id);
+      if (!error) state.client.shared_feed = want;
+    }
+  }
+}
+
 function collectSystems() {
   return state.systems.map(sys => {
     const def     = PARAMS[sys.type];
@@ -1837,7 +1995,24 @@ function collectSystems() {
       });
     }
     const trends = getSelectedTrends(sys.id);
-    return { id: sys.id, type: sys.type, stype: def, name, sections, readings, recommendations: rec, treatment, trends };
+
+    // The boiler's own details travel with the report, so a report read
+    // in two years still says what the readings were judged against,
+    // even if the plant has changed since.
+    let spec = null;
+    if (sys.type === 'boiler') {
+      const cap = parseFloat(document.getElementById(`cap-${sys.id}`)?.value);
+      const prs = parseFloat(document.getElementById(`prs-${sys.id}`)?.value);
+      if (!isNaN(cap) || !isNaN(prs)) {
+        spec = {
+          capacity_tph: isNaN(cap) ? null : cap,
+          pressure_bar: isNaN(prs) ? null : prs,
+        };
+      }
+    }
+
+    return { id: sys.id, type: sys.type, stype: def, name, sections, readings,
+             recommendations: rec, treatment, trends, spec };
   });
 }
 
@@ -1948,6 +2123,11 @@ async function submitReport() {
       if (insErr.code === '23505') throw new Error('This report was already submitted.');
       throw insErr;
     }
+
+    // Remember the plant for next time. This is a convenience, not part
+    // of the report, so a failure here must never cost the engineer the
+    // visit he has just finished writing up.
+    await rememberBoilers(systemsData).catch(() => {});
 
     // ── 2. Trend charts, if the engineer asked for them ──
     let trendSeries = {};
