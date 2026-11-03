@@ -531,24 +531,30 @@ const PARAMS = {
         { id:'sw_tds',  label:'TDS',            unit:'ppm',   min:0,    max:1000 },
         { id:'sw_hard', label:'Total Hardness', unit:'ppm',   min:0,    max:5    },
       ]},
+      // M-Alkalinity dropped — PWT does not measure it on the feed.
+      // Chloride carries no limit here: it is the denominator of the
+      // cycles calculation, not something to control.
       { title: 'Feed Water', params: [
-        { id:'fw_ph',   label:'pH',             unit:'—',     min:7.0,  max:9.0  },
+        { id:'fw_ph',   label:'pH',             unit:'—',     min:8.0,  max:9.5  },
         { id:'fw_tds',  label:'TDS',            unit:'ppm',   min:0,    max:500  },
         { id:'fw_hard', label:'Total Hardness', unit:'ppm',   min:0,    max:5    },
         { id:'fw_ca',   label:'Ca Hardness',    unit:'ppm',   min:0,    max:3    },
-        { id:'fw_malk', label:'M-Alkalinity',   unit:'ppm',   min:0,    max:9999 },
-        { id:'fw_cl',   label:'Chloride',       unit:'ppm',   min:0,    max:9999 },
+        { id:'fw_cl',   label:'Chloride',       unit:'ppm',   noLimit:true },
         { id:'fw_fe',   label:'Iron',           unit:'ppm',   min:0,    max:0.3  },
         { id:'fw_cl2',  label:'Free Chlorine',  unit:'ppm',   min:0,    max:0.1  },
-        { id:'fw_cret', label:'Est. Condensate Return', unit:'%', min:0, max:100, calc:true },
+        { id:'fw_deha', label:'DEHA',           unit:'ppm',   min:0.1,  max:1.0  },
+        { id:'fw_cret', label:'Est. Condensate Return', unit:'%', calc:true, noLimit:true },
       ]},
       { title: 'Boiler Water', params: [
         { id:'bw_ph',   label:'pH',             unit:'—',     min:10.5, max:12.0 },
         { id:'bw_tds',  label:'TDS',            unit:'ppm',   min:0,    max:3500 },
         { id:'bw_palk', label:'P-Alkalinity',   unit:'ppm',   min:100,  max:600  },
         { id:'bw_malk', label:'M-Alkalinity',   unit:'ppm',   min:150,  max:800  },
-        { id:'bw_ohalk',label:'OH Alkalinity',  unit:'ppm',   min:0,    max:200, calc:true },
-        { id:'bw_cl',   label:'Chloride',       unit:'ppm',   min:0,    max:200  },
+        // BS 2486 sets a MINIMUM caustic alkalinity of 350; the old
+        // 0–200 range had it inverted, so low readings were flagged high.
+        { id:'bw_ohalk',label:'OH Alkalinity',  unit:'ppm',   min:100,  max:350, calc:true },
+        // No limit — chloride in the boiler is the cycles indicator.
+        { id:'bw_cl',   label:'Chloride',       unit:'ppm',   noLimit:true },
         { id:'bw_so3',  label:'Sulfite',        unit:'ppm',   min:20,   max:60   },
         { id:'bw_po4',  label:'Phosphate',      unit:'ppm',   min:20,   max:50   },
         { id:'bw_si',   label:'Silica',         unit:'ppm',   min:0,    max:150  },
@@ -1514,7 +1520,7 @@ function addSystem(type) {
           <div class="param-unit">${p.unit}</div>
           <input type="number" class="param-input" id="inp-${id}-${p.id}"
             placeholder="—" step="0.01"
-            data-min="${p.min}" data-max="${p.max}"
+            data-min="${p.min}" data-max="${p.max}" data-nolimit="${p.noLimit ? 1 : 0}"
             oninput="onParamInput(this,'${id}','${p.id}')">
         </div>`;
     }).join('');
@@ -1600,16 +1606,47 @@ function removeSystem(id) {
   if (state.systems.length) switchTab(state.systems[state.systems.length-1].id);
 }
 
+// ══════════════════════════════════════════
+//  HOW A READING IS MARKED
+// ══════════════════════════════════════════
+// One rule for the whole system: a mark means a problem, and its shape
+// says which way. A page of green ticks would bury the one reading that
+// needs attention, and a triangle survives a black-and-white print and
+// a colour-blind reader in a way a coloured dot does not.
+const MARK_BAD = '#8a3a08';
+const MARK_OK  = '#141414';
+
+function paramMark(p, numV) {
+  if (isNaN(numV))  return { glyph: '', color: MARK_OK };
+  if (p.noLimit)    return { glyph: '', color: MARK_OK };
+
+  const hasMin = isFinite(p.min);
+  const hasMax = isFinite(p.max) && p.max < 9999;
+  if (!hasMin && !hasMax) return { glyph: '', color: MARK_OK };
+
+  if (hasMax && numV > p.max) return { glyph: '▲', color: MARK_BAD };
+  if (hasMin && numV < p.min) return { glyph: '▼', color: MARK_BAD };
+  return { glyph: '', color: MARK_OK };
+}
+
 function onParamInput(input, sysId, paramId) {
   const val  = parseFloat(input.value);
   const min  = parseFloat(input.dataset.min);
   const max  = parseFloat(input.dataset.max);
   const dot  = document.getElementById(`dot-${sysId}-${paramId}`);
 
+  // A parameter with no limit is recorded, not judged — without this
+  // the comparison below runs against NaN, which is never true, and
+  // every chloride reading would come up red.
+  const noLimit = input.dataset.nolimit === '1' || (isNaN(min) && isNaN(max));
+
   if (input.value === '') {
     input.className = 'param-input';
     dot.className   = 'status-dot';
-  } else if (val >= min && val <= max) {
+  } else if (noLimit) {
+    input.className = 'param-input';
+    dot.className   = 'status-dot';
+  } else if ((isNaN(min) || val >= min) && (isNaN(max) || val <= max)) {
     input.className = 'param-input in-range';
     dot.className   = 'status-dot ok';
   } else {
@@ -1990,20 +2027,16 @@ function buildEmailBody(systemsData, visitType, visitNotes, prospectName, prospe
         const p = row.p;
         const v = row.v;
         const numV = parseFloat(v);
-        const hasRange = !p.noLimit && isFinite(p.min) && isFinite(p.max) && p.max < 9999;
-        const inRange  = hasRange && numV >= p.min && numV <= p.max;
-        const statusColor = isNaN(numV) ? '#94a3b8'
-                          : !hasRange   ? (p.calc ? '#3b82f6' : '#94a3b8')
-                          : inRange     ? (p.calc ? '#3b82f6' : '#10b981')
-                                        : '#ef4444';
+        // Only exceptions are marked, and the mark says which way the
+        // reading went wrong. Everything else — in range, or no range
+        // set — simply reads as a plain black number.
+        const mark = paramMark(p, numV);
         const bg = i % 2 === 0 ? '#ffffff' : '#f8fafc';
         body += `<tr style="background:${bg}">
           <td style="padding:7px 14px;font-size:12px;color:#334155;border-top:1px solid #e2e8f0;width:50%">${p.label}</td>
-          <td style="padding:7px 12px;font-size:12px;font-weight:700;color:#0a1628;border-top:1px solid #e2e8f0;font-family:monospace">${v}</td>
+          <td style="padding:7px 12px;font-size:12px;font-weight:700;color:${mark.color};border-top:1px solid #e2e8f0;font-family:monospace">${v}</td>
           <td style="padding:7px 12px;font-size:10px;color:#94a3b8;border-top:1px solid #e2e8f0;font-family:monospace">${p.unit}</td>
-          <td style="padding:7px 10px;border-top:1px solid #e2e8f0;text-align:center;width:30px">
-            <span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${statusColor}"></span>
-          </td>
+          <td style="padding:7px 10px;border-top:1px solid #e2e8f0;text-align:center;width:30px;font-size:12px;font-weight:700;color:${mark.color}">${mark.glyph}</td>
         </tr>`;
       });
       body += `</table>`;
@@ -2310,23 +2343,28 @@ async function generatePDF(systemsData, visitType, visitNotes, prospectName, pro
         doc.setTextColor(51,65,85); doc.setFont('helvetica','normal'); doc.setFontSize(8);
         doc.text(p.label, M+3, y+4.5);
 
-        doc.setFont('helvetica','bold'); doc.setTextColor(10,22,40);
+        // The value itself carries the warning colour, so the reading
+        // and its mark cannot drift apart.
+        const mark = paramMark(p, numV);
+        const bad  = mark.glyph !== '';
+
+        doc.setFont('helvetica','bold');
+        if (bad) doc.setTextColor(138,58,8); else doc.setTextColor(10,22,40);
         doc.text(String(v), M+100, y+4.5);
 
         doc.setFont('helvetica','normal'); doc.setTextColor(100,116,139); doc.setFontSize(7);
         doc.text(p.unit, M+130, y+4.5);
 
-        // Status dot
-        if (!isNaN(numV)) {
-          const ok = numV >= p.min && numV <= p.max;
-          // An out-of-range reading is red even when auto-calculated —
-          // a high LSI must not look healthy to the client.
-          const hasRange = !p.noLimit && isFinite(p.min) && isFinite(p.max) && p.max < 9999;
-          const dotColor = !hasRange ? (p.calc ? [59,130,246] : [148,163,184])
-                         : ok        ? (p.calc ? [59,130,246] : [16,185,129])
-                                     : [239,68,68];
-          doc.setFillColor(dotColor[0], dotColor[1], dotColor[2]);
-          doc.circle(M+163, y+3, 2.2, 'F');
+        // Only an exception is marked. jsPDF's base fonts have no ▲ or
+        // ▼ glyph, so the triangles are drawn as filled shapes.
+        if (bad) {
+          const cx = M + 163, cy = y + 3, r = 1.9;
+          doc.setFillColor(138, 58, 8);
+          if (mark.glyph === '▲') {
+            doc.triangle(cx, cy - r, cx - r, cy + r, cx + r, cy + r, 'F');
+          } else {
+            doc.triangle(cx, cy + r, cx - r, cy - r, cx + r, cy - r, 'F');
+          }
         }
         y += 7;
       });
