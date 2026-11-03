@@ -2948,7 +2948,11 @@ async function generatePDF(systemsData, visitType, visitNotes, prospectName, pro
   doc.setTextColor(INK[0],INK[1],INK[2]);
   doc.setFont('helvetica','bold'); doc.setFontSize(9.5);
   doc.text('Krenos', M+24, y+7);
-  doc.setFontSize(5); doc.text('TM', M+24+doc.getTextWidth('Krenos')+0.6, y+4.6);
+  // Measure the word at the size it was actually drawn. Shrinking the
+  // font first and then measuring put the mark on top of the final "n".
+  const nameW = doc.getTextWidth('Krenos');
+  doc.setFontSize(5);
+  doc.text('TM', M+24+nameW+0.7, y+4.2);
   doc.setFont('helvetica','normal'); doc.setFontSize(5.8);
   doc.setTextColor(SOFT[0],SOFT[1],SOFT[2]);
   doc.text('WATER MANAGEMENT SYSTEM', M+24, y+10.6);
