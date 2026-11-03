@@ -1922,13 +1922,11 @@ function drawMatrix(doc, cols, rows, M, CW, y) {
     doc.text('PARAMETER', M + 3, y + 4.6);
     cols.forEach((c, i) => {
       const cx = M + LABEL_W + colW * i + colW / 2;
-      doc.setFont('helvetica', 'bold'); doc.setFontSize(6.5);
-      doc.setTextColor(51, 51, 51);
-      doc.text(pdfSafe(String(c.title).toUpperCase()), cx, y + 4.6, { align: 'center' });
+      drawCellText(doc, String(c.title).toUpperCase(), cx, y + 4.6, colW - 2,
+                   6.5, [51, 51, 51], true, [235, 235, 232], 'center');
       if (c.sub) {
-        doc.setFont('helvetica', 'normal'); doc.setFontSize(5.4);
-        doc.setTextColor(110, 110, 110);
-        doc.text(pdfSafe(c.sub), cx, y + 7.8, { align: 'center' });
+        drawCellText(doc, c.sub, cx, y + 7.8, colW - 2,
+                     5.4, [110, 110, 110], false, [235, 235, 232], 'center');
       }
     });
     doc.setDrawColor(20, 20, 20); doc.setLineWidth(0.4);
@@ -2086,9 +2084,8 @@ function drawBoilerHouse(doc, boilers, M, CW, y) {
     if (y > PAGE_BOTTOM - 26) { doc.addPage(); y = 16; }
     doc.setFillColor(20, 20, 20);
     doc.rect(M, y, CW, 7.5, 'F');
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5);
-    doc.setTextColor(255, 255, 255);
-    doc.text(pdfSafe(text), M + 3, y + 5.2);
+    drawCellText(doc, text, M + 3, y + 5.2, CW - 6, 8.5,
+                 [255, 255, 255], true, [20, 20, 20], 'left');
     y += 8.5;
   };
 
@@ -2618,6 +2615,63 @@ function addTextToPDF(doc, text, x, y, maxWidth, fontSize, color, bold, bgColor)
   return imgH;
 }
 
+// A single line in a cell — a column heading, a product name, a bar title.
+// The engineer types these by hand on site, and half our plants have Arabic
+// names, so the line has to survive either script. Latin goes straight to
+// jsPDF; Arabic is drawn to a canvas and placed, because the base fonts
+// cannot draw it at all. Unlike addTextToPDF this honours an alignment, so
+// a centred column heading stays centred whichever language it is in, and
+// it never wraps — a cell is one line.
+// `w` is the space the line has: for 'left' it starts at x, for 'right' it
+// ends at x, for 'center' x is the middle.
+function drawCellText(doc, text, x, y, w, fontSize, color, bold, bg, align) {
+  text = String(text == null ? '' : text);
+  if (!text) return;
+  align = align || 'left';
+
+  if (!ARABIC_RE.test(text)) {
+    doc.setFont('helvetica', bold ? 'bold' : 'normal');
+    doc.setFontSize(fontSize);
+    doc.setTextColor(color[0], color[1], color[2]);
+    doc.text(pdfSafe(text), x, y, { align });
+    return;
+  }
+
+  const scale = 4, mmToPx = 3.7795;
+  const fontPx = fontSize * scale * 1.2;
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  const fontSpec = `${bold ? 'bold ' : ''}${fontPx}px Arial, sans-serif`;
+  ctx.font = fontSpec;
+
+  const maxPx = Math.max(1, (w || 40) * scale * mmToPx);
+  const padPx = fontPx * 0.18;
+  const canvasW = Math.min(Math.ceil(ctx.measureText(text).width + padPx * 2), Math.ceil(maxPx));
+  const canvasH = Math.ceil(fontPx * 1.45);
+  canvas.width = canvasW; canvas.height = canvasH;
+
+  ctx.font = fontSpec;                       // resizing resets the context
+  const b = bg || [255, 255, 255];
+  ctx.fillStyle = `rgb(${b[0]},${b[1]},${b[2]})`;
+  ctx.fillRect(0, 0, canvasW, canvasH);
+  ctx.fillStyle = `rgb(${color[0]},${color[1]},${color[2]})`;
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'alphabetic';
+  try { ctx.direction = 'rtl'; } catch (e) {}
+  ctx.fillText(text, canvasW - padPx, canvasH * 0.76);
+
+  const imgW = canvasW / scale / mmToPx;
+  const imgH = canvasH / scale / mmToPx;
+
+  // jsPDF's y is a baseline; the image's is its top edge. Line them up so a
+  // mixed Arabic and Latin row sits on one line.
+  const top = y - imgH * 0.76;
+  const left = align === 'center' ? x - imgW / 2
+             : align === 'right'  ? x - imgW
+             :                      x;
+  doc.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', left, top, imgW, imgH);
+}
+
 // Same wrapping maths as addTextToPDF but draws nothing — lets a caller size
 // a background box before the text goes on top of it.
 function measureTextHeight(doc, text, maxWidth, fontSize, bold) {
@@ -2768,9 +2822,8 @@ function drawSystemExtras(doc, sys, labelIt, M, CW, y, trendSeries) {
 
       sys.treatment.forEach(t => {
         if (y + 6 > PAGE_BOTTOM) { doc.addPage(); y = 16; }
-        doc.setFont('helvetica','normal'); doc.setFontSize(7.6);
-        doc.setTextColor(20,20,20);
-        doc.text(pdfSafe(t.product || '-'), M+3, y+4.1);
+        drawCellText(doc, t.product || '-', M+3, y+4.1, DOSE_X - M - 10, 7.6,
+                     [20,20,20], false, [255,255,255], 'left');
         doc.setFont('courier','normal'); doc.setFontSize(7.6);
         doc.text(t.dosage ? t.dosage + ' kg/day' : '-', DOSE_X, y+4.1, { align: 'right' });
         doc.text(t.stock  ? t.stock  + ' kg'     : '-', STOCK_X, y+4.1, { align: 'right' });
@@ -2906,7 +2959,9 @@ async function generatePDF(systemsData, visitType, visitNotes, prospectName, pro
     doc.setFont('helvetica','normal'); doc.setFontSize(5.2);
     doc.setTextColor(SOFT[0],SOFT[1],SOFT[2]);
     doc.text(k, x+2.5, y+4);
-    addTextToPDF(doc, String(v), x+2.5, y+5.2, MW-4, 7, INK, true, [255,255,255]);
+    // One line, left under its label, whichever script it is in — a client
+    // or an engineer may well have an Arabic name.
+    drawCellText(doc, String(v), x+2.5, y+7.2, MW-4, 7, INK, true, [255,255,255], 'left');
   });
   line(M, y+META_H, M+CW, y+META_H);
   y += META_H;
@@ -2950,8 +3005,18 @@ async function generatePDF(systemsData, visitType, visitNotes, prospectName, pro
     doc.setTextColor(146,64,14);
     doc.setFontSize(9); doc.setFont('helvetica','bold');
     doc.text('FREE WATER ANALYSIS VISIT', M+3, y+7);
-    const prospectFull = `Prospect: ${prospectName}${prospectContact ? ' · '+prospectContact : ''}`;
-    addTextToPDF(doc, prospectFull, M+3, y+10, CW-6, 8, [146,64,14], false, [255,248,225]);
+    // A sales visit: the engineer typed this name at the gate, and in the
+    // Delta and the countryside it is as likely to be Arabic as not. The
+    // English label is drawn on its own — put an Arabic name in the same
+    // string and the two scripts reorder around each other.
+    doc.setFontSize(8); doc.setFont('helvetica','normal');
+    doc.setTextColor(146,64,14);
+    const PLBL = 'Prospect: ';
+    doc.text(PLBL, M+3, y+12.4);
+    const px = M + 3 + doc.getTextWidth(PLBL);
+    const prospectFull = `${prospectName}${prospectContact ? ' - '+prospectContact : ''}`;
+    drawCellText(doc, prospectFull, px, y+12.4, CW - 6 - (px - M - 3), 8,
+                 [146,64,14], false, [255,248,225], 'left');
     y += 24;
   }
 
@@ -2979,7 +3044,8 @@ async function generatePDF(systemsData, visitType, visitNotes, prospectName, pro
 
     doc.setFillColor(20,20,20);
     doc.rect(M, y, CW, 7.5, 'F');
-    addTextToPDF(doc, sys.name, M+3, y+1.6, CW-6, 8.5, [255,255,255], true, [20,20,20]);
+    drawCellText(doc, sys.name, M+3, y+5.3, CW-6, 8.5,
+                 [255,255,255], true, [20,20,20], 'left');
     y += 9.5;
 
     y = drawSystemMatrix(doc, sys, M, CW, y);
