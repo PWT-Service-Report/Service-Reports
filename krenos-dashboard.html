@@ -612,6 +612,7 @@ table.inv-table tr:hover td { background: #f8fafc; }
 <div class="toast" id="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="krenos-params.js"></script>
 <script>
 // ══════════════════════════════════════════
 //  Krenos Dashboard — reads from Supabase.
@@ -642,121 +643,10 @@ const MONTH_NAMES = ['January','February','March','April','May','June','July','A
 
 // ══════════════════════════════════════════
 // PARAMETER LIMITS — must mirror the app
-// ══════════════════════════════════════════
-const PARAMS = {
-  boiler: {
-    icon: '🔥', label: 'Boiler',
-    sections: [
-      { title: 'Softener Water', params: [
-        { id:'sw_ph',   label:'pH',             unit:'—',     min:6.5,  max:8.5  },
-        { id:'sw_tds',  label:'TDS',            unit:'ppm',   min:0,    max:1000 },
-        { id:'sw_hard', label:'Total Hardness', unit:'ppm',   min:0,    max:5    },
-      ]},
-      { title: 'Feed Water', params: [
-        { id:'fw_ph',   label:'pH',             unit:'—',     min:7.0,  max:9.0  },
-        { id:'fw_tds',  label:'TDS',            unit:'ppm',   min:0,    max:500  },
-        { id:'fw_hard', label:'Total Hardness', unit:'ppm',   min:0,    max:5    },
-        { id:'fw_ca',   label:'Ca Hardness',    unit:'ppm',   min:0,    max:3    },
-        { id:'fw_malk', label:'M-Alkalinity',   unit:'ppm',   min:0,    max:9999 },
-        { id:'fw_cl',   label:'Chloride',       unit:'ppm',   min:0,    max:9999 },
-        { id:'fw_fe',   label:'Iron',           unit:'ppm',   min:0,    max:0.3  },
-        { id:'fw_cl2',  label:'Free Chlorine',  unit:'ppm',   min:0,    max:0.1  },
-        { id:'fw_cret', label:'Est. Condensate Return', unit:'%', min:0, max:100, calc:true },
-      ]},
-      { title: 'Boiler Water', params: [
-        { id:'bw_ph',   label:'pH',             unit:'—',     min:10.5, max:12.0 },
-        { id:'bw_tds',  label:'TDS',            unit:'ppm',   min:0,    max:3500 },
-        { id:'bw_palk', label:'P-Alkalinity',   unit:'ppm',   min:100,  max:600  },
-        { id:'bw_malk', label:'M-Alkalinity',   unit:'ppm',   min:150,  max:800  },
-        { id:'bw_ohalk',label:'OH Alkalinity',  unit:'ppm',   min:0,    max:200, calc:true },
-        { id:'bw_cl',   label:'Chloride',       unit:'ppm',   min:0,    max:200  },
-        { id:'bw_so3',  label:'Sulfite',        unit:'ppm',   min:20,   max:60   },
-        { id:'bw_po4',  label:'Phosphate',      unit:'ppm',   min:20,   max:50   },
-        { id:'bw_si',   label:'Silica',         unit:'ppm',   min:0,    max:150  },
-        { id:'bw_tan',  label:'Tannin',         unit:'ppm',   min:100,  max:160  },
-        { id:'bw_cyc',  label:'Cycles of Concentration', unit:'—', calc:true, noLimit:true },
-      ]},
-      { title: 'Condensate Return', params: [
-        { id:'cr_ph',   label:'pH',             unit:'—',     min:8.3,  max:9.5  },
-        { id:'cr_cond', label:'Conductivity',   unit:'µS/cm', min:0,    max:20   },
-        { id:'cr_fe',   label:'Iron',           unit:'ppm',   min:0,    max:0.1  },
-      ]},
-    ]
-  },
-  cooling: {
-    icon: '❄️', label: 'Cooling Tower',
-    sections: [
-      { title: 'Make-up Water', params: [
-        { id:'mu_ph',   label:'pH',             unit:'—',     min:6.5,  max:8.5  },
-        { id:'mu_tds',  label:'TDS',            unit:'ppm',   min:0,    max:1000 },
-        { id:'mu_hard', label:'Total Hardness', unit:'ppm',   min:0,    max:400  },
-        { id:'mu_ca',   label:'Ca Hardness',    unit:'ppm',   min:0,    max:300  },
-        { id:'mu_alk',  label:'M-Alkalinity',   unit:'ppm',   min:0,    max:300  },
-        { id:'mu_cl',   label:'Chloride',       unit:'ppm',   min:0,    max:200  },
-      ]},
-      { title: 'Circuit Water', params: [
-        { id:'cw_temp', label:'Temperature',    unit:'°C',    min:20,   max:50   },
-        { id:'cw_ph',   label:'pH',             unit:'—',     min:7.0,  max:9.0  },
-        { id:'cw_cond', label:'Conductivity',   unit:'µS/cm', min:0,    max:3000 },
-        { id:'cw_tds',  label:'TDS',            unit:'ppm',   min:0,    max:2000 },
-        { id:'cw_hard', label:'Total Hardness', unit:'ppm',   min:0,    max:800  },
-        { id:'cw_ca',   label:'Ca Hardness',    unit:'ppm',   min:0,    max:600  },
-        { id:'cw_alk',  label:'M-Alkalinity',   unit:'ppm',   min:0,    max:600  },
-        { id:'cw_cl',   label:'Chloride',       unit:'ppm',   min:0,    max:500  },
-        { id:'cw_fcl',  label:'Free Chlorine',  unit:'ppm',   min:0.2,  max:1.0  },
-        { id:'cw_fe',   label:'Iron',           unit:'ppm',   min:0,    max:1.0  },
-        { id:'cw_zn',   label:'Zinc',           unit:'ppm',   min:0,    max:2.0  },
-        { id:'cw_opo4', label:'Ortho-Phosphate',unit:'ppm',   min:0,    max:10   },
-        { id:'cw_tpo4', label:'Total Phosphate',unit:'ppm',   min:0,    max:15   },
-        { id:'cw_phos', label:'Phosphonate',    unit:'ppm',   min:0,    max:10   },
-        { id:'cw_lsi',  label:'LSI',            unit:'—',     min:-0.5, max:0.5, calc:true },
-      ]},
-    ]
-  },
-  closed: {
-    icon: '🔄', label: 'Closed Loop',
-    sections: [
-      { title: 'Closed Loop Parameters', params: [
-        { id:'cl_ph',   label:'pH',             unit:'—',     min:8.0,  max:10.0 },
-        { id:'cl_cond', label:'Conductivity',   unit:'µS/cm', min:0,    max:3000 },
-        { id:'cl_hard', label:'Total Hardness', unit:'ppm',   min:0,    max:200  },
-        { id:'cl_fe',   label:'Iron',           unit:'ppm',   min:0,    max:1.0  },
-        { id:'cl_inh',  label:'Inhibitor Level',unit:'ppm',   min:1000, max:1600 },
-        { id:'cl_turb', label:'Turbidity',      unit:'NTU',   min:0,    max:5    },
-      ]},
-    ]
-  },
-  pool: {
-    icon: '🏊', label: 'Swimming Pool',
-    sections: [
-      { title: 'Pool Water Analysis', params: [
-        { id:'pl_fcl',  label:'Free Chlorine',   unit:'ppm',   min:1,    max:3    },
-        { id:'pl_ph',   label:'pH',              unit:'—',     min:7.2,  max:7.8  },
-        { id:'pl_cya',  label:'Cyanuric Acid',   unit:'ppm',   min:30,   max:70   },
-        { id:'pl_alk',  label:'Total Alkalinity',unit:'ppm',   min:100,  max:150  },
-        { id:'pl_ca',   label:'Calcium Hardness',unit:'ppm',   min:100,  max:400  },
-        { id:'pl_tds',  label:'TDS',             unit:'ppm',   min:0,    max:1500 },
-      ]},
-    ]
-  },
-  raw: {
-    icon: '🚰', label: 'Raw Water',
-    sections: [
-      { title: 'Raw Water Analysis', params: [
-        { id:'rw_ph',   label:'pH',             unit:'—',     min:6.5,  max:8.5  },
-        { id:'rw_tds',  label:'TDS',            unit:'ppm',   min:0,    max:1000 },
-        { id:'rw_hard', label:'Total Hardness', unit:'ppm',   min:0,    max:500  },
-        { id:'rw_ca',   label:'Ca Hardness',    unit:'ppm',   min:0,    max:400  },
-        { id:'rw_alk',  label:'M-Alkalinity',   unit:'ppm',   min:0,    max:400  },
-        { id:'rw_turb', label:'Turbidity',      unit:'NTU',   min:0,    max:10   },
-        { id:'rw_fe',   label:'Iron',           unit:'ppm',   min:0,    max:0.3  },
-        { id:'rw_cl2',  label:'Free Chlorine',  unit:'ppm',   min:0,    max:1.0  },
-        { id:'rw_so4',  label:'Sulfate',        unit:'ppm',   min:0,    max:400  },
-        { id:'rw_si',   label:'Silica',         unit:'ppm',   min:0,    max:50   },
-      ]},
-    ]
-  }
-};
+// Limits and the marking rule come from krenos-params.js, loaded above —
+// the same file the app uses, so the two can never disagree again.
+
+
 
 function findParamDef(type, label, sectionTitle) {
   const def = PARAMS[type];
@@ -1429,7 +1319,8 @@ function renderHistory() {
   const values = histRows.map(r => r.value);
   const latest = values[values.length - 1];
   const avg    = values.reduce((a,b) => a+b, 0) / values.length;
-  const oor    = def ? histRows.filter(r => r.value < def.min || r.value > def.max).length : 0;
+  // One rule for what counts as out of range, shared with the app.
+  const oor    = histRows.filter(r => paramMark(def || {}, r.value).glyph !== '').length;
 
   statsEl.style.display = 'grid';
   document.getElementById('histVisits').textContent = histRows.length;
@@ -1460,9 +1351,9 @@ function drawHistChart(rows, def, param) {
   const values = rows.map(r => r.value);
   let lo = Math.min(...values), hi = Math.max(...values);
   // Include the safe band in the visible range so it's always meaningful
-  if (def && isFinite(def.min) && def.max < 9999) {
-    lo = Math.min(lo, def.min);
-    hi = Math.max(hi, def.max);
+  if (paramHasBand(def)) {
+    if (isFinite(def.min)) lo = Math.min(lo, def.min);
+    if (isFinite(def.max) && def.max < 9999) hi = Math.max(hi, def.max);
   }
   if (lo === hi) { lo -= 1; hi += 1; }
   const pad = (hi - lo) * 0.12;
@@ -1475,7 +1366,7 @@ function drawHistChart(rows, def, param) {
   let svg = `<svg viewBox="0 0 ${W} ${H}" class="hist-chart-svg" preserveAspectRatio="xMidYMid meet">`;
 
   // Safe range band
-  if (def && def.max < 9999) {
+  if (paramHasBand(def) && isFinite(def.min) && isFinite(def.max)) {
     const yTop = yAt(def.max), yBot = yAt(def.min);
     svg += `<rect x="${P.l}" y="${Math.min(yTop,yBot)}" width="${iw}" height="${Math.abs(yBot-yTop)}" fill="#dcfce7" opacity="0.65"/>`;
     svg += `<line x1="${P.l}" y1="${yTop}" x2="${P.l+iw}" y2="${yTop}" stroke="#86efac" stroke-width="1.5" stroke-dasharray="5,4"/>`;
@@ -1503,7 +1394,7 @@ function drawHistChart(rows, def, param) {
   // Points + x labels
   rows.forEach((r,i) => {
     const x = xAt(i), y = yAt(r.value);
-    const bad = def && (r.value < def.min || r.value > def.max);
+    const bad = paramMark(def || {}, r.value).glyph !== '';
     svg += `<circle cx="${x}" cy="${y}" r="5" fill="${bad ? '#ef4444' : '#10b981'}" stroke="#fff" stroke-width="2"><title>${r.date.toLocaleDateString('en-GB')} — ${fmtNum(r.value)} (${r.sysName})</title></circle>`;
     // Show a label on every point when few, else thin out
     const step = n <= 8 ? 1 : Math.ceil(n / 8);
@@ -1520,8 +1411,8 @@ function drawHistChart(rows, def, param) {
 
   // Legend
   let legend = `<div class="hist-legend-item"><span class="hist-legend-swatch" style="background:#1a56db"></span> ${param}</div>`;
-  if (def && def.max < 9999) {
-    legend += `<div class="hist-legend-item"><span class="hist-legend-band"></span> Safe range ${fmtNum(def.min)}–${fmtNum(def.max)}${def.unit && def.unit !== '—' ? ' ' + def.unit : ''}</div>`;
+  if (paramHasBand(def)) {
+    legend += `<div class="hist-legend-item"><span class="hist-legend-band"></span> Safe range ${paramRangeText(def)}${def.unit && def.unit !== '—' ? ' ' + def.unit : ''}</div>`;
   }
   legend += `<div class="hist-legend-item"><span style="width:9px;height:9px;border-radius:50%;background:#ef4444;display:inline-block"></span> Out of range</div>`;
   document.getElementById('histLegend').innerHTML = legend;
@@ -1530,7 +1421,7 @@ function drawHistChart(rows, def, param) {
 function renderHistTable(rows, def) {
   const tbody = document.getElementById('histTableBody');
   const unit  = def?.unit && def.unit !== '—' ? ' ' + def.unit : '';
-  const rangeStr = def && def.max < 9999 ? `${fmtNum(def.min)} – ${fmtNum(def.max)}` : '—';
+  const rangeStr = paramRangeText(def);
 
   // newest first for reading, but delta computed against the previous visit
   const out = rows.map((r,i) => {
@@ -1539,7 +1430,7 @@ function renderHistTable(rows, def) {
   }).reverse();
 
   tbody.innerHTML = out.map(r => {
-    const bad = def && (r.value < def.min || r.value > def.max);
+    const bad = paramMark(def || {}, r.value).glyph !== '';
     const status = bad
       ? `<span class="status-pill red">🔴 Out of range</span>`
       : `<span class="status-pill green">🟢 In range</span>`;
@@ -1593,10 +1484,11 @@ function exportHistoryCSV() {
   const def = histRows[0].def;
   const headers = ['Date','Reference','Engineer','System','Parameter','Value','Unit','Min','Max','Status'];
   const lines = histRows.map(r => {
-    const bad = def && (r.value < def.min || r.value > def.max);
+    const bad = paramMark(def || {}, r.value).glyph !== '';
     return [
       r.date.toLocaleDateString('en-GB'), r.ref, r.engineer, r.sysName, r.param,
-      r.value, def?.unit || '', def?.min ?? '', (def && def.max < 9999) ? def.max : '',
+      r.value, def?.unit || '', paramHasBand(def) ? (def.min ?? '') : '',
+      paramHasBand(def) && isFinite(def.max) && def.max < 9999 ? def.max : '',
       bad ? 'Out of range' : 'In range',
     ].map(v => `"${v ?? ''}"`).join(',');
   });
