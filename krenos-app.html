@@ -16,6 +16,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.58.0/dist/umd/supabase.min.js"></script>
 <script src="krenos-params.js"></script>
+<script src="krenos-offline.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600;700&display=swap" rel="stylesheet">
@@ -1426,8 +1427,16 @@ async function loadBoilers(clientId) {
       .from('boilers')
       .select('id, name, capacity_tph, pressure_bar')
       .eq('client_id', clientId);
-    if (!error && data) knownBoilers = data;
-  } catch (e) { /* leave knownBoilers empty */ }
+    if (!error && data) {
+      knownBoilers = data;
+      cacheBoilers(clientId, data);
+      return;
+    }
+  } catch (e) { /* fall through to what we remember */ }
+
+  // No signal: a boiler's capacity and pressure do not change between
+  // visits, so last month's answer is this month's answer.
+  knownBoilers = cachedBoilers(clientId);
 }
 
 // Matching is by name, trimmed and case-folded, because the engineer
@@ -2247,7 +2256,7 @@ async function submitReport() {
     const prospectRegion  = document.getElementById('prospectRegion')?.value || '';
 
     // ── 1. Write the record first, so the visit is never lost ──
-    const { error: insErr } = await sb.from('reports').insert({
+    const reportRow = {
       id:            reportId,
       ref:           state.reportRef,
       client_id:     state.client?.id || null,
@@ -2266,20 +2275,30 @@ async function submitReport() {
       gps_lng:       visitLocation?.lng      ?? null,
       gps_accuracy:  visitLocation?.accuracy ?? null,
       submitted_at:  new Date().toISOString(),
-    });
-    if (insErr) {
-      if (insErr.code === '23505') throw new Error('This report was already submitted.');
-      throw insErr;
+    };
+
+    // A visit written up in a plant room with no signal is still a
+    // finished visit. Rather than losing it, the whole thing — record
+    // and PDF — is held on the phone and sent on its own later.
+    let offline = !navigator.onLine;
+    if (!offline) {
+      const { error: insErr } = await sb.from('reports').insert(reportRow);
+      if (insErr) {
+        if (insErr.code === '23505') throw new Error('This report was already submitted.');
+        if (looksOffline(insErr)) offline = true;
+        else throw insErr;
+      }
     }
 
     // Remember the plant for next time. This is a convenience, not part
     // of the report, so a failure here must never cost the engineer the
     // visit he has just finished writing up.
-    await rememberBoilers(systemsData).catch(() => {});
+    if (!offline) await rememberBoilers(systemsData).catch(() => {});
 
     // ── 2. Trend charts, if the engineer asked for them ──
+    // Trends need the client's history, which lives on the server.
     let trendSeries = {};
-    if (systemsData.some(sy => sy.trends && sy.trends.length)) {
+    if (!offline && systemsData.some(sy => sy.trends && sy.trends.length)) {
       showLoading('Building performance trends...');
       trendSeries = await buildTrendSeries(systemsData);
     }
@@ -2293,21 +2312,28 @@ async function submitReport() {
     showLoading('Sending reports...');
     const emailBody = buildEmailBody(systemsData, visitType, visitNotes,
                                      prospectName, prospectContact, prospectPhone, '');
+    const delivery = {
+      report_id:   reportId,
+      ref:         state.reportRef,
+      client_name: state.client?.name || prospectName || 'Free Visit',
+      pdf_base64:  pdfResult.base64Clean,
+      email_html:  emailBody,
+      recipients: {
+        management: MANAGEMENT_EMAIL,
+        client:     state.visitMode === 'free' ? '' : clientEmail,
+        engineer:   engEmail,
+      },
+    };
+
     let delivered = false;
-    try {
+    let queued    = false;
+
+    if (offline) {
+      await queueReport({ id: reportId, row: reportRow, delivery });
+      queued = true;
+    } else try {
       const { data: fnData, error: fnErr } = await sb.functions.invoke('deliver-report', {
-        body: {
-          report_id:   reportId,
-          ref:         state.reportRef,
-          client_name: state.client?.name || prospectName || 'Free Visit',
-          pdf_base64:  pdfResult.base64Clean,
-          email_html:  emailBody,
-          recipients: {
-            management: MANAGEMENT_EMAIL,
-            client:     state.visitMode === 'free' ? '' : clientEmail,
-            engineer:   engEmail,
-          },
-        },
+        body: delivery,
       });
       if (fnErr) throw fnErr;
       // Trust `success` when the function sends it, but fall back to the
@@ -2319,7 +2345,15 @@ async function submitReport() {
       ));
     } catch (e) {
       console.error('Delivery failed:', e);
+      // The record is filed but the emails did not go. Hold the delivery
+      // so it is retried rather than left to the office to notice.
+      if (looksOffline(e)) {
+        await queueReport({ id: reportId, row: reportRow, delivery });
+        queued = true;
+      }
     }
+
+    if (typeof refreshOfflineBar === 'function') refreshOfflineBar();
 
     downloadPDF(pdfResult.dataUri, state.reportRef);
     hideLoading();
@@ -2333,9 +2367,19 @@ async function submitReport() {
                                             : (clientEmail || 'No email on file') },
       { label: 'Engineer',         email: engEmail || 'No email on file' },
     ];
-    document.getElementById('emailsSent').innerHTML = delivered
-      ? rows.map(r => `<div class="email-sent-row">✓ <strong>${r.label}:</strong> ${r.email}</div>`).join('')
-      : `<div class="email-sent-row" style="color:#92400e">
+    // Three different things can have happened, and the engineer has to
+    // be able to tell which: it went, it is waiting on this phone, or
+    // it is filed but the emails failed for a reason that is not signal.
+    document.getElementById('emailsSent').innerHTML =
+      delivered
+        ? rows.map(r => `<div class="email-sent-row">✓ <strong>${r.label}:</strong> ${r.email}</div>`).join('')
+      : queued
+        ? `<div class="email-sent-row" style="color:#1e3a8a;background:#dbeafe;border-radius:8px;padding:10px 12px">
+             <strong>Saved on this phone.</strong><br>
+             No signal right now — it will send on its own the moment you are back
+             online. You can close the app; it will not be lost.
+           </div>`
+        : `<div class="email-sent-row" style="color:#92400e">
            ⚠ Report saved, but the emails could not be sent just now.
            The office can resend it from the dashboard.
          </div>`;
@@ -3075,6 +3119,22 @@ if (storedVer && storedVer !== APP_VERSION) {
 sb.auth.onAuthStateChange((event) => {
   if (event === 'SIGNED_OUT') showLogin();
 });
+
+// ─── WORKING WITHOUT A SIGNAL ───
+// Keep a copy of the app on the device, and watch for anything waiting
+// to be sent. Registered after start-up so a failure here can never
+// stop the engineer getting to the form.
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./krenos-sw.js')
+      .catch(err => console.warn('Offline support unavailable:', err));
+  });
+}
+
+if (typeof startOfflineWatch === 'function') {
+  try { startOfflineWatch(sb); }
+  catch (e) { console.warn('Offline queue unavailable:', e); }
+}
 </script>
 </body>
 </html>
