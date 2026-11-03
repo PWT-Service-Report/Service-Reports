@@ -649,30 +649,28 @@ const PARAMS = {
 // Curated per system — these are the readings that tell the client a story
 // about performance, not every parameter on the form.
 const TREND_CANDIDATES = {
+  // Only three can go on a report, so a long list is just a longer
+  // decision. These are the readings that move for a reason the client
+  // can act on; a parameter the treatment holds steady by design makes
+  // a flat line and tells nobody anything.
   boiler: [
     { id:'bw_cyc',  section:'Boiler Water',      label:'Cycles of Concentration' },
     { id:'fw_cret', section:'Feed Water',        label:'Est. Condensate Return' },
     { id:'bw_tds',  section:'Boiler Water',      label:'Boiler Water TDS' },
     { id:'fw_hard', section:'Feed Water',        label:'Feed Water Hardness' },
-    { id:'cr_fe',   section:'Condensate Return', label:'Condensate Iron' },
-    { id:'bw_po4',  section:'Boiler Water',      label:'Phosphate' },
   ],
   cooling: [
     { id:'cw_lsi',  section:'Circuit Water', label:'LSI' },
     { id:'cw_tds',  section:'Circuit Water', label:'Circuit Water TDS' },
-    { id:'cw_fcl',  section:'Circuit Water', label:'Free Chlorine' },
     { id:'cw_fe',   section:'Circuit Water', label:'Iron' },
-    { id:'cw_tpo4', section:'Circuit Water', label:'Total Phosphate' },
   ],
   closed: [
     { id:'cl_inh',  section:'Closed Loop Parameters', label:'Inhibitor Level' },
     { id:'cl_fe',   section:'Closed Loop Parameters', label:'Iron' },
-    { id:'cl_cond', section:'Closed Loop Parameters', label:'Conductivity' },
   ],
   raw: [
     { id:'rw_tds',  section:'Raw Water Analysis', label:'TDS' },
     { id:'rw_hard', section:'Raw Water Analysis', label:'Total Hardness' },
-    { id:'rw_turb', section:'Raw Water Analysis', label:'Turbidity' },
   ],
   // Swimming pools intentionally have no trend charts.
   pool: [],
@@ -1133,9 +1131,30 @@ function filterClients() {
 // the location is shown in the app. It appears only in the dashboard.
 let visitLocation = null;
 
-function captureLocation() {
-  visitLocation = null;
+// Asking for location on every client selection means a prompt on every
+// report. One ask per session is enough: a visit happens in one place,
+// so the first fix is still the right one for the reports that follow,
+// and a refusal is remembered rather than re-asked.
+let locationAsked  = false;
+let locationDenied = false;
+
+async function captureLocation() {
   if (!navigator.geolocation) return;
+  if (locationDenied) return;
+
+  // Where the browser can tell us the answer without a prompt, use it —
+  // a previous refusal then costs the engineer nothing.
+  if (navigator.permissions && navigator.permissions.query) {
+    try {
+      const st = await navigator.permissions.query({ name: 'geolocation' });
+      if (st.state === 'denied') { locationDenied = true; return; }
+    } catch (e) { /* not supported here; fall through and ask */ }
+  }
+
+  // Already have a fix from earlier in this session — same visit, same place.
+  if (locationAsked && visitLocation) return;
+  locationAsked = true;
+
   navigator.geolocation.getCurrentPosition(
     pos => {
       visitLocation = {
@@ -1144,8 +1163,11 @@ function captureLocation() {
         accuracy: pos.coords.accuracy,
       };
     },
-    () => { /* denied, unavailable or timed out — submit without it */ },
-    { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 }
+    err => {
+      // 1 is PERMISSION_DENIED — don't ask again this session.
+      if (err && err.code === 1) locationDenied = true;
+    },
+    { enableHighAccuracy: false, timeout: 10000, maximumAge: 600000 }
   );
 }
 
@@ -1943,7 +1965,13 @@ async function submitReport() {
         },
       });
       if (fnErr) throw fnErr;
-      delivered = !!(fnData && fnData.success);
+      // Trust `success` when the function sends it, but fall back to the
+      // delivery counts so an older deployment of the function does not
+      // make a report that was in fact emailed look like a failure.
+      delivered = !!(fnData && (
+        fnData.success === true ||
+        (fnData.sent > 0 && (!fnData.failed || fnData.failed.length === 0))
+      ));
     } catch (e) {
       console.error('Delivery failed:', e);
     }
