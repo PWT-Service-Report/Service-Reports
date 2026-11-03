@@ -407,6 +407,7 @@ body { font-family: 'IBM Plex Sans', sans-serif; background: var(--surface); col
       <div class="card-body" style="padding:11px 13px">
         <label style="display:flex;align-items:flex-start;gap:9px;cursor:pointer">
           <input type="checkbox" id="sharedFeedChk" checked
+                 onchange="applySharedFeedSections()"
                  style="margin-top:2px;width:17px;height:17px;flex:none">
           <span>
             <span style="font-weight:600;font-size:13px">One softener and feed tank for all boilers</span>
@@ -1619,6 +1620,43 @@ function refreshSharedFeedRow() {
   if (!row) return;
   const boilerCount = state.systems.filter(s => s.type === 'boiler').length;
   row.style.display = boilerCount > 1 ? 'block' : 'none';
+  applySharedFeedSections();
+}
+
+// The sample points the boilers share: taken once for the house.
+const SHARED_SECTIONS = ['Softener Water', 'Feed Water', 'Condensate Return'];
+
+// With a shared supply, only the first boiler asks for the softener,
+// the feed tank and the return. Asking the other boilers for the same
+// water again is work the engineer should not have to do, and it is how
+// one report ends up carrying two different answers for it.
+function applySharedFeedSections() {
+  const chk = document.getElementById('sharedFeedChk');
+  const shared = !chk || chk.checked;
+  const boilers = state.systems.filter(s => s.type === 'boiler');
+
+  boilers.forEach((sys, idx) => {
+    const panel = document.getElementById(`sys-panel-${sys.id}`);
+    if (!panel) return;
+    const hide = shared && boilers.length > 1 && idx > 0;
+    SHARED_SECTIONS.forEach(title => {
+      const el = panel.querySelector(`.subsection[data-sec="${CSS.escape(title)}"]`);
+      if (el) el.style.display = hide ? 'none' : '';
+    });
+    let note = panel.querySelector('.shared-note');
+    if (hide && !note) {
+      note = document.createElement('div');
+      note.className = 'shared-note';
+      note.style.cssText = 'font-size:11px;color:var(--muted);background:var(--surface);' +
+                           'border:1px solid var(--border);border-radius:8px;padding:9px 11px;margin-bottom:10px';
+      note.textContent = 'Softener, feed tank and condensate return are recorded once, on ' +
+                         (document.getElementById(`sysname-${boilers[0].id}`)?.value || 'the first boiler') + '.';
+      const first = panel.querySelector('.subsection');
+      if (first) first.parentNode.insertBefore(note, first);
+    } else if (!hide && note) {
+      note.remove();
+    }
+  });
 }
 
 function addSystem(type) {
@@ -1663,7 +1701,7 @@ function addSystem(type) {
         </div>`;
     }).join('');
     sectionsHTML += `
-      <div class="subsection">
+      <div class="subsection" data-sec="${escAttr(sec.title)}">
         <div class="subsection-title">${sec.title}</div>
         ${rows}
       </div>`;
@@ -1960,6 +1998,258 @@ async function rememberBoilers(systemsData) {
       if (!error) state.client.shared_feed = want;
     }
   }
+}
+
+// ══════════════════════════════════════════
+//  THE READINGS TABLE
+// ══════════════════════════════════════════
+// Sample points run across the top and parameters down the side, so pH
+// is written once instead of once per sample point, and the four points
+// can be compared along a single line. A boiler drops from twenty rows
+// to twelve, which is what makes room for a second system on the page.
+
+// Turns one system's readings into columns (the sample points that were
+// actually filled in) and rows (every parameter that appears in any of
+// them, in the order the form asks for them).
+function buildSystemMatrix(sys) {
+  const def = PARAMS[sys.type];
+  if (!def) return null;
+
+  const cols = [];
+  def.sections.forEach(sec => {
+    const data = sys.sections && sys.sections[sec.title];
+    if (data && Object.keys(data).length) cols.push({ title: sec.title, data, sec });
+  });
+  if (!cols.length) return null;
+
+  const order = [];
+  const seen = new Set();
+  def.sections.forEach(sec => sec.params.forEach(p => {
+    if (!seen.has(p.label)) { seen.add(p.label); order.push(p.label); }
+  }));
+
+  const rows = [];
+  order.forEach(label => {
+    const cells = cols.map(c => {
+      const v = c.data[label];
+      if (v === undefined || v === '') return null;
+      const p = c.sec.params.find(pp => pp.label === label);
+      return { value: String(v), mark: paramMark(p || {}, parseFloat(v)) };
+    });
+    if (cells.every(c => c === null)) return;
+
+    // Unit and the calculated flag come from the first section that
+    // defines the parameter; they do not differ between sample points.
+    let unit = '', calc = false;
+    for (const c of cols) {
+      const p = c.sec.params.find(pp => pp.label === label);
+      if (p) { unit = p.unit || ''; calc = !!p.calc; break; }
+    }
+    rows.push({ label, unit, calc, cells });
+  });
+
+  return rows.length ? { cols, rows } : null;
+}
+
+// Draws one matrix. Kept separate from building it so the boiler house,
+// whose columns are boilers rather than sample points, can use the same
+// table rather than a second one that drifts out of step.
+function drawMatrix(doc, cols, rows, M, CW, y) {
+  if (!cols.length || !rows.length) return y;
+
+  const LABEL_W = 62;                                   // mm
+  const colW    = (CW - LABEL_W) / cols.length;
+  const ROW_H   = 6.4;
+  const anySub  = cols.some(c => c.sub);
+  const HEAD_H  = anySub ? 9.5 : 7;
+
+  const header = () => {
+    doc.setFillColor(235, 235, 232);
+    doc.rect(M, y, CW, HEAD_H, 'F');
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(6.5);
+    doc.setTextColor(51, 51, 51);
+    doc.text('PARAMETER', M + 3, y + 4.6);
+    cols.forEach((c, i) => {
+      const cx = M + LABEL_W + colW * i + colW / 2;
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(6.5);
+      doc.setTextColor(51, 51, 51);
+      doc.text(pdfSafe(String(c.title).toUpperCase()), cx, y + 4.6, { align: 'center' });
+      if (c.sub) {
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(5.4);
+        doc.setTextColor(110, 110, 110);
+        doc.text(pdfSafe(c.sub), cx, y + 7.8, { align: 'center' });
+      }
+    });
+    doc.setDrawColor(20, 20, 20); doc.setLineWidth(0.4);
+    doc.line(M, y + HEAD_H, M + CW, y + HEAD_H);
+    doc.setLineWidth(0.2);
+    y += HEAD_H;
+  };
+
+  header();
+
+  rows.forEach(r => {
+    if (y + ROW_H > 276) {
+      doc.addPage(); y = 16;
+      header();
+    }
+
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(7.6);
+    doc.setTextColor(20, 20, 20);
+    doc.text(pdfSafe(r.label), M + 3, y + 4.3);
+
+    // A calculated figure is marked so nobody reads it as a measurement.
+    let after = M + 3 + doc.getTextWidth(pdfSafe(r.label));
+    if (r.calc) {
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(6.5);
+      doc.setTextColor(110, 110, 110);
+      doc.text('f', after + 1.2, y + 4.3);
+      after += 3;
+    }
+    if (r.unit) {
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(6.3);
+      doc.setTextColor(110, 110, 110);
+      doc.text(pdfSafe(r.unit), after + 1.6, y + 4.3);
+    }
+
+    r.cells.forEach((cell, i) => {
+      const cx = M + LABEL_W + colW * i + colW / 2;
+      if (!cell) {
+        // Not measured at this sample point — said with a dot, not a gap,
+        // so an empty cell cannot be mistaken for a missed reading.
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
+        doc.setTextColor(201, 201, 197);
+        doc.text('.', cx, y + 3.6, { align: 'center' });
+        return;
+      }
+      const bad = cell.mark.glyph !== '';
+      if (bad) { doc.setFillColor(253, 246, 238); doc.rect(M + LABEL_W + colW * i, y, colW, ROW_H, 'F'); }
+
+      doc.setFont('courier', 'bold'); doc.setFontSize(8);
+      if (bad) doc.setTextColor(138, 58, 8); else doc.setTextColor(20, 20, 20);
+      const txt = pdfSafe(cell.value);
+      doc.text(txt, cx, y + 4.3, { align: 'center' });
+
+      if (bad) {
+        const tx = cx + doc.getTextWidth(txt) / 2 + 2.4;
+        const cy = y + 3.1, rr = 1.5;
+        doc.setFillColor(138, 58, 8);
+        if (cell.mark.glyph === '▲') {
+          doc.triangle(tx, cy - rr, tx - rr, cy + rr, tx + rr, cy + rr, 'F');
+        } else {
+          doc.triangle(tx, cy + rr, tx - rr, cy - rr, tx + rr, cy - rr, 'F');
+        }
+      }
+    });
+
+    doc.setDrawColor(230, 230, 227);
+    doc.line(M, y + ROW_H, M + CW, y + ROW_H);
+    y += ROW_H;
+  });
+
+  return y + 4;
+}
+
+function drawSystemMatrix(doc, sys, M, CW, y) {
+  const mx = buildSystemMatrix(sys);
+  if (!mx) return y;
+  return drawMatrix(doc, mx.cols, mx.rows, M, CW, y);
+}
+
+// ── The boiler house ──
+// Several boilers usually draw on one softener and one feed tank, so
+// those readings are taken once and belong to the house, not to any one
+// boiler. Printing them per boiler invites two different answers for the
+// same water in the same report. The structure holds for a single boiler
+// too, so the client sees the same document shape every month.
+const BOILER_SHARED_SECTIONS = ['Softener Water', 'Feed Water', 'Condensate Return'];
+const BOILER_UNIT_SECTION    = 'Boiler Water';
+
+function buildBoilerHouse(boilers) {
+  const def = PARAMS.boiler;
+
+  // Common: one column per shared sample point that anyone recorded.
+  const commonCols = [];
+  BOILER_SHARED_SECTIONS.forEach(title => {
+    const sec = def.sections.find(s => s.title === title);
+    if (!sec) return;
+    const owner = boilers.find(b => b.sections && b.sections[title] &&
+                                    Object.keys(b.sections[title]).length);
+    if (owner) commonCols.push({ title, data: owner.sections[title], sec });
+  });
+
+  const commonRows = [];
+  commonCols.forEach(() => {});
+  const seen = new Set();
+  BOILER_SHARED_SECTIONS.forEach(title => {
+    const sec = def.sections.find(s => s.title === title);
+    if (!sec) return;
+    sec.params.forEach(p => {
+      if (seen.has(p.label)) return;
+      seen.add(p.label);
+      const cells = commonCols.map(c => {
+        const v = c.data[p.label];
+        if (v === undefined || v === '') return null;
+        const pp = c.sec.params.find(q => q.label === p.label) || p;
+        return { value: String(v), mark: paramMark(pp, parseFloat(v)) };
+      });
+      if (cells.every(c => c === null)) return;
+      commonRows.push({ label: p.label, unit: p.unit || '', calc: !!p.calc, cells });
+    });
+  });
+
+  // Per unit: one column per boiler.
+  const unitSec  = def.sections.find(s => s.title === BOILER_UNIT_SECTION);
+  const unitCols = boilers.map(b => {
+    const bits = [];
+    if (b.spec?.capacity_tph) bits.push(b.spec.capacity_tph + ' t/h');
+    if (b.spec?.pressure_bar) bits.push(b.spec.pressure_bar + ' bar');
+    return {
+      title: b.name,
+      sub: bits.join(' · '),
+      data: (b.sections && b.sections[BOILER_UNIT_SECTION]) || {},
+      sec: unitSec,
+    };
+  });
+
+  const unitRows = [];
+  if (unitSec) {
+    unitSec.params.forEach(p => {
+      const cells = unitCols.map(c => {
+        const v = c.data[p.label];
+        if (v === undefined || v === '') return null;
+        return { value: String(v), mark: paramMark(p, parseFloat(v)) };
+      });
+      if (cells.every(c => c === null)) return;
+      unitRows.push({ label: p.label, unit: p.unit || '', calc: !!p.calc, cells });
+    });
+  }
+
+  return { commonCols, commonRows, unitCols, unitRows };
+}
+
+function drawBoilerHouse(doc, boilers, M, CW, y) {
+  const h = buildBoilerHouse(boilers);
+
+  const bar = (text) => {
+    if (y > 250) { doc.addPage(); y = 16; }
+    doc.setFillColor(20, 20, 20);
+    doc.rect(M, y, CW, 7.5, 'F');
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5);
+    doc.setTextColor(255, 255, 255);
+    doc.text(pdfSafe(text), M + 3, y + 5.2);
+    y += 9.5;
+  };
+
+  if (h.commonRows.length) {
+    bar('BOILER HOUSE — COMMON');
+    y = drawMatrix(doc, h.commonCols, h.commonRows, M, CW, y);
+  }
+  if (h.unitRows.length) {
+    bar('BOILER WATER — PER UNIT');
+    y = drawMatrix(doc, h.unitCols, h.unitRows, M, CW, y);
+  }
+  return y;
 }
 
 // A system with no readings, no recommendation and no chemicals is a
@@ -2345,12 +2635,18 @@ function buildEmailBody(systemsData, visitType, visitNotes, prospectName, prospe
 // canvas and placed as an image (positioned by its top). Keeping one
 // convention is what stops headings from sitting above their coloured bars.
 const PT_TO_MM = 0.3528;
+const ARABIC_RE = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
+
+// Embedded rather than fetched: an engineer in a boiler house with no
+// signal still gets a report with the company's mark on it.
+const PWT_LOGO = 'data:image/jpeg;base64,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';
+
 
 function addTextToPDF(doc, text, x, y, maxWidth, fontSize, color, bold, bgColor) {
   text = String(text == null ? '' : text);
   if (!text) return 0;
 
-  const hasArabic = /[؀-ۿݐ-ݿࢠ-ࣿﭐ-﷿ﹰ-﻿]/.test(text);
+  const hasArabic = ARABIC_RE.test(text);
   const lineH = fontSize * PT_TO_MM * 1.15;   // mm per line
 
   if (!hasArabic) {
@@ -2369,7 +2665,10 @@ function addTextToPDF(doc, text, x, y, maxWidth, fontSize, color, bold, bgColor)
   const scale  = 4;              // supersample for a crisp PDF image
   const mmToPx = 3.7795;
   const maxPx  = maxWidth * scale * mmToPx;
-  const fontPx = fontSize * scale;
+  // Arabic sits lower in the em square than Latin, so the same point
+  // size reads noticeably smaller beside an English line. A fifth more
+  // brings the two to the same apparent size on the page.
+  const fontPx = fontSize * scale * 1.2;
   const linePx = fontPx * 1.35;  // tighter than before; was 2x and left big gaps
 
   const canvas = document.createElement('canvas');
@@ -2420,7 +2719,14 @@ function addTextToPDF(doc, text, x, y, maxWidth, fontSize, color, bold, bgColor)
 
   const imgW = canvasW / scale / mmToPx;
   const imgH = canvasH / scale / mmToPx;
-  doc.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', x, y, imgW, imgH);
+
+  // The glyphs inside the image already run right to left, but the image
+  // itself was being pinned to the left of the column, so a short Arabic
+  // line floated away from the margin it should have started at. An
+  // Arabic line begins at the right edge of the space it was given.
+  const drawX = x + Math.max(0, maxWidth - imgW);
+
+  doc.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', drawX, y, imgW, imgH);
   return imgH;
 }
 
@@ -2465,222 +2771,95 @@ function addTextCentered(doc, text, x, y, barH, maxWidth, fontSize, color, bold,
                       maxWidth, fontSize, color, bold, bgColor);
 }
 
-async function generatePDF(systemsData, visitType, visitNotes, prospectName, prospectContact, trendSeries) {
+// Everything that hangs off one system: what the engineer said, what
+// is dosed, and the trends he asked for. Pulled out of the loop so a
+// boiler can be drawn as part of the house and still carry its own.
+function drawSystemExtras(doc, sys, labelIt, M, CW, y, trendSeries) {
   trendSeries = trendSeries || {};
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
-  const W = 210, M = 14, CW = W - M*2;
-  let y = 0;
 
-  // Header
-  doc.setFillColor(10,22,40);
-  doc.rect(0,0,W,30,'F');
-  doc.setTextColor(255,255,255);
-  doc.setFontSize(15); doc.setFont('helvetica','bold');
-  doc.text('Krenos™', M, 12);
-  doc.setFontSize(8); doc.setFont('helvetica','normal');
-  doc.setTextColor(160,190,210);
-  doc.text('Water Management System — Service Report', M, 19);
+  // With one boiler the heading would be stating the obvious; with
+  // three the reader has to be told which one this is about.
+  const tag = labelIt ? ' — ' + sys.name : '';
 
-  // Ref badge
-  doc.setFillColor(41,182,246);
-  doc.roundedRect(W-M-58, 5, 58, 18, 3, 3, 'F');
-  doc.setTextColor(10,22,40);
-  doc.setFontSize(7); doc.setFont('helvetica','bold');
-  doc.text(state.reportRef, W-M-56, 12);
-  doc.setFont('helvetica','normal');
-  doc.text(state.timestamp, W-M-56, 18);
+    // ── Observations ──
+    // Numbered, on hairlines, in the same quiet language as the tables.
+    // The number sits on the side the line reads from, so an Arabic
+    // observation is numbered on the right and an English one on the
+    // left, in the same block.
+    const recLines = String(sys.recommendations || '')
+      .split(/\n/).map(l => l.trim()).filter(Boolean);
 
-  y = 36;
-
-  // Free visit banner
-  if (prospectName) {
-    doc.setFillColor(255, 248, 225);
-    doc.rect(M, y, CW, 20, 'F');
-    doc.setDrawColor(253, 230, 138);
-    doc.rect(M, y, CW, 20, 'S');
-    doc.setTextColor(146,64,14);
-    doc.setFontSize(9); doc.setFont('helvetica','bold');
-    doc.text('FREE WATER ANALYSIS VISIT', M+3, y+7);
-    const prospectFull = `Prospect: ${prospectName}${prospectContact ? ' · '+prospectContact : ''}`;
-    addTextToPDF(doc, prospectFull, M+3, y+10, CW-6, 8, [146,64,14], false, [255,248,225]);
-    y += 24;
-  }
-
-  // Info bar
-  doc.setFillColor(232,240,254);
-  doc.rect(M, y, CW, 18, 'F');
-  doc.setTextColor(100,116,139);
-  doc.setFontSize(7); doc.setFont('helvetica','bold');
-  doc.text('CLIENT',    M+3,     y+5);
-  doc.text('ENGINEER',  M+65,    y+5);
-  doc.text('VISIT TYPE',M+120,   y+5);
-  doc.text('DATE',      M+168,   y+5);
-  doc.setTextColor(10,22,40);
-  doc.setFontSize(8.5); doc.setFont('helvetica','bold');
-  const clientLabel = state.client?.name || prospectName || 'Free Visit';
-  addTextToPDF(doc, clientLabel, M+3, y+7.5, 58, 8.5, [10,22,40], true, [232,240,254]);
-  addTextToPDF(doc, state.engineer?.name||'', M+65, y+7.5, 50, 8.5, [10,22,40], true, [232,240,254]);
-  doc.setFontSize(7.5); doc.setFont('helvetica','normal'); doc.setTextColor(10,22,40);
-  doc.text(visitType.slice(0,20), M+120, y+13);
-  doc.text(state.timestamp.split(',')[0], M+168, y+13);
-  y += 22;
-
-  if (visitNotes) {
-    const notesH = addTextToPDF(doc, 'Notes: ' + visitNotes, M, y, CW, 8, [100,116,139], false, [255,255,255]);
-    y += notesH + 4;   // advance by real height — a long Arabic note is taller
-  }
-
-  // Systems
-  systemsData.forEach(sys => {
-    // A tab the engineer opened and never filled in used to print as a
-    // blue heading over an empty page.
-    if (isEmptySystem(sys)) return;
-    if (y > 245) { doc.addPage(); y = 16; }
-
-    // System header — may be Arabic
-    doc.setFillColor(26,86,219);
-    doc.rect(M, y, CW, 8, 'F');
-    addTextCentered(doc, sys.name, M+3, y, 8, CW-6, 9, [255,255,255], true, [26,86,219]);
-    y += 11;
-
-    // Use sections if available, else fallback
-    const def = PARAMS[sys.type];
-    const sectionsToRender = sys.sections || {};
-
-    def.sections.forEach(sec => {
-      // Get readings for this specific section only — strict isolation
-      const secData = (sys.sections && sys.sections[sec.title]) || null;
-      if (!secData) return;
-      const rows = sec.params.filter(p => {
-        return secData[p.label] !== undefined && secData[p.label] !== '';
-      });
-      if (rows.length === 0) return;
-
-      if (y > 255) { doc.addPage(); y = 16; }
-
-      // Section sub-header — bold, consistent styling
-      doc.setFillColor(241,245,249);
-      doc.rect(M, y, CW, 7, 'F');
-      doc.setTextColor(30,41,59);
-      doc.setFont('helvetica','bold'); doc.setFontSize(8);
-      doc.text(sec.title.toUpperCase(), M+3, y+5);
-      y += 8;
-
-      // Column headers
-      doc.setFontSize(7); doc.setTextColor(100,116,139); doc.setFont('helvetica','bold');
-      doc.text('PARAMETER', M+3, y+4);
-      doc.text('VALUE', M+100, y+4);
-      doc.text('UNIT', M+130, y+4);
-      doc.text('STATUS', M+158, y+4);
-      y += 6;
-
-      rows.forEach((p, i) => {
-        if (y > 272) { doc.addPage(); y = 16; }
-        if (i % 2 === 0) { doc.setFillColor(248,250,252); doc.rect(M, y-1, CW, 7, 'F'); }
-        doc.setDrawColor(226,232,240);
-        doc.line(M, y+6, M+CW, y+6);
-
-        // Get value from correct section only
-        const v = secData[p.label];
-        const numV = parseFloat(v);
-
-        doc.setTextColor(51,65,85); doc.setFont('helvetica','normal'); doc.setFontSize(8);
-        doc.text(pdfSafe(p.label), M+3, y+4.5);
-
-        // The value itself carries the warning colour, so the reading
-        // and its mark cannot drift apart.
-        const mark = paramMark(p, numV);
-        const bad  = mark.glyph !== '';
-
-        doc.setFont('helvetica','bold');
-        if (bad) doc.setTextColor(138,58,8); else doc.setTextColor(10,22,40);
-        doc.text(String(v), M+100, y+4.5);
-
-        doc.setFont('helvetica','normal'); doc.setTextColor(100,116,139); doc.setFontSize(7);
-        doc.text(pdfSafe(p.unit), M+130, y+4.5);
-
-        // Only an exception is marked. jsPDF's base fonts have no ▲ or
-        // ▼ glyph, so the triangles are drawn as filled shapes.
-        if (bad) {
-          const cx = M + 163, cy = y + 3, r = 1.9;
-          doc.setFillColor(138, 58, 8);
-          if (mark.glyph === '▲') {
-            doc.triangle(cx, cy - r, cx - r, cy + r, cx + r, cy + r, 'F');
-          } else {
-            doc.triangle(cx, cy + r, cx - r, cy - r, cx + r, cy - r, 'F');
-          }
-        }
-        y += 7;
-      });
-      y += 3;
-    });
-
-    // Recommendations
-    if (sys.recommendations) {
-      const recLines = String(sys.recommendations).split(/\n/);
-      const LBL_H = 6, PAD = 4, GAP = 1.5;
-
-      // Measure first so the box is exactly as tall as its contents —
-      // Arabic and Latin lines have genuinely different heights.
+    if (recLines.length) {
+      const NUM_W = 7, GAP = 2.4;
       const measured = recLines.map(l =>
-        l.trim() ? measureTextHeight(doc, l, CW - 8, 8, false) : 3
+        measureTextHeight(doc, l, CW - NUM_W - 8, 8, false)
       );
-      const textH  = measured.reduce((a, b) => a + b, 0) + GAP * Math.max(recLines.length - 1, 0);
-      const totalH = LBL_H + Math.max(textH, 5) + PAD * 2;
+      const bodyH  = measured.reduce((a, b) => a + b, 0) + GAP * recLines.length;
+      const totalH = 7 + bodyH + 2;
 
-      if (y + totalH > 280) { doc.addPage(); y = 16; }
+      if (y + totalH > 276) { doc.addPage(); y = 16; }
 
-      doc.setFillColor(239,246,255);
-      doc.rect(M, y, CW, totalH, 'F');
-      doc.setDrawColor(191,219,254);
-      doc.rect(M, y, CW, totalH, 'S');
+      doc.setDrawColor(20,20,20); doc.setLineWidth(0.4);
+      doc.line(M, y, M+CW, y); doc.setLineWidth(0.2);
+      doc.setFont('helvetica','bold'); doc.setFontSize(6);
+      doc.setTextColor(20,20,20);
+      doc.text(pdfSafe('OBSERVATIONS & RECOMMENDED ACTION' + tag.toUpperCase()), M+3, y+4.6);
 
-      doc.setFont('helvetica','bold');
-      doc.setFontSize(8);
-      doc.setTextColor(30,58,95);
-      doc.text('Recommendations:', M+3, y + PAD + 3.5);
-
-      let ty = y + PAD + LBL_H;
+      let ty = y + 7;
       recLines.forEach((rline, i) => {
-        if (!rline.trim()) { ty += measured[i]; return; }
-        ty += addTextToPDF(doc, rline, M+3, ty, CW-8, 8, [30,58,95], false, [239,246,255]) + GAP;
+        const num = String(i + 1).padStart(2, '0');
+        const rtl = ARABIC_RE.test(rline);
+
+        doc.setFont('courier','bold'); doc.setFontSize(7);
+        doc.setTextColor(20,20,20);
+        if (rtl) doc.text(num, M + CW - 3, ty + 3.2, { align: 'right' });
+        else     doc.text(num, M + 3, ty + 3.2);
+
+        const tx = rtl ? M + 3 : M + 3 + NUM_W;
+        ty += addTextToPDF(doc, rline, tx, ty, CW - NUM_W - 8, 8,
+                           [20,20,20], false, [255,255,255]) + GAP;
       });
 
-      y += totalH + 4;
+      y = ty + 2;
     }
 
-    // Treatment Program
+    // ── Treatment programme ──
+    // What is dosed and what is on site. Days of cover are deliberately
+    // left out: that is the office's reorder signal, not the client's.
     if (sys.treatment && sys.treatment.length > 0) {
-      if (y > 240) { doc.addPage(); y = 16; }
-      // Header — bold, consistent styling
-      doc.setFillColor(241,245,249);
-      doc.rect(M, y, CW, 7, 'F');
-      doc.setTextColor(30,41,59);
-      doc.setFont('helvetica','bold'); doc.setFontSize(8);
-      doc.text('TREATMENT PROGRAM', M+3, y+5);
-      y += 8;
+      if (y + 10 + sys.treatment.length * 6 > 276) { doc.addPage(); y = 16; }
 
-      // Column headers
-      doc.setFontSize(7); doc.setTextColor(100,116,139); doc.setFont('helvetica','bold');
-      doc.text('PRODUCT',          M+3,    y+4);
-      doc.text('DOSAGE (kg/day)',  M+90,   y+4);
-      doc.text('STOCK (kg)',       M+145,  y+4);
+      doc.setDrawColor(20,20,20); doc.setLineWidth(0.4);
+      doc.line(M, y, M+CW, y); doc.setLineWidth(0.2);
+      doc.setFont('helvetica','bold'); doc.setFontSize(6);
+      doc.setTextColor(20,20,20);
+      doc.text(pdfSafe('TREATMENT PROGRAMME' + tag.toUpperCase()), M+3, y+4.6);
+      y += 7;
+
+      const DOSE_X = M + CW - 72, STOCK_X = M + CW - 3;
+      doc.setFillColor(235,235,232); doc.rect(M, y, CW, 6, 'F');
+      doc.setFont('helvetica','bold'); doc.setFontSize(5.8);
+      doc.setTextColor(51,51,51);
+      doc.text('PRODUCT', M+3, y+4);
+      doc.text('DAILY DOSE', DOSE_X, y+4, { align: 'right' });
+      doc.text('STOCK ON SITE', STOCK_X, y+4, { align: 'right' });
+      doc.setDrawColor(20,20,20); doc.setLineWidth(0.4);
+      doc.line(M, y+6, M+CW, y+6); doc.setLineWidth(0.2);
       y += 6;
 
-      sys.treatment.forEach((t, i) => {
-        if (y > 272) { doc.addPage(); y = 16; }
-        if (i % 2 === 0) { doc.setFillColor(248,250,252); doc.rect(M, y-1, CW, 7, 'F'); }
-        doc.setDrawColor(226,232,240);
+      sys.treatment.forEach(t => {
+        if (y + 6 > 276) { doc.addPage(); y = 16; }
+        doc.setFont('helvetica','normal'); doc.setFontSize(7.6);
+        doc.setTextColor(20,20,20);
+        doc.text(pdfSafe(t.product || '-'), M+3, y+4.1);
+        doc.setFont('courier','normal'); doc.setFontSize(7.6);
+        doc.text(t.dosage ? t.dosage + ' kg/day' : '-', DOSE_X, y+4.1, { align: 'right' });
+        doc.text(t.stock  ? t.stock  + ' kg'     : '-', STOCK_X, y+4.1, { align: 'right' });
+        doc.setDrawColor(230,230,227);
         doc.line(M, y+6, M+CW, y+6);
-
-        addTextCentered(doc, t.product, M+3, y, 7, 80, 8, [10,22,40], true, [255,255,255]);
-        doc.setFont('helvetica','normal'); doc.setTextColor(51,65,85); doc.setFontSize(8);
-        doc.text(t.dosage || '—', M+90, y+4.5);
-        doc.text(t.stock || '—',  M+145, y+4.5);
-        y += 7;
+        y += 6;
       });
-      y += 3;
+      y += 4;
     }
 
     // Performance trend charts (only when the engineer selected them)
@@ -2694,7 +2873,7 @@ async function generatePDF(systemsData, visitType, visitNotes, prospectName, pro
           doc.rect(M, y, CW, 7, 'F');
           doc.setTextColor(30,41,59);
           doc.setFont('helvetica','bold'); doc.setFontSize(8);
-          doc.text('PERFORMANCE TRENDS', M+3, y+5);
+          doc.text(pdfSafe('PERFORMANCE TRENDS — LAST SIX VISITS' + tag.toUpperCase()), M+3, y+5);
           y += 9;
         }
         if (series.tooShort) {
@@ -2727,13 +2906,170 @@ async function generatePDF(systemsData, visitType, visitNotes, prospectName, pro
     }
 
     y += 5;
+
+  return y;
+}
+
+async function generatePDF(systemsData, visitType, visitNotes, prospectName, prospectContact, trendSeries) {
+  trendSeries = trendSeries || {};
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
+  const W = 210, M = 14, CW = W - M*2;
+  let y = 0;
+
+  // ── Title block, after an engineering drawing ──
+  const INK = [20,20,20], HAIR = [201,201,197], SOFT = [110,110,110];
+  const line = (x1,yy1,x2,yy2,wdt,col) => {
+    doc.setDrawColor((col||HAIR)[0],(col||HAIR)[1],(col||HAIR)[2]);
+    doc.setLineWidth(wdt||0.2); doc.line(x1,yy1,x2,yy2); doc.setLineWidth(0.2);
+  };
+
+  const TOP = 12;
+  y = TOP;
+
+  // Left: who made the report. Right: which report it is.
+  const TB_H = 15;
+  try {
+    doc.addImage(PWT_LOGO, 'JPEG', M+3, y+2.4, 14.6, 10);
+  } catch (e) { /* a missing logo must not cost the report */ }
+  line(M+21, y+2, M+21, y+TB_H-2);
+
+  doc.setTextColor(INK[0],INK[1],INK[2]);
+  doc.setFont('helvetica','bold'); doc.setFontSize(9.5);
+  doc.text('Krenos', M+24, y+7);
+  doc.setFontSize(5); doc.text('TM', M+24+doc.getTextWidth('Krenos')+0.6, y+4.6);
+  doc.setFont('helvetica','normal'); doc.setFontSize(5.8);
+  doc.setTextColor(SOFT[0],SOFT[1],SOFT[2]);
+  doc.text('WATER MANAGEMENT SYSTEM', M+24, y+10.6);
+
+  const RX = M + CW*0.56;
+  line(RX, y, RX, y+TB_H);
+  doc.setTextColor(INK[0],INK[1],INK[2]);
+  doc.setFont('helvetica','bold'); doc.setFontSize(8);
+  doc.text('WATER TREATMENT SERVICE REPORT', RX+3, y+6);
+  doc.setFont('courier','normal'); doc.setFontSize(7);
+  doc.setTextColor(51,51,51);
+  doc.text(state.reportRef, RX+3, y+10.5);
+  if (visitType) {
+    doc.setFont('helvetica','normal'); doc.setFontSize(6);
+    doc.setTextColor(SOFT[0],SOFT[1],SOFT[2]);
+    doc.text(pdfSafe(visitType), M+CW-3, y+10.5, { align: 'right' });
+  }
+
+  line(M, y, M+CW, y, 0.5, INK);          // frame top
+  line(M, y+TB_H, M+CW, y+TB_H, 0.5, INK);
+  y += TB_H;
+
+  // ── Who, where, when ──
+  const META = [
+    ['CLIENT',   state.client?.name   || prospectName || 'Free Visit'],
+    ['CODE',     state.client?.code   || 'FREE VISIT'],
+    ['REGION',   state.client?.region || '-'],
+    ['DATE',     new Date().toLocaleDateString('en-GB')],
+    ['ENGINEER', state.engineer?.name || '-'],
+  ];
+  const MW = CW / META.length, META_H = 11;
+  META.forEach(([k,v], i) => {
+    const x = M + MW*i;
+    if (i) line(x, y, x, y+META_H);
+    doc.setFont('helvetica','normal'); doc.setFontSize(5.2);
+    doc.setTextColor(SOFT[0],SOFT[1],SOFT[2]);
+    doc.text(k, x+2.5, y+4);
+    addTextToPDF(doc, String(v), x+2.5, y+5.2, MW-4, 7, INK, true, [255,255,255]);
+  });
+  line(M, y+META_H, M+CW, y+META_H);
+  y += META_H;
+
+  // ── Where the limits come from, and what a mark means ──
+  const LEG_H = 7;
+  doc.setFillColor(247,247,245); doc.rect(M, y, CW, LEG_H, 'F');
+  doc.setFont('helvetica','normal'); doc.setFontSize(5.6);
+  doc.setTextColor(82,82,82);
+  doc.text('Control limits per the', M+3, y+4.4);
+  const lx = M+3 + doc.getTextWidth('Control limits per the ');
+  doc.setFont('helvetica','bold'); doc.setTextColor(INK[0],INK[1],INK[2]);
+  doc.text('PWT treatment programme', lx, y+4.4);
+
+  // The legend is drawn, not typed — the base fonts have no triangles.
+  let gx = M + CW - 52;
+  doc.setFillColor(138,58,8);
+  doc.triangle(gx, y+2.6, gx-1.3, y+5.0, gx+1.3, y+5.0, 'F');
+  doc.setFont('helvetica','normal'); doc.setFontSize(5.4);
+  doc.setTextColor(82,82,82);
+  doc.text('above limit', gx+2.4, y+4.5);
+  gx += 20;
+  doc.setFillColor(138,58,8);
+  doc.triangle(gx, y+5.0, gx-1.3, y+2.6, gx+1.3, y+2.6, 'F');
+  doc.text('below limit', gx+2.4, y+4.5);
+  gx += 20;
+  doc.setFont('helvetica','bold'); doc.setTextColor(INK[0],INK[1],INK[2]);
+  doc.text('f', gx, y+4.5);
+  doc.setFont('helvetica','normal'); doc.setTextColor(82,82,82);
+  doc.text('calculated', gx+2.2, y+4.5);
+
+  line(M, y+LEG_H, M+CW, y+LEG_H, 0.5, INK);
+  y += LEG_H;
+
+  // Free visit banner
+  if (prospectName) {
+    doc.setFillColor(255, 248, 225);
+    doc.rect(M, y, CW, 20, 'F');
+    doc.setDrawColor(253, 230, 138);
+    doc.rect(M, y, CW, 20, 'S');
+    doc.setTextColor(146,64,14);
+    doc.setFontSize(9); doc.setFont('helvetica','bold');
+    doc.text('FREE WATER ANALYSIS VISIT', M+3, y+7);
+    const prospectFull = `Prospect: ${prospectName}${prospectContact ? ' · '+prospectContact : ''}`;
+    addTextToPDF(doc, prospectFull, M+3, y+10, CW-6, 8, [146,64,14], false, [255,248,225]);
+    y += 24;
+  }
+
+
+  if (visitNotes) {
+    const notesH = addTextToPDF(doc, 'Notes: ' + visitNotes, M, y, CW, 8, [100,116,139], false, [255,255,255]);
+    y += notesH + 4;   // advance by real height — a long Arabic note is taller
+  }
+
+  // ── Systems ──
+  // The boilers are one block: the house they share, then the units.
+  // Everything else starts on a sheet of its own, so a cooling tower is
+  // never half a page under the end of a boiler table.
+  const live    = systemsData.filter(s => !isEmptySystem(s));
+  const boilers = live.filter(s => s.type === 'boiler');
+  const others  = live.filter(s => s.type !== 'boiler');
+
+  if (boilers.length) {
+    y = drawBoilerHouse(doc, boilers, M, CW, y);
+    boilers.forEach(sys => { y = drawSystemExtras(doc, sys, boilers.length > 1, M, CW, y, trendSeries); });
+  }
+
+  others.forEach(sys => {
+    doc.addPage(); y = 16;
+
+    doc.setFillColor(20,20,20);
+    doc.rect(M, y, CW, 7.5, 'F');
+    addTextToPDF(doc, sys.name, M+3, y+1.6, CW-6, 8.5, [255,255,255], true, [20,20,20]);
+    y += 9.5;
+
+    y = drawSystemMatrix(doc, sys, M, CW, y);
+    y = drawSystemExtras(doc, sys, false, M, CW, y, trendSeries);
   });
 
-  // Footer
-  doc.setFillColor(248,250,252);
-  doc.rect(0, 287, W, 10, 'F');
-  doc.setTextColor(148,163,184); doc.setFontSize(7); doc.setFont('helvetica','normal');
-  doc.text('Krenos™ · Water Management System · Automated Service Report', W/2, 293, { align:'center' });
+  // ── Frame and footer, drawn last so every page gets them ──
+  // The border has to be closed after the content is laid out, because
+  // only now is it known how many pages there are.
+  const pages = doc.getNumberOfPages();
+  for (let p = 1; p <= pages; p++) {
+    doc.setPage(p);
+    doc.setDrawColor(20,20,20); doc.setLineWidth(0.5);
+    doc.rect(M, 12, CW, 265, 'S');
+    doc.setLineWidth(0.2);
+
+    doc.setFont('helvetica','normal'); doc.setFontSize(5.4);
+    doc.setTextColor(138,138,138);
+    doc.text('KRENOS™ WATER MANAGEMENT SYSTEM', M, 281);
+    doc.text(`SHEET ${p} OF ${pages}`, M + CW, 281, { align: 'right' });
+  }
 
   // Return both: data URI (for download) and clean base64 (for email attachment)
   const blob = doc.output('blob');
