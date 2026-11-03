@@ -2775,7 +2775,13 @@ function drawSystemExtras(doc, sys, labelIt, M, CW, y, trendSeries) {
       const colW = (CW - PADX * 2 - GAP * (cols - 1)) / cols;
       const chartH = colW * (300 / 560);
       const CAP_H = 5.6;
-      const blockH = 8 + chartH + CAP_H;
+      const NOTE_H = 10;          // a two-line note needs no chart's worth
+
+      // A row of nothing but "not enough history yet" is two lines of
+      // text; reserving a chart's height for it left a third of the page
+      // blank and pushed the rest of the visit onto another sheet.
+      const anyChart = seriesList.some(sr => !sr.tooShort);
+      const blockH = 8 + (anyChart ? chartH + CAP_H : NOTE_H);
 
       if (y + blockH > PAGE_BOTTOM) { doc.addPage(); y = 16; }
 
@@ -2786,13 +2792,16 @@ function drawSystemExtras(doc, sys, labelIt, M, CW, y, trendSeries) {
       doc.text(pdfSafe('PERFORMANCE TRENDS — LAST SIX VISITS' + tag.toUpperCase()), M+3, y+4.6);
       y += 7;
 
-      let rowTop = y, inRow = 0;
+      let rowTop = y, inRow = 0, rowHasChart = false;
+      const rowH = () => (rowHasChart ? chartH + CAP_H : NOTE_H);
+
       seriesList.forEach((series) => {
         if (inRow === cols) {
-          y = rowTop + chartH + CAP_H + 3;
-          if (y + chartH + CAP_H > PAGE_BOTTOM) { doc.addPage(); y = 16; }
-          rowTop = y; inRow = 0;
+          y = rowTop + rowH() + 3;
+          if (y + rowH() > PAGE_BOTTOM) { doc.addPage(); y = 16; }
+          rowTop = y; inRow = 0; rowHasChart = false;
         }
+        if (!series.tooShort) rowHasChart = true;
         const x = M + PADX + (colW + GAP) * inRow;
 
         if (series.tooShort) {
@@ -2816,7 +2825,7 @@ function drawSystemExtras(doc, sys, labelIt, M, CW, y, trendSeries) {
         inRow++;
       });
 
-      y = rowTop + chartH + CAP_H + 2;
+      y = rowTop + rowH() + 2;
 
       // Say where the condensate figure comes from, once.
       if (seriesList.some(sr => sr.pid === 'fw_cret' && !sr.tooShort)) {
