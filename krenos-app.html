@@ -789,7 +789,11 @@ async function buildTrendSeries(systemsData) {
       const nowVal = currentTrendValue(sys, t);
       if (nowVal !== null) points.push({ date: new Date(), value: nowVal });
       return { label: t.label, pid: t.pid, points: points.slice(-6) };
-    }).filter(sr => sr.points.length >= 2);   // a single point is not a trend
+    });
+    // A single point is not a trend — but the engineer asked for this
+    // chart, so the report says why it is missing instead of leaving
+    // him to wonder whether the app ignored him.
+    out[sys.id].forEach(sr => { sr.tooShort = sr.points.length < 2; });
   });
   return out;
 }
@@ -1958,6 +1962,18 @@ async function rememberBoilers(systemsData) {
   }
 }
 
+// A system with no readings, no recommendation and no chemicals is a
+// tab the engineer opened and thought better of. It is kept in the
+// stored record — the engineer's own notes may still matter — but it
+// has nothing to say to the client.
+function isEmptySystem(sys) {
+  if (!sys) return true;
+  const hasReadings  = sys.readings && Object.keys(sys.readings).length > 0;
+  const hasRec       = !!(sys.recommendations && sys.recommendations.trim());
+  const hasTreatment = !!(sys.treatment && sys.treatment.length);
+  return !hasReadings && !hasRec && !hasTreatment;
+}
+
 function collectSystems() {
   return state.systems.map(sys => {
     const def     = PARAMS[sys.type];
@@ -2223,6 +2239,7 @@ function buildEmailBody(systemsData, visitType, visitNotes, prospectName, prospe
   systemsData.forEach(sys => {
     const def = PARAMS[sys.type];
     if (!def) return;
+    if (isEmptySystem(sys)) return;   // nothing was entered for it
 
     body += `<div style="margin-bottom:18px;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden">`;
     body += `<div style="font-size:13px;font-weight:700;color:#fff;padding:9px 14px;background:#1a56db">${def.icon} ${sys.name}</div>`;
@@ -2516,6 +2533,9 @@ async function generatePDF(systemsData, visitType, visitNotes, prospectName, pro
 
   // Systems
   systemsData.forEach(sys => {
+    // A tab the engineer opened and never filled in used to print as a
+    // blue heading over an empty page.
+    if (isEmptySystem(sys)) return;
     if (y > 245) { doc.addPage(); y = 16; }
 
     // System header — may be Arabic
@@ -2677,6 +2697,17 @@ async function generatePDF(systemsData, visitType, visitNotes, prospectName, pro
           doc.text('PERFORMANCE TRENDS', M+3, y+5);
           y += 9;
         }
+        if (series.tooShort) {
+          // Asked for, but there is only this one visit to draw.
+          doc.setFont('helvetica','bold'); doc.setFontSize(8);
+          doc.setTextColor(51,65,85);
+          doc.text(pdfSafe(series.label), M+3, y+4);
+          doc.setFont('helvetica','italic'); doc.setFontSize(7);
+          doc.setTextColor(100,116,139);
+          doc.text('Not enough history yet — a trend needs at least two visits.', M+3, y+9);
+          y += 13;
+          return;
+        }
         try {
           const png = drawTrendChartPng(series, sys.name);
           doc.addImage(png, 'PNG', M, y, CW, chartH);
@@ -2686,7 +2717,7 @@ async function generatePDF(systemsData, visitType, visitNotes, prospectName, pro
         }
       });
       // Make the basis of the estimate explicit for the client
-      if (seriesList.some(sr => sr.pid === 'fw_cret')) {
+      if (seriesList.some(sr => sr.pid === 'fw_cret' && !sr.tooShort)) {
         doc.setFont('helvetica','italic'); doc.setFontSize(7);
         doc.setTextColor(100,116,139);
         doc.text('Condensate return is estimated from a TDS mass balance and is approximate.', M, y+2);
