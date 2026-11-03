@@ -2928,6 +2928,17 @@ async function generatePDF(systemsData, visitType, visitNotes, prospectName, pro
   const W = 210, M = 14, CW = W - M*2;
   let y = 0;
 
+  // The frame is closed at the end, around whatever was drawn, so a
+  // light visit reads as a short document rather than a full page with
+  // its lower half missing. Every page break records where that page's
+  // content stopped.
+  const pageEnd = {};
+  const _addPage = doc.addPage.bind(doc);
+  doc.addPage = function (...args) {
+    pageEnd[doc.getNumberOfPages()] = y;
+    return _addPage(...args);
+  };
+
   // ── Title block, after an engineering drawing ──
   const INK = [20,20,20], HAIR = [201,201,197], SOFT = [110,110,110];
   const line = (x1,yy1,x2,yy2,wdt,col) => {
@@ -3074,16 +3085,25 @@ async function generatePDF(systemsData, visitType, visitNotes, prospectName, pro
   // The border has to be closed after the content is laid out, because
   // only now is it known how many pages there are.
   const pages = doc.getNumberOfPages();
+  pageEnd[pages] = y;                       // the last page ends here
+
   for (let p = 1; p <= pages; p++) {
     doc.setPage(p);
+
+    // Close the frame just under the content, within sensible bounds:
+    // never so short that the title block looks cramped, never past the
+    // paper's bottom margin.
+    const content = pageEnd[p] || 12;
+    const bottom  = Math.max(70, Math.min(content + 4, 278));
+
     doc.setDrawColor(20,20,20); doc.setLineWidth(0.5);
-    doc.rect(M, 12, CW, 268, 'S');
+    doc.rect(M, 12, CW, bottom - 12, 'S');
     doc.setLineWidth(0.2);
 
     doc.setFont('helvetica','normal'); doc.setFontSize(5.4);
     doc.setTextColor(138,138,138);
-    doc.text('KRENOS™ WATER MANAGEMENT SYSTEM', M, 284);
-    doc.text(`SHEET ${p} OF ${pages}`, M + CW, 284, { align: 'right' });
+    doc.text('KRENOS™ WATER MANAGEMENT SYSTEM', M, bottom + 4);
+    doc.text(`SHEET ${p} OF ${pages}`, M + CW, bottom + 5.5, { align: 'right' });
   }
 
   // Return both: data URI (for download) and clean base64 (for email attachment)
