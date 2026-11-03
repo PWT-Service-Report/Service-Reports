@@ -1628,6 +1628,23 @@ function removeSystem(id) {
   if (state.systems.length) switchTab(state.systems[state.systems.length-1].id);
 }
 
+// jsPDF's built-in fonts quietly drop characters they cannot draw, so
+// "µS/cm" came out as "S/cm" on the report with nothing to show it had
+// failed. Anything printed through doc.text() goes through here first.
+// (Arabic takes a different route — it is drawn on a canvas.)
+const PDF_CHAR_FIXES = [
+  [/µ|μ/g, 'u'],   // micro sign and Greek mu
+  [/≥/g, '>='], [/≤/g, '<='],
+  [/×/g, 'x'],  [/÷/g, '/'],
+  [/₂/g, '2'],  [/₃/g, '3'], [/₄/g, '4'],
+  [/℃/g, 'C'],
+];
+function pdfSafe(s) {
+  let out = String(s == null ? '' : s);
+  for (const [re, to] of PDF_CHAR_FIXES) out = out.replace(re, to);
+  return out;
+}
+
 // ══════════════════════════════════════════
 //  HOW A READING IS MARKED
 // ══════════════════════════════════════════
@@ -2369,7 +2386,7 @@ async function generatePDF(systemsData, visitType, visitNotes, prospectName, pro
         const numV = parseFloat(v);
 
         doc.setTextColor(51,65,85); doc.setFont('helvetica','normal'); doc.setFontSize(8);
-        doc.text(p.label, M+3, y+4.5);
+        doc.text(pdfSafe(p.label), M+3, y+4.5);
 
         // The value itself carries the warning colour, so the reading
         // and its mark cannot drift apart.
@@ -2381,7 +2398,7 @@ async function generatePDF(systemsData, visitType, visitNotes, prospectName, pro
         doc.text(String(v), M+100, y+4.5);
 
         doc.setFont('helvetica','normal'); doc.setTextColor(100,116,139); doc.setFontSize(7);
-        doc.text(p.unit, M+130, y+4.5);
+        doc.text(pdfSafe(p.unit), M+130, y+4.5);
 
         // Only an exception is marked. jsPDF's base fonts have no ▲ or
         // ▼ glyph, so the triangles are drawn as filled shapes.
