@@ -853,94 +853,75 @@ function currentTrendValue(sys, trend) {
 }
 
 // Draw a trend chart to a canvas and return a PNG data URL for the PDF.
-function drawTrendChartPng(series, systemName) {
-  const W = 1100, H = 420, S = 2;   // supersample for a crisp PDF image
-  const canvas = document.createElement('canvas');
-  canvas.width = W * S; canvas.height = H * S;
-  const ctx = canvas.getContext('2d');
-  ctx.scale(S, S);
-
+// One trend, drawn straight into the PDF as lines and dots rather than
+// as a picture of them. jsPDF stores a PNG almost uncompressed — a
+// single charted line cost nearly 2 MB — while the same chart drawn
+// with vectors is a few hundred bytes, and stays sharp at any zoom.
+function drawTrendVector(doc, series, x, y, w, h) {
   const def = findParamDefSecById(series.pid);
   const pts = series.points;
-  const P = { t: 54, r: 30, b: 58, l: 84 };
-  const iw = W - P.l - P.r, ih = H - P.t - P.b;
+  if (!pts || !pts.length) return;
 
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, W, H);
-
-  // Title
-  ctx.fillStyle = '#0a1628';
-  ctx.font = 'bold 22px Arial, sans-serif';
-  ctx.textAlign = 'left';
-  ctx.fillText(`${series.label}${def && def.unit && def.unit !== '—' ? ' (' + def.unit + ')' : ''}`, P.l, 26);
-  ctx.fillStyle = '#64748b';
-  ctx.font = '15px Arial, sans-serif';
-  ctx.fillText(`${systemName} — last ${pts.length} visits`, P.l, 46);
+  const P = { t: 2.4, r: 1.5, b: 5.2, l: 9.5 };
+  const iw = w - P.l - P.r, ih = h - P.t - P.b;
+  const x0 = x + P.l, y0 = y + P.t;
 
   const values = pts.map(p => p.value);
   let lo = Math.min(...values), hi = Math.max(...values);
-  const hasBand = def && isFinite(def.min) && isFinite(def.max) && def.max < 9999 && !def.noLimit;
+  const hasBand = def && isFinite(def.min) && isFinite(def.max) &&
+                  def.max < 9999 && !def.noLimit;
   if (hasBand) { lo = Math.min(lo, def.min); hi = Math.max(hi, def.max); }
   if (lo === hi) { lo -= 1; hi += 1; }
   const pad = (hi - lo) * 0.15;
   lo -= pad; hi += pad;
 
   const n = pts.length;
-  const xAt = i => P.l + (n === 1 ? iw / 2 : (i / (n - 1)) * iw);
-  const yAt = v => P.t + ih - ((v - lo) / (hi - lo)) * ih;
+  const xAt = i => x0 + (n === 1 ? iw / 2 : (i / (n - 1)) * iw);
+  const yAt = v => y0 + ih - ((v - lo) / (hi - lo)) * ih;
 
-  // Safe range band
+  // The band the reading belongs in.
   if (hasBand) {
     const yTop = yAt(def.max), yBot = yAt(def.min);
-    ctx.fillStyle = '#dcfce7';
-    ctx.fillRect(P.l, Math.min(yTop, yBot), iw, Math.abs(yBot - yTop));
-    ctx.strokeStyle = '#86efac'; ctx.lineWidth = 1.5; ctx.setLineDash([6, 4]);
-    [yTop, yBot].forEach(y => {
-      ctx.beginPath(); ctx.moveTo(P.l, y); ctx.lineTo(P.l + iw, y); ctx.stroke();
-    });
-    ctx.setLineDash([]);
+    doc.setFillColor(232, 238, 228);
+    doc.rect(x0, Math.min(yTop, yBot), iw, Math.abs(yBot - yTop), 'F');
   }
 
-  // Gridlines + y labels
-  ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 1;
-  ctx.fillStyle = '#64748b'; ctx.font = '14px Arial, sans-serif'; ctx.textAlign = 'right';
-  for (let i = 0; i <= 4; i++) {
-    const v = lo + (hi - lo) * (i / 4), y = yAt(v);
-    ctx.beginPath(); ctx.moveTo(P.l, y); ctx.lineTo(P.l + iw, y); ctx.stroke();
-    ctx.fillText(fmtTrend(v), P.l - 10, y + 5);
-  }
+  doc.setDrawColor(201, 201, 197); doc.setLineWidth(0.2);
+  doc.line(x0, y0, x0, y0 + ih);
+  doc.setDrawColor(20, 20, 20); doc.setLineWidth(0.3);
+  doc.line(x0, y0 + ih, x0 + iw, y0 + ih);
 
-  // Axis
-  ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 1.5;
-  ctx.beginPath(); ctx.moveTo(P.l, P.t + ih); ctx.lineTo(P.l + iw, P.t + ih); ctx.stroke();
+  // Only the two ends of the scale — more would crowd a chart this size.
+  doc.setFont('courier', 'normal'); doc.setFontSize(4.6);
+  doc.setTextColor(110, 110, 110);
+  doc.text(fmtTrend(hi), x0 - 1, y0 + 1.6, { align: 'right' });
+  doc.text(fmtTrend(lo), x0 - 1, y0 + ih, { align: 'right' });
 
-  // Line
   if (n > 1) {
-    ctx.strokeStyle = '#1a56db'; ctx.lineWidth = 3;
-    ctx.lineJoin = 'round'; ctx.lineCap = 'round';
-    ctx.beginPath();
-    pts.forEach((p, i) => i ? ctx.lineTo(xAt(i), yAt(p.value)) : ctx.moveTo(xAt(i), yAt(p.value)));
-    ctx.stroke();
+    doc.setDrawColor(20, 20, 20); doc.setLineWidth(0.5);
+    for (let i = 1; i < n; i++) {
+      doc.line(xAt(i - 1), yAt(pts[i - 1].value), xAt(i), yAt(pts[i].value));
+    }
   }
 
-  // Points, values and dates
-  ctx.textAlign = 'center';
   pts.forEach((p, i) => {
-    const x = xAt(i), y = yAt(p.value);
-    const bad = hasBand && (p.value < def.min || p.value > def.max);
-    ctx.beginPath(); ctx.arc(x, y, 6.5, 0, Math.PI * 2);
-    ctx.fillStyle = bad ? '#ef4444' : '#10b981'; ctx.fill();
-    ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2.5; ctx.stroke();
-
-    ctx.fillStyle = '#0a1628'; ctx.font = 'bold 14px Arial, sans-serif';
-    ctx.fillText(fmtTrend(p.value), x, y - 14);
-
-    ctx.fillStyle = '#64748b'; ctx.font = '13px Arial, sans-serif';
-    ctx.fillText(p.date.toLocaleDateString('en-GB', { day:'2-digit', month:'short' }), x, P.t + ih + 22);
-    ctx.fillText(String(p.date.getFullYear()).slice(2), x, P.t + ih + 38);
+    const bad  = hasBand && (p.value < def.min || p.value > def.max);
+    const last = i === n - 1;
+    if (bad) doc.setFillColor(138, 58, 8); else doc.setFillColor(20, 20, 20);
+    doc.circle(xAt(i), yAt(p.value), last ? 0.85 : 0.6, 'F');
   });
 
-  return canvas.toDataURL('image/png');
+  const stamp = d => d.toLocaleDateString('en-GB', { month: 'short' }).toUpperCase();
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(4.6);
+  doc.setTextColor(110, 110, 110);
+  doc.text(stamp(pts[0].date), x0, y + h - 1.2);
+  if (n > 1) doc.text(stamp(pts[n - 1].date), x0 + iw, y + h - 1.2, { align: 'right' });
+
+  // The newest reading, spelled out, so the chart reads at a glance.
+  const lastBad = hasBand && (pts[n-1].value < def.min || pts[n-1].value > def.max);
+  doc.setFont('courier', 'bold'); doc.setFontSize(6);
+  if (lastBad) doc.setTextColor(138, 58, 8); else doc.setTextColor(20, 20, 20);
+  doc.text(fmtTrend(pts[n - 1].value), x + w - P.r, y0 + 2.2, { align: 'right' });
 }
 
 function findParamDefSecById(pid) {
@@ -2059,7 +2040,7 @@ function drawMatrix(doc, cols, rows, M, CW, y) {
 
   const LABEL_W = 62;                                   // mm
   const colW    = (CW - LABEL_W) / cols.length;
-  const ROW_H   = 6.4;
+  const ROW_H   = 6.0;
   const anySub  = cols.some(c => c.sub);
   const HEAD_H  = anySub ? 9.5 : 7;
 
@@ -2089,7 +2070,7 @@ function drawMatrix(doc, cols, rows, M, CW, y) {
   header();
 
   rows.forEach(r => {
-    if (y + ROW_H > 276) {
+    if (y + ROW_H > PAGE_BOTTOM) {
       doc.addPage(); y = 16;
       header();
     }
@@ -2147,7 +2128,7 @@ function drawMatrix(doc, cols, rows, M, CW, y) {
     y += ROW_H;
   });
 
-  return y + 4;
+  return y + 3;
 }
 
 function drawSystemMatrix(doc, sys, M, CW, y) {
@@ -2232,13 +2213,13 @@ function drawBoilerHouse(doc, boilers, M, CW, y) {
   const h = buildBoilerHouse(boilers);
 
   const bar = (text) => {
-    if (y > 250) { doc.addPage(); y = 16; }
+    if (y > PAGE_BOTTOM - 26) { doc.addPage(); y = 16; }
     doc.setFillColor(20, 20, 20);
     doc.rect(M, y, CW, 7.5, 'F');
     doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5);
     doc.setTextColor(255, 255, 255);
     doc.text(pdfSafe(text), M + 3, y + 5.2);
-    y += 9.5;
+    y += 8.5;
   };
 
   if (h.commonRows.length) {
@@ -2635,6 +2616,8 @@ function buildEmailBody(systemsData, visitType, visitNotes, prospectName, prospe
 // canvas and placed as an image (positioned by its top). Keeping one
 // convention is what stops headings from sitting above their coloured bars.
 const PT_TO_MM = 0.3528;
+// The lowest a block may start and still sit inside the page frame.
+const PAGE_BOTTOM = 279;
 const ARABIC_RE = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
 
 // Embedded rather than fetched: an engineer in a boiler house with no
@@ -2781,6 +2764,109 @@ function drawSystemExtras(doc, sys, labelIt, M, CW, y, trendSeries) {
   // three the reader has to be told which one this is about.
   const tag = labelIt ? ' — ' + sys.name : '';
 
+    // ── Performance trends ──
+    // Three across, the way the eye compares them: one story told by
+    // three pictures, not three unrelated figures down a page.
+    const seriesList = trendSeries[sys.id] || [];
+    if (seriesList.length) {
+      const PADX = 3;
+      const GAP  = 5;
+      const cols = Math.min(seriesList.length, 3);
+      const colW = (CW - PADX * 2 - GAP * (cols - 1)) / cols;
+      const chartH = colW * (300 / 560);
+      const CAP_H = 5.6;
+      const blockH = 8 + chartH + CAP_H;
+
+      if (y + blockH > PAGE_BOTTOM) { doc.addPage(); y = 16; }
+
+      doc.setDrawColor(20,20,20); doc.setLineWidth(0.4);
+      doc.line(M, y, M+CW, y); doc.setLineWidth(0.2);
+      doc.setFont('helvetica','bold'); doc.setFontSize(6);
+      doc.setTextColor(20,20,20);
+      doc.text(pdfSafe('PERFORMANCE TRENDS — LAST SIX VISITS' + tag.toUpperCase()), M+3, y+4.6);
+      y += 7;
+
+      let rowTop = y, inRow = 0;
+      seriesList.forEach((series) => {
+        if (inRow === cols) {
+          y = rowTop + chartH + CAP_H + 3;
+          if (y + chartH + CAP_H > PAGE_BOTTOM) { doc.addPage(); y = 16; }
+          rowTop = y; inRow = 0;
+        }
+        const x = M + PADX + (colW + GAP) * inRow;
+
+        if (series.tooShort) {
+          doc.setFont('helvetica','bold'); doc.setFontSize(6.4);
+          doc.setTextColor(51,51,51);
+          doc.text(pdfSafe(series.label), x, rowTop + 5);
+          doc.setFont('helvetica','italic'); doc.setFontSize(5.6);
+          doc.setTextColor(110,110,110);
+          doc.splitTextToSize('Not enough history yet — a trend needs two visits.', colW)
+             .forEach((ln, k) => doc.text(ln, x, rowTop + 9.6 + k * 3));
+        } else {
+          try {
+            drawTrendVector(doc, series, x, rowTop, colW, chartH);
+          } catch (e) { console.error('Trend chart failed:', e); }
+          doc.setFont('helvetica','bold'); doc.setFontSize(6);
+          doc.setTextColor(20,20,20);
+          doc.splitTextToSize(pdfSafe(series.label.toUpperCase()), colW)
+             .slice(0, 2)
+             .forEach((ln, k) => doc.text(ln, x, rowTop + chartH + 3.4 + k * 3));
+        }
+        inRow++;
+      });
+
+      y = rowTop + chartH + CAP_H + 2;
+
+      // Say where the condensate figure comes from, once.
+      if (seriesList.some(sr => sr.pid === 'fw_cret' && !sr.tooShort)) {
+        doc.setFont('helvetica','italic'); doc.setFontSize(5.6);
+        doc.setTextColor(110,110,110);
+        doc.text('Condensate return is estimated from a TDS mass balance and is approximate.', M+3, y+2);
+        y += 4;
+      }
+      y += 1;
+    }
+
+    // ── Treatment programme ──
+    // What is dosed and what is on site. Days of cover are deliberately
+    // left out: that is the office's reorder signal, not the client's.
+    if (sys.treatment && sys.treatment.length > 0) {
+      if (y + 10 + sys.treatment.length * 6 > PAGE_BOTTOM) { doc.addPage(); y = 16; }
+
+      doc.setDrawColor(20,20,20); doc.setLineWidth(0.4);
+      doc.line(M, y, M+CW, y); doc.setLineWidth(0.2);
+      doc.setFont('helvetica','bold'); doc.setFontSize(6);
+      doc.setTextColor(20,20,20);
+      doc.text(pdfSafe('TREATMENT PROGRAMME' + tag.toUpperCase()), M+3, y+4.6);
+      y += 7;
+
+      const DOSE_X = M + CW - 72, STOCK_X = M + CW - 3;
+      doc.setFillColor(235,235,232); doc.rect(M, y, CW, 6, 'F');
+      doc.setFont('helvetica','bold'); doc.setFontSize(5.8);
+      doc.setTextColor(51,51,51);
+      doc.text('PRODUCT', M+3, y+4);
+      doc.text('DAILY DOSE', DOSE_X, y+4, { align: 'right' });
+      doc.text('STOCK ON SITE', STOCK_X, y+4, { align: 'right' });
+      doc.setDrawColor(20,20,20); doc.setLineWidth(0.4);
+      doc.line(M, y+6, M+CW, y+6); doc.setLineWidth(0.2);
+      y += 6;
+
+      sys.treatment.forEach(t => {
+        if (y + 6 > PAGE_BOTTOM) { doc.addPage(); y = 16; }
+        doc.setFont('helvetica','normal'); doc.setFontSize(7.6);
+        doc.setTextColor(20,20,20);
+        doc.text(pdfSafe(t.product || '-'), M+3, y+4.1);
+        doc.setFont('courier','normal'); doc.setFontSize(7.6);
+        doc.text(t.dosage ? t.dosage + ' kg/day' : '-', DOSE_X, y+4.1, { align: 'right' });
+        doc.text(t.stock  ? t.stock  + ' kg'     : '-', STOCK_X, y+4.1, { align: 'right' });
+        doc.setDrawColor(230,230,227);
+        doc.line(M, y+6, M+CW, y+6);
+        y += 6;
+      });
+      y += 3;
+    }
+
     // ── Observations ──
     // Numbered, on hairlines, in the same quiet language as the tables.
     // The number sits on the side the line reads from, so an Arabic
@@ -2797,7 +2883,7 @@ function drawSystemExtras(doc, sys, labelIt, M, CW, y, trendSeries) {
       const bodyH  = measured.reduce((a, b) => a + b, 0) + GAP * recLines.length;
       const totalH = 7 + bodyH + 2;
 
-      if (y + totalH > 276) { doc.addPage(); y = 16; }
+      if (y + totalH > PAGE_BOTTOM) { doc.addPage(); y = 16; }
 
       doc.setDrawColor(20,20,20); doc.setLineWidth(0.4);
       doc.line(M, y, M+CW, y); doc.setLineWidth(0.2);
@@ -2822,90 +2908,6 @@ function drawSystemExtras(doc, sys, labelIt, M, CW, y, trendSeries) {
 
       y = ty + 2;
     }
-
-    // ── Treatment programme ──
-    // What is dosed and what is on site. Days of cover are deliberately
-    // left out: that is the office's reorder signal, not the client's.
-    if (sys.treatment && sys.treatment.length > 0) {
-      if (y + 10 + sys.treatment.length * 6 > 276) { doc.addPage(); y = 16; }
-
-      doc.setDrawColor(20,20,20); doc.setLineWidth(0.4);
-      doc.line(M, y, M+CW, y); doc.setLineWidth(0.2);
-      doc.setFont('helvetica','bold'); doc.setFontSize(6);
-      doc.setTextColor(20,20,20);
-      doc.text(pdfSafe('TREATMENT PROGRAMME' + tag.toUpperCase()), M+3, y+4.6);
-      y += 7;
-
-      const DOSE_X = M + CW - 72, STOCK_X = M + CW - 3;
-      doc.setFillColor(235,235,232); doc.rect(M, y, CW, 6, 'F');
-      doc.setFont('helvetica','bold'); doc.setFontSize(5.8);
-      doc.setTextColor(51,51,51);
-      doc.text('PRODUCT', M+3, y+4);
-      doc.text('DAILY DOSE', DOSE_X, y+4, { align: 'right' });
-      doc.text('STOCK ON SITE', STOCK_X, y+4, { align: 'right' });
-      doc.setDrawColor(20,20,20); doc.setLineWidth(0.4);
-      doc.line(M, y+6, M+CW, y+6); doc.setLineWidth(0.2);
-      y += 6;
-
-      sys.treatment.forEach(t => {
-        if (y + 6 > 276) { doc.addPage(); y = 16; }
-        doc.setFont('helvetica','normal'); doc.setFontSize(7.6);
-        doc.setTextColor(20,20,20);
-        doc.text(pdfSafe(t.product || '-'), M+3, y+4.1);
-        doc.setFont('courier','normal'); doc.setFontSize(7.6);
-        doc.text(t.dosage ? t.dosage + ' kg/day' : '-', DOSE_X, y+4.1, { align: 'right' });
-        doc.text(t.stock  ? t.stock  + ' kg'     : '-', STOCK_X, y+4.1, { align: 'right' });
-        doc.setDrawColor(230,230,227);
-        doc.line(M, y+6, M+CW, y+6);
-        y += 6;
-      });
-      y += 4;
-    }
-
-    // Performance trend charts (only when the engineer selected them)
-    const seriesList = trendSeries[sys.id] || [];
-    if (seriesList.length) {
-      const chartH = 52;   // mm — keeps roughly the canvas aspect ratio
-      seriesList.forEach((series, si) => {
-        if (y + chartH + 12 > 280) { doc.addPage(); y = 16; }
-        if (si === 0) {
-          doc.setFillColor(241,245,249);
-          doc.rect(M, y, CW, 7, 'F');
-          doc.setTextColor(30,41,59);
-          doc.setFont('helvetica','bold'); doc.setFontSize(8);
-          doc.text(pdfSafe('PERFORMANCE TRENDS — LAST SIX VISITS' + tag.toUpperCase()), M+3, y+5);
-          y += 9;
-        }
-        if (series.tooShort) {
-          // Asked for, but there is only this one visit to draw.
-          doc.setFont('helvetica','bold'); doc.setFontSize(8);
-          doc.setTextColor(51,65,85);
-          doc.text(pdfSafe(series.label), M+3, y+4);
-          doc.setFont('helvetica','italic'); doc.setFontSize(7);
-          doc.setTextColor(100,116,139);
-          doc.text('Not enough history yet — a trend needs at least two visits.', M+3, y+9);
-          y += 13;
-          return;
-        }
-        try {
-          const png = drawTrendChartPng(series, sys.name);
-          doc.addImage(png, 'PNG', M, y, CW, chartH);
-          y += chartH + 4;
-        } catch (e) {
-          console.error('Trend chart failed:', e);
-        }
-      });
-      // Make the basis of the estimate explicit for the client
-      if (seriesList.some(sr => sr.pid === 'fw_cret' && !sr.tooShort)) {
-        doc.setFont('helvetica','italic'); doc.setFontSize(7);
-        doc.setTextColor(100,116,139);
-        doc.text('Condensate return is estimated from a TDS mass balance and is approximate.', M, y+2);
-        y += 6;
-      }
-      y += 2;
-    }
-
-    y += 5;
 
   return y;
 }
@@ -3062,13 +3064,13 @@ async function generatePDF(systemsData, visitType, visitNotes, prospectName, pro
   for (let p = 1; p <= pages; p++) {
     doc.setPage(p);
     doc.setDrawColor(20,20,20); doc.setLineWidth(0.5);
-    doc.rect(M, 12, CW, 265, 'S');
+    doc.rect(M, 12, CW, 268, 'S');
     doc.setLineWidth(0.2);
 
     doc.setFont('helvetica','normal'); doc.setFontSize(5.4);
     doc.setTextColor(138,138,138);
-    doc.text('KRENOS™ WATER MANAGEMENT SYSTEM', M, 281);
-    doc.text(`SHEET ${p} OF ${pages}`, M + CW, 281, { align: 'right' });
+    doc.text('KRENOS™ WATER MANAGEMENT SYSTEM', M, 284);
+    doc.text(`SHEET ${p} OF ${pages}`, M + CW, 284, { align: 'right' });
   }
 
   // Return both: data URI (for download) and clean base64 (for email attachment)
