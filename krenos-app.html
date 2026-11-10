@@ -820,6 +820,35 @@ function fmtTrend(n) {
 // ══════════════════════════════════════════
 let me = null;          // the signed-in engineer's row
 
+// The session exactly as the device stored it. getSession() will try to
+// refresh an expired token over the network, and in a plant room that
+// call fails — this reads what is already on the device and nothing
+// more, so an engineer who closed the app can open it again offline.
+function storedSession() {
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (!/^sb-.*-auth-token$/.test(k || '')) continue;
+      const v = JSON.parse(localStorage.getItem(k) || 'null');
+      const sess = v && (v.currentSession || v.session || v);
+      if (sess && sess.user && sess.user.id) return sess;
+    }
+  } catch (e) {}
+  return null;
+}
+
+// Who the engineer is, kept on the device so the app can open without
+// asking the server to confirm it.
+function cacheMe(eng) {
+  try { localStorage.setItem('krenos_me', JSON.stringify(eng)); } catch (e) {}
+}
+function cachedMe(id) {
+  try {
+    const m = JSON.parse(localStorage.getItem('krenos_me') || 'null');
+    return (m && m.id && (!id || m.id === id)) ? m : null;
+  } catch (e) { return null; }
+}
+
 async function doLogin(ev) {
   ev.preventDefault();
   const btn   = document.getElementById('loginBtn');
@@ -838,7 +867,7 @@ async function doLogin(ev) {
   } catch (e) {
     const msg = /invalid login/i.test(e.message || '')
       ? 'Wrong email or password.'
-      : /network|fetch/i.test(e.message || '')
+      : /network|fetch|load failed|failed to fetch/i.test(e.message || '')
         ? 'No connection. Check your internet and try again.'
         : (e.message || 'Could not sign in.');
     errEl.textContent = msg;
@@ -851,30 +880,56 @@ async function doLogin(ev) {
 
 async function doLogout() {
   if (!confirm('Sign out of Krenos?')) return;
-  await sb.auth.signOut();
+  try { await sb.auth.signOut(); } catch (e) {}   // offline: clear it anyway
+  try { localStorage.removeItem('krenos_me'); } catch (e) {}
   location.reload();
 }
 
 // Runs after a successful sign-in and on every app start with a live session.
-async function afterLogin() {
-  const { data: { user } } = await sb.auth.getUser();
+async function afterLogin(knownUser) {
+  // The user comes from the session the device already holds. Asking
+  // the server who this is would be a network call, and the whole point
+  // is that there may be no network.
+  let user = knownUser || null;
+  if (!user) {
+    try { user = (await sb.auth.getUser()).data.user || null; } catch (e) { user = null; }
+  }
+  if (!user) { const sess = storedSession(); user = sess ? sess.user : null; }
   if (!user) { showLogin(); return; }
 
-  const { data: eng, error } = await sb
-    .from('engineers')
-    .select('id, code, name, email, role, active')
-    .eq('id', user.id)
-    .maybeSingle();
+  let eng = null, unreachable = false;
+  try {
+    const { data, error } = await sb
+      .from('engineers')
+      .select('id, code, name, email, role, active')
+      .eq('id', user.id)
+      .maybeSingle();
+    if (error) throw error;
+    eng = data;
+  } catch (e) {
+    // No answer is not the same as a refusal. Signing out here would
+    // take the engineer's session with it, in the one place they cannot
+    // sign in again — which is exactly where they need the app most.
+    unreachable = true;
+    eng = cachedMe(user.id);
+  }
 
-  if (error || !eng) {
+  if (unreachable) {
+    if (!eng) {
+      showLogin('No connection, and this phone has not signed in before. '
+              + 'Connect once, then it will work offline.');
+      return;
+    }
+  } else if (!eng) {
     await sb.auth.signOut();
     showLogin('Your account is not set up yet. Contact the office.');
     return;
-  }
-  if (!eng.active) {
+  } else if (!eng.active) {
     await sb.auth.signOut();
     showLogin('This account has been deactivated.');
     return;
+  } else {
+    cacheMe(eng);
   }
 
   me = eng;
@@ -3223,12 +3278,17 @@ if (storedVer && storedVer !== APP_VERSION) {
 // A stored session keeps the engineer signed in between visits; without
 // one the login screen is already on top and simply stays there.
 (async () => {
+  let session = null;
   try {
-    const { data: { session } } = await sb.auth.getSession();
-    if (session) await afterLogin();
+    session = (await sb.auth.getSession()).data.session || null;
   } catch (e) {
-    console.error('Session check failed:', e);
+    session = null;      // offline: the token could not be refreshed
   }
+  // Fall back to what the device stored. An expired token is still
+  // proof of who signed in, and nothing is sent to the server until
+  // there is a connection to send it over.
+  if (!session || !session.user) session = storedSession();
+  if (session && session.user) await afterLogin(session.user);
 })();
 
 sb.auth.onAuthStateChange((event) => {
