@@ -391,9 +391,6 @@ body { font-family: 'IBM Plex Sans', sans-serif; background: var(--surface); col
         <div class="form-row" style="margin-bottom:0">
           <label class="form-label">Region</label>
           <select class="form-select" id="prospectRegion">
-            <option>Borg El Arab</option><option>Alexandria</option><option>Amreyah</option>
-            <option>Sadat</option><option>October</option><option>Cairo</option>
-            <option>Obour</option><option>Badr</option><option>Nobareya</option><option>Beni Suef</option><option>Others</option>
           </select>
         </div>
       </div>
@@ -488,9 +485,6 @@ body { font-family: 'IBM Plex Sans', sans-serif; background: var(--surface); col
     <div class="form-row"><label class="form-label">Company Name *</label><input type="text" class="form-input" id="nc_name" placeholder="e.g. Delta Textile Co."></div>
     <div class="form-row"><label class="form-label">Region</label>
       <select class="form-select" id="nc_region">
-        <option>Borg El Arab</option><option>Alexandria</option><option>Amreyah</option>
-        <option>Sadat</option><option>October</option><option>Cairo</option>
-        <option>Obour</option><option>Badr</option><option>Nobareya</option><option>Beni Suef</option><option>Others</option>
       </select>
     </div>
     <div class="form-row"><label class="form-label">Client Email</label><input type="email" class="form-input" id="nc_email" placeholder="maintenance@company.com"></div>
@@ -922,6 +916,44 @@ function setVisitMode(mode) {
 // ══════════════════════════════════════════
 // The database decides what comes back: an engineer only ever receives
 // their own clients, so there is nothing to filter on the device.
+// The regions the engineer can pick from. They come from the database
+// so a new one — Sharm, Hurghada — appears without redeploying the app.
+// A phone with no signal falls back to what it saw last, and failing
+// that to the list the company started with, because an engineer at a
+// gate cannot wait for a deployment either.
+const REGIONS_FALLBACK = ['Borg El Arab','Alexandria','Amreyah','Sadat','October',
+                          'Cairo','Obour','Badr','Nobareya','Beni Suef','Others'];
+
+function paintRegions(names) {
+  ['prospectRegion','nc_region'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const keep = el.value;
+    el.innerHTML = names.map(n =>
+      `<option>${String(n).replace(/[<>&]/g, '')}</option>`).join('');
+    if (keep && names.includes(keep)) el.value = keep;
+  });
+}
+
+async function loadRegions() {
+  let names = null;
+  try {
+    const { data, error } = await sb
+      .from('regions').select('name').eq('active', true).order('sort_order');
+    if (!error && data && data.length) {
+      names = data.map(r => r.name);
+      try { localStorage.setItem('krenos_regions', JSON.stringify(names)); } catch (e) {}
+    }
+  } catch (e) {}
+  if (!names) {
+    try {
+      const raw = localStorage.getItem('krenos_regions');
+      if (raw) { const v = JSON.parse(raw); if (Array.isArray(v) && v.length) names = v; }
+    } catch (e) {}
+  }
+  paintRegions(names || REGIONS_FALLBACK);
+}
+
 async function loadClients() {
   const listEl = document.getElementById('clientList');
   try {
@@ -932,6 +964,7 @@ async function loadClients() {
       .order('name');
     if (error) throw error;
 
+    loadRegions();          // independent of the client list; never blocks it
     allClients = (data || []).map(c => ({
       id:       c.id,
       code:     c.code || '',
@@ -2179,17 +2212,33 @@ function buildReview() {
   const visitNotes  = document.getElementById('visitNotes').value;
 
   const sysSummary = systemsData.map(sys => {
-    const filled     = Object.values(sys.readings).filter(v => v !== '').length;
-    const outRange   = Object.entries(sys.readings).filter(([k,v]) => {
-      const p = findParamDef(sys.type, k);
-      return p && parseFloat(v) !== NaN && (parseFloat(v) < p.min || parseFloat(v) > p.max);
-    }).length;
+    // Counted per section, and judged by the same rule that colours the
+    // fields. The flat readings map is keyed by label alone, so the four
+    // pH fields collapse into one entry: counting from it under-reported
+    // how many readings were taken and judged condensate pH against the
+    // softener's limits.
+    let filled = 0;
+    const outNames = [];
+    const sectionVals = sys.sections && Object.keys(sys.sections).length
+      ? sys.sections
+      : { '': sys.readings || {} };          // reports written before sections
+    Object.entries(sectionVals).forEach(([secTitle, vals]) => {
+      Object.entries(vals || {}).forEach(([label, v]) => {
+        if (v === '' || v === null || v === undefined) return;
+        filled++;
+        const p = secTitle
+          ? findParamDefSec(sys.type, label, secTitle)
+          : findParamDef(sys.type, label);
+        if (p && paramMark(p, parseFloat(v)).glyph) outNames.push(label);
+      });
+    });
+    const outRange = outNames.length;
     return `
       <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border)">
         <span style="font-size:18px">${sys.stype.icon}</span>
         <div style="flex:1">
           <div style="font-weight:600;font-size:12px">${sys.name}</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:2px">${filled} readings · ${outRange > 0 ? `<span style="color:var(--red)">${outRange} out of range</span>` : '<span style="color:var(--green)">All in range</span>'}</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px">${filled} readings · ${outRange > 0 ? `<span style="color:var(--red)">${outRange} out of range: ${outNames.join(', ')}</span>` : '<span style="color:var(--green)">All in range</span>'}</div>
           ${sys.recommendations ? `<div style="font-size:10px;color:var(--slate);margin-top:3px;font-style:italic">"${sys.recommendations.slice(0,55)}${sys.recommendations.length>55?'...':''}"</div>` : ''}
         </div>
       </div>`;

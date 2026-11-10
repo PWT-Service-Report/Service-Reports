@@ -12,7 +12,7 @@
 //  month's database.
 // ══════════════════════════════════════════════════════════════
 
-const CACHE = 'krenos-v4.6';
+const CACHE = 'krenos-v4.8';
 
 // Everything needed to open the app and produce a report with no
 // network. jsPDF is here because a report must still be generated and
@@ -87,5 +87,3 @@ self.addEventListener('fetch', (e) => {
     });
   })());
 });
-
-

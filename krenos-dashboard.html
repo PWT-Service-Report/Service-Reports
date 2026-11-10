@@ -635,6 +635,7 @@ let currentYear  = new Date().getFullYear();
 let allReports   = [];
 let allClients   = [];
 let allEngineers = [];
+let allTeams     = [];
 let invData      = []; // processed inventory rows
 let invFilter    = 'all';
 let activeTab    = 'overview';
@@ -763,13 +764,17 @@ async function loadAll() {
   document.getElementById('loadingState').style.display = 'block';
   document.getElementById('dashboardContent').style.display = 'none';
   try {
-    const [repRes, cliRes, engRes] = await Promise.all([
+    const [repRes, cliRes, engRes, teamRes] = await Promise.all([
       sb.from('reports').select('*').order('created_at', { ascending: false }),
       sb.from('clients').select('*').order('code'),
       sb.from('engineers').select('*').order('code'),
+      sb.from('teams').select('id, code, name, active').order('code'),
     ]);
     const firstError = repRes.error || cliRes.error || engRes.error;
     if (firstError) throw firstError;
+    // Teams arrived later than the rest of the system; a dashboard
+    // opened against a database without them should still work.
+    allTeams = teamRes.error ? [] : (teamRes.data || []);
 
     allEngineers = (engRes.data || []).map(e => ({
       id: e.id, code: e.code, name: e.name, email: e.email,
@@ -780,12 +785,21 @@ async function loadAll() {
     // while the database links them by id — so translate once here
     // rather than touching every call site.
     const codeById = Object.fromEntries(allEngineers.map(e => [e.id, e.code]));
+    const teamById = Object.fromEntries(allTeams.map(t => [t.id, t]));
 
-    allClients = (cliRes.data || []).map(c => ({
-      code: c.code, name: c.name, region: c.region, email: c.email,
-      freq: c.frequency, engineer: codeById[c.engineer_id] || '',
-      is_prospect: c.is_prospect, active: c.active,
-    }));
+    allClients = (cliRes.data || []).map(c => {
+      // A client belongs to one engineer or to a team. Showing a team's
+      // client as having nobody would read as a gap in the data.
+      const team = c.team_id ? teamById[c.team_id] : null;
+      return {
+        code: c.code, name: c.name, region: c.region, email: c.email,
+        freq: c.frequency,
+        engineer: codeById[c.engineer_id] || (team ? team.code : ''),
+        team_code: team ? team.code : '',
+        team_name: team ? team.name : '',
+        is_prospect: c.is_prospect, active: c.active,
+      };
+    });
 
     allReports = (repRes.data || []).map(r => ({
       ref: r.ref,
@@ -853,6 +867,42 @@ function parseSystemsData(raw) {
   try { return typeof raw === 'string' ? JSON.parse(raw) : raw; } catch(e) { return []; }
 }
 
+// Every reading in a report that falls outside the programme limits,
+// judged by the same rule that colours the engineer's fields.
+// This used to be a hard-coded zero on the dashboard and a search for
+// the word "critical" in the notes, so a month of readings over the
+// limit still read as "no critical reports".
+function outOfRangeReadings(report) {
+  const out = [];
+  // The dashboard keeps the systems under systems_raw; older rows may
+  // still hold them as a JSON string.
+  let systems = report.systems_raw || report.systems || [];
+  if (typeof systems === 'string') {
+    try { systems = JSON.parse(systems); } catch (e) { systems = []; }
+  }
+  if (!Array.isArray(systems)) systems = [];
+  systems.forEach(sys => {
+    const sections = sys.sections && Object.keys(sys.sections).length
+      ? sys.sections
+      : { '': sys.readings || {} };
+    Object.entries(sections).forEach(([secTitle, vals]) => {
+      Object.entries(vals || {}).forEach(([label, v]) => {
+        if (v === '' || v === null || v === undefined) return;
+        const def = secTitle
+          ? findParamDef(sys.type, label, secTitle)
+          : findParamDef(sys.type, label);
+        if (!def) return;
+        const mark = paramMark(def, parseFloat(v));
+        if (mark.glyph) {
+          out.push({ system: sys.name || '', section: secTitle,
+                     param: label, value: v, glyph: mark.glyph });
+        }
+      });
+    });
+  });
+  return out;
+}
+
 // ── RENDER ──
 function renderDashboard() {
   const monthReports = getMonthReports();
@@ -862,7 +912,9 @@ function renderDashboard() {
   document.getElementById('statReports').textContent   = monthReports.length;
   document.getElementById('statClients').textContent   = visitedCodes.size;
   document.getElementById('statFree').textContent      = freeVisits;
-  document.getElementById('statAlerts').textContent    = 0;
+  const monthOutOfRange = monthReports.reduce(
+    (n, r) => n + outOfRangeReadings(r).length, 0);
+  document.getElementById('statAlerts').textContent    = monthOutOfRange;
   document.getElementById('statReportsSub').textContent = `${MONTH_NAMES[currentMonth]} ${currentYear}`;
 
   renderEngineers(monthReports);
@@ -980,10 +1032,27 @@ function renderVisitedClients(monthReports) {
 }
 
 function renderCriticalReports(monthReports) {
-  const critical = monthReports.filter(r => /critical|urgent|emergency/i.test(r.notes||''));
+  // A report counts when its readings say so, or when the engineer
+  // said so in the notes. Relying on the wording alone meant a plant
+  // drifting badly out of spec never appeared here.
+  const critical = monthReports
+    .map(r => ({ r, out: outOfRangeReadings(r) }))
+    .filter(x => x.out.length || /critical|urgent|emergency/i.test(x.r.notes || ''))
+    .sort((a, b) => b.out.length - a.out.length);
   const list = document.getElementById('criticalReportsList');
   list.innerHTML = critical.length
-    ? critical.slice(0,5).map(r => `<li><strong>${escapeHtml(r.client_name||'')}</strong> <span style="color:var(--muted);font-size:11px;margin-left:6px">${escapeHtml(r.eng_name||'')} · ${escapeHtml(r.ref||'')}</span>${reportChips({pdf:r.pdf_url, lat:r.gps_lat, lng:r.gps_lng})}</li>`).join('')
+    ? critical.slice(0,5).map(({ r, out }) => {
+        // Naming the readings saves opening the PDF to find out which.
+        const which = out.slice(0, 3)
+          .map(o => `${escapeHtml(o.param)} ${escapeHtml(String(o.value))}`).join(', ');
+        const more = out.length > 3 ? ` +${out.length - 3}` : '';
+        return `<li><strong>${escapeHtml(r.client_name||'')}</strong>` +
+          `<span style="color:var(--muted);font-size:11px;margin-left:6px">` +
+          `${escapeHtml(r.eng_name||'')} · ${escapeHtml(r.ref||'')}</span>` +
+          (out.length ? `<div style="font-size:11px;color:var(--red);margin-top:2px">` +
+                        `${out.length} out of range: ${which}${more}</div>` : '') +
+          reportChips({pdf:r.pdf_url, lat:r.gps_lat, lng:r.gps_lng}) + `</li>`;
+      }).join('')
     : '<li class="alert-empty">No critical reports ✓</li>';
 }
 
