@@ -1117,22 +1117,41 @@ let visitLocation = null;
 let locationAsked  = false;
 let locationDenied = false;
 
+// What this phone has already said about location. Kept on the device,
+// because the flags above last only until the app is closed: without
+// this the engineer is asked afresh every single time they open it.
+const GEO_KEY = 'krenos_geo';
+const geoRead  = () => { try { return localStorage.getItem(GEO_KEY) || ''; } catch (e) { return ''; } };
+const geoWrite = (v) => { try { localStorage.setItem(GEO_KEY, v); } catch (e) {} };
+
 async function captureLocation() {
   if (!navigator.geolocation) return;
   if (locationDenied) return;
 
+  const mark = geoRead();
+  if (mark === 'no') return;              // refused on this phone; never ask again
+  if (mark.indexOf('asked:') === 0) {
+    // A prompt the engineer swiped away leaves no trace at all: no
+    // success, no error, nothing to record. Waiting before asking
+    // again is the only way not to pester them on every open.
+    const when = Number(mark.slice(6)) || 0;
+    if (Date.now() - when < 7 * 24 * 3600 * 1000) return;
+  }
+
   // Where the browser can tell us the answer without a prompt, use it —
-  // a previous refusal then costs the engineer nothing.
+  // a previous refusal then costs the engineer nothing. Safari does not
+  // support this for location, which is why the marks above exist.
   if (navigator.permissions && navigator.permissions.query) {
     try {
       const st = await navigator.permissions.query({ name: 'geolocation' });
-      if (st.state === 'denied') { locationDenied = true; return; }
+      if (st.state === 'denied') { locationDenied = true; geoWrite('no'); return; }
     } catch (e) { /* not supported here; fall through and ask */ }
   }
 
   // Already have a fix from earlier in this session — same visit, same place.
   if (locationAsked && visitLocation) return;
   locationAsked = true;
+  if (mark !== 'ok') geoWrite('asked:' + Date.now());
 
   navigator.geolocation.getCurrentPosition(
     pos => {
@@ -1141,10 +1160,11 @@ async function captureLocation() {
         lng: pos.coords.longitude,
         accuracy: pos.coords.accuracy,
       };
+      geoWrite('ok');          // granted: the browser will not prompt again
     },
     err => {
-      // 1 is PERMISSION_DENIED — don't ask again this session.
-      if (err && err.code === 1) locationDenied = true;
+      // 1 is PERMISSION_DENIED — remember it on the device, not just here.
+      if (err && err.code === 1) { locationDenied = true; geoWrite('no'); }
     },
     { enableHighAccuracy: false, timeout: 10000, maximumAge: 600000 }
   );
