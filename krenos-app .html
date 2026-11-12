@@ -1,0 +1,3389 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Krenos">
+<meta name="theme-color" content="#0a1628">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+<title>Krenos — Water Management System</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.58.0/dist/umd/supabase.min.js"></script>
+<script src="krenos-params.js"></script>
+<script src="krenos-offline.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --navy:    #0a1628;
+  --blue:    #1a56db;
+  --sky:     #3b82f6;
+  --cyan:    #06b6d4;
+  --slate:   #334155;
+  --muted:   #64748b;
+  --border:  #e2e8f0;
+  --surface: #f8fafc;
+  --white:   #ffffff;
+  --green:   #10b981;
+  --amber:   #f59e0b;
+  --red:     #ef4444;
+  --radius:  12px;
+  --shadow:  0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.06);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+body { font-family: 'IBM Plex Sans', sans-serif; background: var(--surface); color: var(--navy); min-height: 100vh; max-width: 500px; margin: 0 auto; }
+
+/* APP BAR */
+.app-bar { background: var(--navy); padding: 14px 18px; position: sticky; top: 0; z-index: 50; display: flex; align-items: center; gap: 12px; }
+.app-bar-logo { width: 36px; height: 36px; background: linear-gradient(135deg, var(--sky), var(--cyan)); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; color: white; flex-shrink: 0; }
+.app-bar-info { flex: 1; }
+.app-bar-info h1 { color: white; font-size: 15px; font-weight: 600; }
+.app-bar-info p { color: rgba(255,255,255,0.5); font-size: 11px; }
+.app-bar-time { font-family: ui-monospace, 'SF Mono', Consolas, monospace; font-size: 10px; color: var(--cyan); text-align: right; line-height: 1.5; }
+
+/* SCREENS */
+.screen { display: none; padding: 18px; animation: fadeUp 0.2s ease; }
+.screen.active { display: block; }
+@keyframes fadeUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+
+/* PROGRESS */
+.progress-wrap { margin-bottom: 18px; }
+.progress-steps { display: flex; gap: 5px; }
+.progress-step { flex: 1; height: 3px; background: var(--border); border-radius: 3px; transition: background 0.3s; }
+.progress-step.done { background: var(--sky); }
+.progress-step.active { background: var(--cyan); }
+.progress-label { font-size: 10px; color: var(--muted); margin-top: 5px; font-weight: 500; }
+
+/* SECTION LABEL */
+.section-label { font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; margin-top: 20px; }
+.section-label:first-child { margin-top: 0; }
+
+/* CARD */
+.card { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); margin-bottom: 12px; }
+.card-body { padding: 14px; }
+
+/* ENGINEER GRID */
+.eng-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 7px; }
+.eng-btn { padding: 9px 10px; border: 1.5px solid var(--border); border-radius: 8px; background: var(--white); font-family: 'IBM Plex Sans', sans-serif; font-size: 12px; font-weight: 500; color: var(--slate); cursor: pointer; transition: all 0.15s; text-align: center; }
+.eng-btn:active, .eng-btn.selected { background: var(--sky); border-color: var(--sky); color: white; }
+
+/* CLIENT LIST */
+.search-wrap { position: relative; margin-bottom: 10px; }
+.search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 14px; pointer-events: none; }
+.search-input { width: 100%; padding: 11px 12px 11px 36px; border: 1.5px solid var(--border); border-radius: var(--radius); font-family: 'IBM Plex Sans', sans-serif; font-size: 14px; background: var(--white); color: var(--navy); outline: none; }
+.search-input:focus { border-color: var(--sky); }
+.client-list { display: flex; flex-direction: column; gap: 7px; }
+.client-item { background: var(--white); border: 1.5px solid var(--border); border-radius: var(--radius); padding: 12px 14px; display: flex; align-items: center; gap: 10px; cursor: pointer; transition: all 0.15s; box-shadow: var(--shadow); }
+.client-item:active { border-color: var(--sky); background: #eff6ff; }
+.client-avatar { width: 38px; height: 38px; border-radius: 9px; background: linear-gradient(135deg, var(--navy), var(--blue)); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; color: white; flex-shrink: 0; }
+.client-info { flex: 1; min-width: 0; }
+.client-name { font-weight: 600; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.client-meta { font-size: 10px; color: var(--muted); margin-top: 2px; font-family: ui-monospace, 'SF Mono', Consolas, monospace; }
+
+/* REPORT HERO */
+.report-hero { background: linear-gradient(135deg, var(--navy), #1e3a5f); padding: 18px; margin: -18px -18px 18px; }
+.report-hero-title { color: white; font-size: 17px; font-weight: 700; }
+.report-hero-sub { color: rgba(255,255,255,0.55); font-size: 11px; margin-top: 3px; font-family: ui-monospace, 'SF Mono', Consolas, monospace; }
+.report-hero-badges { display: flex; gap: 6px; margin-top: 12px; flex-wrap: wrap; }
+.hero-badge { background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2); color: white; padding: 3px 9px; border-radius: 20px; font-size: 10px; font-weight: 500; }
+
+/* SYSTEM TABS */
+.sys-tabs { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; margin-bottom: 14px; scrollbar-width: none; }
+.sys-tabs::-webkit-scrollbar { display: none; }
+.sys-tab { flex-shrink: 0; padding: 6px 13px; border-radius: 20px; border: 1.5px solid var(--border); background: var(--white); font-family: 'IBM Plex Sans', sans-serif; font-size: 11px; font-weight: 600; color: var(--muted); cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+.sys-tab.active { background: var(--navy); border-color: var(--navy); color: white; }
+.sys-panel { display: none; }
+.sys-panel.active { display: block; }
+
+/* SUBSECTION */
+.subsection { background: var(--surface); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; border: 1px solid var(--border); }
+.subsection-title { font-size: 10px; font-weight: 700; color: var(--sky); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+.subsection-title::after { content:''; flex:1; height:1px; background: var(--border); }
+
+/* PARAM ROW */
+.param-row { display: flex; align-items: center; gap: 8px; padding: 7px 0; border-bottom: 1px solid var(--border); }
+.param-row:last-child { border-bottom: none; padding-bottom: 0; }
+.param-label { flex: 1; font-size: 12px; font-weight: 500; color: var(--slate); }
+.param-unit { font-size: 9px; color: var(--muted); font-family: ui-monospace, 'SF Mono', Consolas, monospace; min-width: 30px; text-align: center; }
+.param-input { width: 78px; padding: 6px 8px; border: 1.5px solid var(--border); border-radius: 7px; font-family: ui-monospace, 'SF Mono', Consolas, monospace; font-size: 13px; font-weight: 500; color: var(--navy); text-align: center; background: var(--white); outline: none; transition: border-color 0.15s; -moz-appearance: textfield; }
+.param-input::-webkit-outer-spin-button, .param-input::-webkit-inner-spin-button { -webkit-appearance: none; }
+.param-input:focus { border-color: var(--sky); }
+.param-input.out-of-range { border-color: var(--red); background: #fef2f2; color: var(--red); }
+.param-input.in-range { border-color: var(--green); }
+.param-input[readonly] { background: #f0f7ff; color: var(--blue); border-color: #bfdbfe; font-weight: 700; }
+.status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--border); flex-shrink: 0; transition: background 0.2s; }
+.status-dot.ok { background: var(--green); }
+.status-dot.bad { background: var(--red); }
+.status-dot.calc { background: var(--blue); }
+
+/* FORM */
+.form-row { margin-bottom: 12px; }
+.form-label { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 5px; display: block; }
+.form-input, .form-select { width: 100%; padding: 10px 12px; border: 1.5px solid var(--border); border-radius: var(--radius); font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; color: var(--navy); background: var(--white); outline: none; transition: border-color 0.2s; appearance: none; }
+.form-input:focus, .form-select:focus { border-color: var(--sky); }
+.rec-textarea { width: 100%; min-height: 80px; padding: 10px 12px; border: 1.5px solid var(--border); border-radius: var(--radius); font-family: 'IBM Plex Sans', sans-serif; font-size: 12px; color: var(--navy); background: var(--white); outline: none; resize: vertical; line-height: 1.6; }
+.rec-textarea:focus { border-color: var(--sky); }
+
+/* BUTTONS */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 12px 18px; border-radius: var(--radius); border: none; font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.15s; width: 100%; }
+.btn-primary { background: var(--blue); color: white; box-shadow: 0 4px 12px rgba(26,86,219,0.3); }
+.btn-secondary { background: var(--surface); color: var(--slate); border: 1.5px solid var(--border); }
+.btn-success { background: var(--green); color: white; box-shadow: 0 4px 12px rgba(16,185,129,0.3); font-size: 15px; padding: 14px; }
+.btn-danger { background: #fee2e2; color: var(--red); border: 1.5px solid #fca5a5; }
+.btn-sm { padding: 7px 12px; font-size: 11px; width: auto; border-radius: 8px; }
+.btn-row { display: flex; gap: 8px; }
+.btn-row .btn { flex: 1; }
+
+/* ADD SYSTEM */
+.add-sys-row { display: flex; gap: 7px; flex-wrap: wrap; margin-top: 10px; }
+.add-sys-btn { padding: 6px 11px; border: 1.5px dashed var(--border); border-radius: 20px; background: transparent; font-family: 'IBM Plex Sans', sans-serif; font-size: 10px; font-weight: 600; color: var(--muted); cursor: pointer; transition: all 0.15s; }
+.add-sys-btn:hover { border-color: var(--sky); color: var(--sky); border-style: solid; }
+
+/* FREE VISIT BADGE */
+.free-visit-badge { background: linear-gradient(135deg, #f59e0b, #f97316); color: white; padding: 3px 10px; border-radius: 20px; font-size: 10px; font-weight: 700; }
+
+/* LOADING */
+.loading-overlay { display: none; position: fixed; inset: 0; background: rgba(10,22,40,0.6); z-index: 200; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
+.loading-overlay.show { display: flex; }
+.loading-box { background: white; border-radius: 16px; padding: 28px 36px; text-align: center; }
+.spinner { width: 36px; height: 36px; border: 3px solid var(--border); border-top-color: var(--sky); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 12px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-text { font-size: 12px; color: var(--muted); font-weight: 500; }
+
+/* TOAST */
+.toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--navy); color: white; padding: 10px 18px; border-radius: 100px; font-size: 12px; font-weight: 500; z-index: 300; white-space: nowrap; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+.toast.show { opacity: 1; }
+.toast.success { background: var(--green); }
+.toast.error { background: var(--red); }
+
+/* SUCCESS */
+.success-icon { width: 68px; height: 68px; background: linear-gradient(135deg, var(--green), #34d399); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 30px; margin: 0 auto 18px; box-shadow: 0 8px 24px rgba(16,185,129,0.3); }
+.success-title { font-size: 20px; font-weight: 700; text-align: center; }
+.success-sub { font-size: 12px; color: var(--muted); text-align: center; margin-top: 6px; line-height: 1.6; }
+.success-ref { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 16px; margin: 18px 0; font-family: ui-monospace, 'SF Mono', Consolas, monospace; font-size: 12px; text-align: center; font-weight: 500; }
+.email-sent-row { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: #d1fae5; border-radius: 8px; font-size: 11px; color: #065f46; font-weight: 500; margin-bottom: 6px; }
+
+/* MODAL BOTTOM SHEET */
+.bottom-sheet { display: none; position: fixed; inset: 0; background: rgba(10,22,40,0.5); z-index: 150; align-items: flex-end; }
+.bottom-sheet.show { display: flex; }
+.bottom-sheet-box { background: white; width: 100%; border-radius: 20px 20px 0 0; padding: 22px 18px; max-height: 85vh; overflow-y: auto; }
+.bottom-sheet-handle { width: 36px; height: 4px; background: var(--border); border-radius: 2px; margin: 0 auto 18px; }
+.bottom-sheet-title { font-size: 16px; font-weight: 700; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; }
+.close-btn { border: none; background: var(--surface); color: var(--muted); width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; }
+
+/* CHIP */
+.chip-pending { background: #fef3c7; color: #92400e; padding: 3px 9px; border-radius: 20px; font-size: 10px; font-weight: 600; }
+
+.divider { height: 1px; background: var(--border); margin: 14px 0; }
+
+/* ── LOGIN ── */
+#loginScreen { position: fixed; inset: 0; z-index: 400; background: linear-gradient(160deg, var(--navy) 0%, #1e3a5f 100%); display: flex; align-items: center; justify-content: center; padding: 24px; }
+#loginScreen.hidden { display: none; }
+.login-box { width: 100%; max-width: 360px; }
+.login-brand { text-align: center; margin-bottom: 28px; }
+.login-logo { width: 62px; height: 62px; margin: 0 auto 14px; border-radius: 15px; background: linear-gradient(135deg, var(--sky), var(--cyan)); display: flex; align-items: center; justify-content: center; font-size: 27px; font-weight: 700; color: #fff; }
+.login-brand h1 { color: #fff; font-size: 25px; font-weight: 700; letter-spacing: -0.3px; }
+.login-brand h1 sup { font-size: 10px; opacity: 0.75; }
+.login-brand p { color: rgba(255,255,255,0.55); font-size: 12px; margin-top: 4px; }
+.login-card { background: #fff; border-radius: 16px; padding: 24px 20px; box-shadow: 0 18px 50px rgba(0,0,0,0.3); }
+.login-field { margin-bottom: 14px; }
+.login-field label { display: block; font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 6px; }
+.login-field input { width: 100%; padding: 13px 14px; border: 1.5px solid var(--border); border-radius: 10px; font-family: inherit; font-size: 15px; color: var(--navy); outline: none; -webkit-appearance: none; }
+.login-field input:focus { border-color: var(--sky); }
+.login-btn { width: 100%; padding: 14px; border: none; border-radius: 10px; background: linear-gradient(135deg, var(--blue), var(--sky)); color: #fff; font-family: inherit; font-size: 15px; font-weight: 600; cursor: pointer; margin-top: 4px; }
+.login-btn:disabled { opacity: 0.6; }
+.login-error { background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; font-size: 12.5px; padding: 10px 12px; border-radius: 9px; margin-bottom: 14px; display: none; line-height: 1.45; }
+.login-error.show { display: block; }
+.login-hint { text-align: center; font-size: 11px; color: rgba(255,255,255,0.4); margin-top: 18px; line-height: 1.6; }
+
+/* who is signed in */
+.me-bar { display: flex; align-items: center; gap: 9px; padding: 9px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; margin-bottom: 14px; }
+.me-avatar { width: 32px; height: 32px; border-radius: 8px; background: linear-gradient(135deg, var(--navy), var(--blue)); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; flex-shrink: 0; }
+.me-info { flex: 1; min-width: 0; }
+.me-name { font-size: 13.5px; font-weight: 600; color: var(--navy); }
+.me-role { font-size: 10.5px; color: var(--muted); }
+.me-out { background: none; border: none; color: var(--muted); font-size: 11px; font-family: inherit; cursor: pointer; padding: 6px 9px; border-radius: 7px; }
+.me-out:active { background: var(--border); }
+
+/* TRENDS */
+.trend-opts { display: flex; flex-direction: column; gap: 6px; }
+.trend-opt { display: flex; align-items: center; gap: 8px; padding: 7px 10px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; font-size: 12px; color: var(--slate); cursor: pointer; }
+.trend-opt input { width: 16px; height: 16px; accent-color: var(--sky); flex-shrink: 0; }
+.trend-opt input:disabled + span { color: var(--muted); opacity: 0.5; }
+.trend-note { font-size: 10px; color: var(--sky); font-weight: 600; margin-top: 6px; min-height: 13px; }
+
+/* HISTORY */
+.hist-sys { margin-bottom: 14px; }
+.hist-sys:last-child { margin-bottom: 0; }
+.hist-sys-name { font-size: 11px; font-weight: 700; color: var(--sky); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+.hist-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.hist-table th { text-align: left; padding: 5px 6px; font-size: 9px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.7px; border-bottom: 1.5px solid var(--border); white-space: nowrap; }
+.hist-table th.num, .hist-table td.num { text-align: center; font-family: ui-monospace, 'SF Mono', Consolas, monospace; }
+.hist-table td { padding: 6px; border-bottom: 1px solid var(--border); }
+.hist-table tr:last-child td { border-bottom: none; }
+.hist-param { font-weight: 500; color: var(--slate); }
+.hist-val { font-weight: 700; }
+.hist-val.ok  { color: var(--green); }
+.hist-val.bad { color: var(--red); }
+.hist-val.old { color: var(--muted); font-weight: 500; }
+.hist-trend { font-size: 11px; }
+.hist-trend.up   { color: var(--red); }
+.hist-trend.down { color: var(--blue); }
+.hist-trend.flat { color: var(--muted); }
+.hist-date-head { font-size: 9px; color: var(--muted); font-weight: 600; }
+.hist-rec { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 8px 10px; margin-top: 8px; }
+.hist-rec-date { font-size: 9px; color: var(--blue); font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 3px; }
+.hist-rec-text { font-size: 11px; color: var(--slate); line-height: 1.5; }
+.hist-empty { color: var(--muted); font-size: 12px; text-align: center; padding: 14px; }
+</style>
+</head>
+<body>
+
+<!-- APP BAR -->
+<div class="app-bar">
+  <div class="app-bar-logo">K</div>
+  <div class="app-bar-info">
+    <h1>Krenos<span style="font-size:9px;vertical-align:super;margin-left:2px;opacity:0.8">™</span> <span style="font-size:10px;background:rgba(255,255,255,0.15);padding:2px 7px;border-radius:10px;margin-left:4px">v2</span></h1>
+    <p>Water Management System</p>
+  </div>
+  <div class="app-bar-time" id="appBarTime"></div>
+</div>
+
+<!-- ══════════ LOGIN ══════════ -->
+<div id="loginScreen">
+  <div class="login-box">
+    <div class="login-brand">
+      <div class="login-logo">K</div>
+      <h1>Krenos<sup>™</sup></h1>
+      <p>Water Management System</p>
+    </div>
+    <div class="login-card">
+      <div class="login-error" id="loginError"></div>
+      <form onsubmit="doLogin(event)">
+        <div class="login-field">
+          <label for="loginEmail">Email</label>
+          <input type="email" id="loginEmail" autocomplete="username"
+                 inputmode="email" autocapitalize="none" spellcheck="false"
+                 placeholder="name@pwtinternational.com" required>
+        </div>
+        <div class="login-field">
+          <label for="loginPass">Password</label>
+          <input type="password" id="loginPass" autocomplete="current-password" required>
+        </div>
+        <button type="submit" class="login-btn" id="loginBtn">Sign in</button>
+      </form>
+    </div>
+    <div class="login-hint">Use your company email.<br>Ask the office if you need your password reset.</div>
+  </div>
+</div>
+
+<!-- ══════════ SCREEN 1: SELECT ══════════ -->
+<div class="screen active" id="screen-client">
+  <div class="progress-wrap">
+    <div class="progress-steps">
+      <div class="progress-step active"></div>
+      <div class="progress-step"></div>
+      <div class="progress-step"></div>
+    </div>
+    <div class="progress-label">Step 1 of 3 — Select Client</div>
+  </div>
+
+  <div class="me-bar">
+    <div class="me-avatar" id="meAvatar">—</div>
+    <div class="me-info">
+      <div class="me-name" id="meName">—</div>
+      <div class="me-role" id="meRole">—</div>
+    </div>
+    <button class="me-out" onclick="doLogout()">Sign out</button>
+  </div>
+
+  <div class="section-label">Visit Type</div>
+  <div class="card">
+    <div class="card-body" style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-primary btn-sm" style="width:auto;flex:1" onclick="setVisitMode('service')">🔧 Service Visit</button>
+      <button class="btn btn-sm" id="freeVisitBtn" style="width:auto;flex:1;background:#fff8e1;color:#92400e;border:1.5px solid #fde68a" onclick="setVisitMode('free')">🆓 Free Water Analysis</button>
+    </div>
+  </div>
+
+  <div class="section-label">Select Client</div>
+  <div class="search-wrap">
+    <span class="search-icon">🔍</span>
+    <input type="text" class="search-input" id="clientSearch" placeholder="Search client name or code..." oninput="filterClients()">
+  </div>
+  <div class="client-list" id="clientList">
+    <div style="text-align:center;padding:28px;color:var(--muted);font-size:12px">Loading clients...</div>
+  </div>
+  <div style="margin-top:12px">
+    <button class="btn btn-secondary btn-sm" onclick="showSheet('addClientSheet')">+ Add New Client</button>
+  </div>
+</div>
+
+<!-- ══════════ SCREEN 2: REPORT ══════════ -->
+<div class="screen" id="screen-report">
+  <div class="progress-wrap">
+    <div class="progress-steps">
+      <div class="progress-step done"></div>
+      <div class="progress-step active"></div>
+      <div class="progress-step"></div>
+    </div>
+    <div class="progress-label">Step 2 of 3 — Fill Report</div>
+  </div>
+
+  <div class="report-hero" id="reportHero"></div>
+
+  <!-- PREVIOUS VISITS -->
+  <div id="histSection" style="display:none">
+    <div class="section-label" style="display:flex;align-items:center;justify-content:space-between">
+      <span>Previous Visits</span>
+      <button class="btn btn-sm" id="histToggleBtn" style="width:auto;background:var(--surface);color:var(--sky);border:1.5px solid var(--border);font-size:11px" onclick="toggleHistory()">📈 Show</button>
+    </div>
+    <div class="card" id="histCard" style="display:none">
+      <div class="card-body" id="histBody">
+        <div style="color:var(--muted);font-size:12px;text-align:center;padding:10px">Loading history…</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-label">Visit Details</div>
+  <div class="card">
+    <div class="card-body">
+      <div class="form-row">
+        <label class="form-label">Visit Type</label>
+        <select class="form-select" id="visitType">
+          <option>Monthly Follow-up</option>
+          <option>Bi-monthly Follow-up</option>
+          <option>Emergency Visit</option>
+          <option>Quarterly Review</option>
+          <option>Free Water Analysis</option>
+        </select>
+      </div>
+      <div class="form-row" style="margin-bottom:0">
+        <label class="form-label">Notes</label>
+        <input type="text" class="form-input" id="visitNotes" placeholder="Optional visit notes...">
+      </div>
+    </div>
+  </div>
+
+  <!-- FREE VISIT SECTION -->
+  <div id="freeVisitSection" style="display:none">
+    <div class="section-label">Prospect Details <span class="free-visit-badge">Free Visit</span></div>
+    <div class="card">
+      <div class="card-body">
+        <div class="form-row">
+          <label class="form-label">Prospect Company Name</label>
+          <input type="text" class="form-input" id="prospectName" placeholder="e.g. Al Ahram Beverages">
+        </div>
+        <div class="form-row">
+          <label class="form-label">Contact Person</label>
+          <input type="text" class="form-input" id="prospectContact" placeholder="Name & title">
+        </div>
+        <div class="form-row">
+          <label class="form-label">Phone</label>
+          <input type="text" class="form-input" id="prospectPhone" placeholder="01xxxxxxxxx">
+        </div>
+        <div class="form-row" style="margin-bottom:0">
+          <label class="form-label">Region</label>
+          <select class="form-select" id="prospectRegion">
+          </select>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-label">Systems & Analysis</div>
+
+  <!-- Only shown once a second boiler exists; there is nothing to
+       share when there is one. -->
+  <div id="sharedFeedRow" style="display:none;margin-bottom:12px">
+    <div class="card">
+      <div class="card-body" style="padding:11px 13px">
+        <label style="display:flex;align-items:flex-start;gap:9px;cursor:pointer">
+          <input type="checkbox" id="sharedFeedChk" checked
+                 onchange="applySharedFeedSections()"
+                 style="margin-top:2px;width:17px;height:17px;flex:none">
+          <span>
+            <span style="font-weight:600;font-size:13px">One softener and feed tank for all boilers</span>
+            <span style="display:block;font-size:11px;color:var(--muted);margin-top:2px">
+              Leave this on and the shared samples are recorded once instead of per boiler.
+              Turn it off only if each boiler has its own.
+            </span>
+          </span>
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <div class="sys-tabs" id="sysTabs"></div>
+  <div id="sysPanels"></div>
+  <div class="add-sys-row">
+    <button class="add-sys-btn" onclick="addSystem('boiler')">🔥 Add Boiler</button>
+    <button class="add-sys-btn" onclick="addSystem('cooling')">❄️ Add Cooling Tower</button>
+    <button class="add-sys-btn" onclick="addSystem('closed')">🔄 Add Closed Loop</button>
+    <button class="add-sys-btn" onclick="addSystem('pool')">🏊 Add Swimming Pool</button>
+    <button class="add-sys-btn" onclick="addSystem('raw')">🚰 Add Raw Water</button>
+  </div>
+
+  <div style="margin-top:20px">
+    <div class="btn-row">
+      <button class="btn btn-secondary" onclick="goScreen('client')">← Back</button>
+      <button class="btn btn-primary" onclick="goScreen('review')">Review →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ SCREEN 3: REVIEW ══════════ -->
+<div class="screen" id="screen-review">
+  <div class="progress-wrap">
+    <div class="progress-steps">
+      <div class="progress-step done"></div>
+      <div class="progress-step done"></div>
+      <div class="progress-step active"></div>
+    </div>
+    <div class="progress-label">Step 3 of 3 — Review & Submit</div>
+  </div>
+  <div class="section-label">Report Summary</div>
+  <div class="card" id="reviewCard"></div>
+  <div class="section-label">Recipients</div>
+  <div class="card">
+    <div class="card-body" id="emailRecipients"></div>
+  </div>
+  <div style="margin-top:8px">
+    <div class="btn-row" style="margin-bottom:10px">
+      <button class="btn btn-secondary" onclick="goScreen('report')">← Back</button>
+    </div>
+    <button class="btn btn-success" onclick="submitReport()">✓ Submit & Send Report</button>
+  </div>
+</div>
+
+<!-- ══════════ SCREEN 4: SUCCESS ══════════ -->
+<div class="screen" id="screen-success">
+  <div style="padding-top:36px">
+    <div class="success-icon">✓</div>
+    <div class="success-title">Report Submitted!</div>
+    <div class="success-sub">Saved to archive and sent successfully.</div>
+    <div class="success-ref" id="successRef">REF: —</div>
+    <div id="emailsSent"></div>
+    <button class="btn btn-primary" style="margin-top:16px" onclick="resetApp()">+ New Report</button>
+  </div>
+</div>
+
+<!-- ══════════ ADD CLIENT SHEET ══════════ -->
+<div class="bottom-sheet" id="addClientSheet">
+  <div class="bottom-sheet-box">
+    <div class="bottom-sheet-handle"></div>
+    <div class="bottom-sheet-title">
+      Add New Client
+      <button class="close-btn" onclick="hideSheet('addClientSheet')">✕</button>
+    </div>
+    <div class="form-row"><label class="form-label">Company Name *</label><input type="text" class="form-input" id="nc_name" placeholder="e.g. Delta Textile Co."></div>
+    <div class="form-row"><label class="form-label">Region</label>
+      <select class="form-select" id="nc_region">
+      </select>
+    </div>
+    <div class="form-row"><label class="form-label">Client Email</label><input type="email" class="form-input" id="nc_email" placeholder="maintenance@company.com"></div>
+    <div class="form-row"><label class="form-label">Assigned Engineer</label><select class="form-select" id="nc_engineer"></select></div>
+    <button class="btn btn-primary" style="margin-top:16px" onclick="saveNewClient()">Save Client</button>
+  </div>
+</div>
+
+<!-- LOADING -->
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="loading-box">
+    <div class="spinner"></div>
+    <div class="loading-text" id="loadingText">Please wait...</div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════
+// CONFIG
+// ══════════════════════════════════════════
+// ══════════════════════════════════════════
+//  SUPABASE CONNECTION
+//  Both values are safe to ship in the page: the anon key only works
+//  through the security policies in the database.
+//  Find them in Supabase → Project Settings → API.
+// ══════════════════════════════════════════
+const SUPABASE_URL      = 'https://txuyhzsudtrnmlangukb.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4dXloenN1ZHRybm1sYW5ndWtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTMxODIzOTIsImV4cCI6MjEwODc1ODM5Mn0.72OMcc51II5qKE36Xns2hiI-g-xQMJHlj_JvKdXcXs8';
+
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: { persistSession: true, autoRefreshToken: true },
+});
+const MANAGEMENT_EMAIL = 'ahmed.atef@pwtinternational.com';
+
+// ══════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════
+let state = {
+  engineer: null,
+  client: null,
+  visitMode: 'service', // 'service' | 'free'
+  systems: [],
+  sysCounter: 0,
+  reportRef: '',
+  timestamp: ''
+};
+let allClients   = [];
+let allEngineers = [];
+
+// ══════════════════════════════════════════
+// PARAMETERS
+// Limits and the marking rule live in krenos-params.js, loaded above.
+
+
+
+// ══════════════════════════════════════════
+// PERFORMANCE TRENDS
+// ══════════════════════════════════════════
+// Curated per system — these are the readings that tell the client a story
+// about performance, not every parameter on the form.
+const TREND_CANDIDATES = {
+  // Only three can go on a report, so a long list is just a longer
+  // decision. These are the readings that move for a reason the client
+  // can act on; a parameter the treatment holds steady by design makes
+  // a flat line and tells nobody anything.
+  boiler: [
+    { id:'bw_cyc',  section:'Boiler Water',      label:'Cycles of Concentration' },
+    { id:'fw_cret', section:'Feed Water',        label:'Est. Condensate Return' },
+    { id:'bw_tds',  section:'Boiler Water',      label:'Boiler Water TDS' },
+    { id:'fw_hard', section:'Feed Water',        label:'Feed Water Hardness' },
+  ],
+  cooling: [
+    { id:'cw_lsi',  section:'Circuit Water', label:'LSI' },
+    { id:'cw_tds',  section:'Circuit Water', label:'Circuit Water TDS' },
+    { id:'cw_fe',   section:'Circuit Water', label:'Iron' },
+  ],
+  closed: [
+    { id:'cl_inh',  section:'Closed Loop Parameters', label:'Inhibitor Level' },
+    { id:'cl_fe',   section:'Closed Loop Parameters', label:'Iron' },
+  ],
+  raw: [
+    { id:'rw_tds',  section:'Raw Water Analysis', label:'TDS' },
+    { id:'rw_hard', section:'Raw Water Analysis', label:'Total Hardness' },
+  ],
+  // Swimming pools intentionally have no trend charts.
+  pool: [],
+};
+
+const MAX_TRENDS = 3;
+
+function buildTrendPicker(sysId, type) {
+  const cands = TREND_CANDIDATES[type] || [];
+  if (!cands.length) return '';
+  const boxes = cands.map(c => `
+    <label class="trend-opt">
+      <input type="checkbox" class="trend-cb" data-sys="${sysId}"
+             data-pid="${c.id}" data-section="${c.section}" data-label="${escAttr(c.label)}"
+             onchange="onTrendToggle(${sysId})">
+      <span>${escAttr(c.label)}</span>
+    </label>`).join('');
+  return `
+    <div style="margin-top:14px">
+      <div class="subsection-title">Performance Trends <span style="font-size:9px;color:var(--muted);text-transform:none;letter-spacing:0">(optional)</span></div>
+      <div style="font-size:10px;color:var(--muted);margin-bottom:8px">
+        Adds a chart of the last 6 visits to the client's report. Select up to ${MAX_TRENDS}.
+      </div>
+      <div class="trend-opts" id="trend-opts-${sysId}">${boxes}</div>
+      <div class="trend-note" id="trend-note-${sysId}"></div>
+    </div>`;
+}
+
+function onTrendToggle(sysId) {
+  const boxes = [...document.querySelectorAll(`.trend-cb[data-sys="${sysId}"]`)];
+  const checked = boxes.filter(b => b.checked);
+  // Enforce the cap by disabling the rest once the limit is reached
+  boxes.forEach(b => { b.disabled = !b.checked && checked.length >= MAX_TRENDS; });
+  const note = document.getElementById(`trend-note-${sysId}`);
+  if (note) {
+    note.textContent = checked.length
+      ? `${checked.length} of ${MAX_TRENDS} selected — charts will be added to the report`
+      : '';
+  }
+}
+
+function getSelectedTrends(sysId) {
+  return [...document.querySelectorAll(`.trend-cb[data-sys="${sysId}"]`)]
+    .filter(b => b.checked)
+    .map(b => ({ pid: b.dataset.pid, section: b.dataset.section, label: b.dataset.label }));
+}
+
+// Pull the last 6 visits for this client and build a series for each selected
+// trend. Reads live from Sheets — nothing is stored on the device.
+async function buildTrendSeries(systemsData) {
+  const wanted = systemsData.filter(s => s.trends && s.trends.length);
+  const countOfType = (list, type) => list.filter(s => s.type === type).length;
+  if (!wanted.length) return {};
+
+  if (!state.client?.id) return {};
+
+  let rows;
+  try {
+    const { data, error } = await sb
+      .from('reports')
+      .select('ref, systems, created_at, submitted_at')
+      .eq('client_id', state.client.id)
+      .order('created_at', { ascending: false })
+      .limit(12);
+    if (error) throw error;
+    rows = data || [];
+  } catch (e) {
+    console.error('Trend history fetch failed:', e);
+    return {};
+  }
+
+  const past = rows
+    .map(r => ({
+      ref: r.ref,
+      systemsRaw: r.systems,
+      createdAt: r.submitted_at || r.created_at,
+      date: new Date(r.submitted_at || r.created_at),
+    }))
+    .filter(r => !isNaN(r.date))
+    .sort((a, b) => a.date - b.date);
+
+  const out = {};
+  wanted.forEach(sys => {
+    out[sys.id] = sys.trends.map(t => {
+      const points = [];
+      past.forEach(rep => {
+        const systems = parseHistSystems(rep.systemsRaw);
+        if (!Array.isArray(systems)) return;
+        // The same system: by its registered id, then by name. Only when
+        // both visits have a single system of this type is the type alone
+        // enough — with two boilers it would chart one boiler's readings
+        // as the other's.
+        const match =
+          (sys.system_id && systems.find(s => s.system_id === sys.system_id)) ||
+          systems.find(s => s.name && normName(s.name) === normName(sys.name)) ||
+          (countOfType(systems, sys.type) === 1 && countOfType(systemsData, sys.type) === 1
+            ? systems.find(s => s.type === sys.type) : null);
+        if (!match) return;
+        const v = readHistValue(match, t, sys.type);
+        if (v !== null) points.push({ date: rep.date, value: v });
+      });
+      // include the reading just entered, if present
+      const nowVal = currentTrendValue(sys, t);
+      if (nowVal !== null) points.push({ date: new Date(), value: nowVal });
+      return { label: t.label, pid: t.pid, points: points.slice(-6) };
+    });
+    // A single point is not a trend — but the engineer asked for this
+    // chart, so the report says why it is missing instead of leaving
+    // him to wonder whether the app ignored him.
+    out[sys.id].forEach(sr => { sr.tooShort = sr.points.length < 2; });
+  });
+  return out;
+}
+
+// Read a trend value out of a stored system, recomputing the derived ones
+// because older reports may not have saved them.
+function readHistValue(sysObj, trend, sysType) {
+  const def = findParamDefSec(sysType, trend.label, trend.section);
+  const sections = (sysObj.sections && Object.keys(sysObj.sections).length)
+    ? sysObj.sections : null;
+
+  const pick = (section, label) => {
+    if (sections) {
+      const sec = sections[section];
+      if (sec && sec[label] !== undefined) return parseFloat(sec[label]);
+      for (const s of Object.values(sections)) {
+        if (s && s[label] !== undefined) return parseFloat(s[label]);
+      }
+      return NaN;
+    }
+    const r = sysObj.readings || {};
+    return r[label] !== undefined ? parseFloat(r[label]) : NaN;
+  };
+
+  // Derived values: recompute from their inputs so history stays consistent
+  if (trend.pid === 'bw_cyc') {
+    const bw = pick('Boiler Water', 'Chloride');
+    const fw = pick('Feed Water', 'Chloride');
+    if (!isNaN(bw) && !isNaN(fw) && fw > 0) return +(bw / fw).toFixed(1);
+    return null;
+  }
+  if (trend.pid === 'fw_cret') {
+    const sw = pick('Softener Water', 'TDS');
+    const fw = pick('Feed Water', 'TDS');
+    if (!isNaN(sw) && !isNaN(fw) && sw > 0) {
+      const pct = (1 - fw / sw) * 100;
+      return pct > 0 ? +pct.toFixed(1) : null;
+    }
+    return null;
+  }
+
+  const label = def ? def.label : trend.label;
+  const v = pick(trend.section, label);
+  return isNaN(v) ? null : v;
+}
+
+// The value for this trend in the report being written right now
+function currentTrendValue(sys, trend) {
+  const def = findParamDefSec(sys.type, trend.label, trend.section);
+  const label = def ? def.label : trend.label;
+  const sec = sys.sections && sys.sections[trend.section];
+  let raw = sec ? sec[label] : undefined;
+  if (raw === undefined && sys.readings) raw = sys.readings[label];
+  const v = parseFloat(raw);
+  return isNaN(v) ? null : v;
+}
+
+// Draw a trend chart to a canvas and return a PNG data URL for the PDF.
+// One trend, drawn straight into the PDF as lines and dots rather than
+// as a picture of them. jsPDF stores a PNG almost uncompressed — a
+// single charted line cost nearly 2 MB — while the same chart drawn
+// with vectors is a few hundred bytes, and stays sharp at any zoom.
+function drawTrendVector(doc, series, x, y, w, h) {
+  const def = findParamDefSecById(series.pid);
+  const pts = series.points;
+  if (!pts || !pts.length) return;
+
+  const P = { t: 2.4, r: 1.5, b: 5.2, l: 9.5 };
+  const iw = w - P.l - P.r, ih = h - P.t - P.b;
+  const x0 = x + P.l, y0 = y + P.t;
+
+  const values = pts.map(p => p.value);
+  let lo = Math.min(...values), hi = Math.max(...values);
+  const hasBand = def && isFinite(def.min) && isFinite(def.max) &&
+                  def.max < 9999 && !def.noLimit;
+  if (hasBand) { lo = Math.min(lo, def.min); hi = Math.max(hi, def.max); }
+  if (lo === hi) { lo -= 1; hi += 1; }
+  const pad = (hi - lo) * 0.15;
+  lo -= pad; hi += pad;
+
+  const n = pts.length;
+  const xAt = i => x0 + (n === 1 ? iw / 2 : (i / (n - 1)) * iw);
+  const yAt = v => y0 + ih - ((v - lo) / (hi - lo)) * ih;
+
+  // The band the reading belongs in.
+  if (hasBand) {
+    const yTop = yAt(def.max), yBot = yAt(def.min);
+    doc.setFillColor(232, 238, 228);
+    doc.rect(x0, Math.min(yTop, yBot), iw, Math.abs(yBot - yTop), 'F');
+  }
+
+  doc.setDrawColor(201, 201, 197); doc.setLineWidth(0.2);
+  doc.line(x0, y0, x0, y0 + ih);
+  doc.setDrawColor(20, 20, 20); doc.setLineWidth(0.3);
+  doc.line(x0, y0 + ih, x0 + iw, y0 + ih);
+
+  // Only the two ends of the scale — more would crowd a chart this size.
+  doc.setFont('courier', 'normal'); doc.setFontSize(4.6);
+  doc.setTextColor(110, 110, 110);
+  doc.text(fmtTrend(hi), x0 - 1, y0 + 1.6, { align: 'right' });
+  doc.text(fmtTrend(lo), x0 - 1, y0 + ih, { align: 'right' });
+
+  if (n > 1) {
+    doc.setDrawColor(20, 20, 20); doc.setLineWidth(0.5);
+    for (let i = 1; i < n; i++) {
+      doc.line(xAt(i - 1), yAt(pts[i - 1].value), xAt(i), yAt(pts[i].value));
+    }
+  }
+
+  pts.forEach((p, i) => {
+    const bad  = hasBand && (p.value < def.min || p.value > def.max);
+    const last = i === n - 1;
+    if (bad) doc.setFillColor(138, 58, 8); else doc.setFillColor(20, 20, 20);
+    doc.circle(xAt(i), yAt(p.value), last ? 0.85 : 0.6, 'F');
+  });
+
+  const stamp = d => d.toLocaleDateString('en-GB', { month: 'short' }).toUpperCase();
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(4.6);
+  doc.setTextColor(110, 110, 110);
+  doc.text(stamp(pts[0].date), x0, y + h - 1.2);
+  if (n > 1) doc.text(stamp(pts[n - 1].date), x0 + iw, y + h - 1.2, { align: 'right' });
+
+  // The newest reading, spelled out, so the chart reads at a glance.
+  const lastBad = hasBand && (pts[n-1].value < def.min || pts[n-1].value > def.max);
+  doc.setFont('courier', 'bold'); doc.setFontSize(6);
+  if (lastBad) doc.setTextColor(138, 58, 8); else doc.setTextColor(20, 20, 20);
+  doc.text(fmtTrend(pts[n - 1].value), x + w - P.r, y0 + 2.2, { align: 'right' });
+}
+
+function findParamDefSecById(pid) {
+  for (const type of Object.keys(PARAMS))
+    for (const sec of PARAMS[type].sections)
+      for (const p of sec.params)
+        if (p.id === pid) return p;
+  return null;
+}
+
+function fmtTrend(n) {
+  if (!isFinite(n)) return '—';
+  return Math.abs(n) >= 100 ? n.toFixed(0) : Math.abs(n) >= 10 ? n.toFixed(1) : n.toFixed(2);
+}
+
+// ══════════════════════════════════════════
+// AUTH — who is using the app
+// ══════════════════════════════════════════
+let me = null;          // the signed-in engineer's row
+
+// The session exactly as the device stored it. getSession() will try to
+// refresh an expired token over the network, and in a plant room that
+// call fails — this reads what is already on the device and nothing
+// more, so an engineer who closed the app can open it again offline.
+function storedSession() {
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (!/^sb-.*-auth-token$/.test(k || '')) continue;
+      const v = JSON.parse(localStorage.getItem(k) || 'null');
+      const sess = v && (v.currentSession || v.session || v);
+      if (sess && sess.user && sess.user.id) return sess;
+    }
+  } catch (e) {}
+  return null;
+}
+
+// Who the engineer is, kept on the device so the app can open without
+// asking the server to confirm it.
+function cacheMe(eng) {
+  try { localStorage.setItem('krenos_me', JSON.stringify(eng)); } catch (e) {}
+}
+function cachedMe(id) {
+  try {
+    const m = JSON.parse(localStorage.getItem('krenos_me') || 'null');
+    return (m && m.id && (!id || m.id === id)) ? m : null;
+  } catch (e) { return null; }
+}
+
+async function doLogin(ev) {
+  ev.preventDefault();
+  const btn   = document.getElementById('loginBtn');
+  const errEl = document.getElementById('loginError');
+  const email = document.getElementById('loginEmail').value.trim();
+  const pass  = document.getElementById('loginPass').value;
+
+  errEl.classList.remove('show');
+  btn.disabled = true;
+  btn.textContent = 'Signing in…';
+
+  try {
+    const { error } = await sb.auth.signInWithPassword({ email, password: pass });
+    if (error) throw error;
+    await afterLogin();
+  } catch (e) {
+    const msg = /invalid login/i.test(e.message || '')
+      ? 'Wrong email or password.'
+      : /network|fetch|load failed|failed to fetch/i.test(e.message || '')
+        ? 'No connection. Check your internet and try again.'
+        : (e.message || 'Could not sign in.');
+    errEl.textContent = msg;
+    errEl.classList.add('show');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Sign in';
+  }
+}
+
+async function doLogout() {
+  if (!confirm('Sign out of Krenos?')) return;
+  try { await sb.auth.signOut(); } catch (e) {}   // offline: clear it anyway
+  try { localStorage.removeItem('krenos_me'); } catch (e) {}
+  location.reload();
+}
+
+// Runs after a successful sign-in and on every app start with a live session.
+async function afterLogin(knownUser) {
+  // The user comes from the session the device already holds. Asking
+  // the server who this is would be a network call, and the whole point
+  // is that there may be no network.
+  let user = knownUser || null;
+  if (!user) {
+    try { user = (await sb.auth.getUser()).data.user || null; } catch (e) { user = null; }
+  }
+  if (!user) { const sess = storedSession(); user = sess ? sess.user : null; }
+  if (!user) { showLogin(); return; }
+
+  let eng = null, unreachable = false;
+  try {
+    const { data, error } = await sb
+      .from('engineers')
+      .select('id, code, name, email, role, active')
+      .eq('id', user.id)
+      .maybeSingle();
+    if (error) throw error;
+    eng = data;
+  } catch (e) {
+    // No answer is not the same as a refusal. Signing out here would
+    // take the engineer's session with it, in the one place they cannot
+    // sign in again — which is exactly where they need the app most.
+    unreachable = true;
+    eng = cachedMe(user.id);
+  }
+
+  if (unreachable) {
+    if (!eng) {
+      showLogin('No connection, and this phone has not signed in before. '
+              + 'Connect once, then it will work offline.');
+      return;
+    }
+  } else if (!eng) {
+    await sb.auth.signOut();
+    showLogin('Your account is not set up yet. Contact the office.');
+    return;
+  } else if (!eng.active) {
+    await sb.auth.signOut();
+    showLogin('This account has been deactivated.');
+    return;
+  } else {
+    cacheMe(eng);
+  }
+
+  me = eng;
+  state.engineer = { code: eng.code || '', name: eng.name, email: eng.email, id: eng.id };
+
+  document.getElementById('meAvatar').textContent = (eng.name || '?').charAt(0).toUpperCase();
+  document.getElementById('meName').textContent   = eng.name;
+  document.getElementById('meRole').textContent   =
+    (eng.role === 'admin' ? 'Administrator' : 'Engineer') + (eng.code ? ' · ' + eng.code : '');
+
+  document.getElementById('loginScreen').classList.add('hidden');
+  await loadClients();
+}
+
+function showLogin(message) {
+  const el = document.getElementById('loginScreen');
+  el.classList.remove('hidden');
+  if (message) {
+    const errEl = document.getElementById('loginError');
+    errEl.textContent = message;
+    errEl.classList.add('show');
+  }
+}
+
+// ══════════════════════════════════════════
+// VISIT MODE
+// ══════════════════════════════════════════
+function setVisitMode(mode) {
+  state.visitMode = mode;
+  document.getElementById('freeVisitBtn').style.background = mode === 'free' ? '#f59e0b' : '#fff8e1';
+  document.getElementById('freeVisitBtn').style.color = mode === 'free' ? 'white' : '#92400e';
+  if (mode === 'free') {
+    document.getElementById('visitType').value = 'Free Water Analysis';
+  }
+}
+
+// ══════════════════════════════════════════
+// CLIENTS
+// ══════════════════════════════════════════
+// The database decides what comes back: an engineer only ever receives
+// their own clients, so there is nothing to filter on the device.
+// The regions the engineer can pick from. They come from the database
+// so a new one — Sharm, Hurghada — appears without redeploying the app.
+// A phone with no signal falls back to what it saw last, and failing
+// that to the list the company started with, because an engineer at a
+// gate cannot wait for a deployment either.
+const REGIONS_FALLBACK = ['Borg El Arab','Alexandria','Amreyah','Sadat','October',
+                          'Cairo','Obour','Badr','Nobareya','Beni Suef','Others'];
+
+function paintRegions(names) {
+  ['prospectRegion','nc_region'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const keep = el.value;
+    el.innerHTML = names.map(n =>
+      `<option>${String(n).replace(/[<>&]/g, '')}</option>`).join('');
+    if (keep && names.includes(keep)) el.value = keep;
+  });
+}
+
+async function loadRegions() {
+  let names = null;
+  try {
+    const { data, error } = await sb
+      .from('regions').select('name').eq('active', true).order('sort_order');
+    if (!error && data && data.length) {
+      names = data.map(r => r.name);
+      try { localStorage.setItem('krenos_regions', JSON.stringify(names)); } catch (e) {}
+    }
+  } catch (e) {}
+  if (!names) {
+    try {
+      const raw = localStorage.getItem('krenos_regions');
+      if (raw) { const v = JSON.parse(raw); if (Array.isArray(v) && v.length) names = v; }
+    } catch (e) {}
+  }
+  paintRegions(names || REGIONS_FALLBACK);
+}
+
+async function loadClients() {
+  const listEl = document.getElementById('clientList');
+  try {
+    const { data, error } = await sb
+      .from('clients')
+      .select('id, code, name, region, email, frequency, engineer_id, is_prospect')
+      .eq('active', true)
+      .order('name');
+    if (error) throw error;
+
+    loadRegions();          // independent of the client list; never blocks it
+    allClients = (data || []).map(c => ({
+      id:       c.id,
+      code:     c.code || '',
+      name:     c.name || '',
+      region:   c.region || '',
+      email:    c.email || '',
+      freq:     c.frequency || '',
+      engineer: c.engineer_id || '',
+      isProspect: !!c.is_prospect,
+    }));
+
+    try {
+      localStorage.setItem('krenos_clients_cache',
+        JSON.stringify({ data: allClients, ts: Date.now() }));
+    } catch (e) {}
+
+    renderClients(allClients);
+  } catch (e) {
+    // Offline or server down — fall back to the last list we saw
+    let restored = false;
+    try {
+      const cached = JSON.parse(localStorage.getItem('krenos_clients_cache') || 'null');
+      if (cached && cached.data && cached.data.length) {
+        allClients = cached.data;
+        renderClients(allClients);
+        showToast('Offline — showing saved client list');
+        restored = true;
+      }
+    } catch (e2) {}
+    if (!restored && listEl) {
+      listEl.innerHTML =
+        '<div style="text-align:center;padding:28px;color:var(--muted);font-size:12px">' +
+        'Could not load clients. Check your connection and pull to refresh.</div>';
+    }
+  }
+}
+
+let visibleClients = [];   // exactly what is on screen right now
+
+function escAttr(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c =>
+    ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+}
+
+function renderClients(clients) {
+  const list = document.getElementById('clientList');
+  visibleClients = clients.slice();   // keep the exact list the user sees
+  if (!clients.length) {
+    list.innerHTML = '<div style="text-align:center;padding:24px;color:var(--muted);font-size:12px">No clients found</div>';
+    return;
+  }
+  // Bind by index into visibleClients — never inject the code into the HTML,
+  // otherwise a quote in a name or code breaks the handler and can select the wrong client.
+  list.innerHTML = clients.map((c, i) => `
+    <div class="client-item" onclick="selectClientAt(${i})">
+      <div class="client-avatar">${escAttr(c.name.charAt(0))}</div>
+      <div class="client-info">
+        <div class="client-name">${escAttr(c.name)}</div>
+        <div class="client-meta">${escAttr(c.code)} · ${escAttr(c.region)}${c.freq ? ' · ' + escAttr(c.freq) : ''}</div>
+      </div>
+      <span style="color:var(--muted);font-size:16px">›</span>
+    </div>`).join('');
+}
+
+// "1", 1, "001", " 001 " must all match
+function normEngCode(v) {
+  if (v === null || v === undefined) return '';
+  const s = String(v).trim();
+  if (s === '') return '';
+  if (/^\d+$/.test(s)) return String(parseInt(s, 10));
+  return s.toLowerCase();
+}
+
+function filterClients() {
+  const q = document.getElementById('clientSearch').value.toLowerCase();
+  // No engineer filter here: the database already returned only this
+  // engineer's clients, so anything in allClients is theirs to see.
+  const list = q
+    ? allClients.filter(c => c.name.toLowerCase().includes(q) ||
+                             c.code.toLowerCase().includes(q))
+    : allClients;
+  renderClients(list);
+}
+
+// ── Visit location ──────────────────────────────────────────────
+// Read once when the report is opened. The engineer is told about this
+// at install time and grants the browser permission then; nothing about
+// the location is shown in the app. It appears only in the dashboard.
+let visitLocation = null;
+
+// Asking for location on every client selection means a prompt on every
+// report. One ask per session is enough: a visit happens in one place,
+// so the first fix is still the right one for the reports that follow,
+// and a refusal is remembered rather than re-asked.
+let locationAsked  = false;
+let locationDenied = false;
+
+// What this phone has already said about location. Kept on the device,
+// because the flags above last only until the app is closed: without
+// this the engineer is asked afresh every single time they open it.
+const GEO_KEY = 'krenos_geo';
+const geoRead  = () => { try { return localStorage.getItem(GEO_KEY) || ''; } catch (e) { return ''; } };
+const geoWrite = (v) => { try { localStorage.setItem(GEO_KEY, v); } catch (e) {} };
+
+async function captureLocation() {
+  if (!navigator.geolocation) return;
+  if (locationDenied) return;
+
+  const mark = geoRead();
+  if (mark === 'no') return;              // refused on this phone; never ask again
+  if (mark.indexOf('asked:') === 0) {
+    // A prompt the engineer swiped away leaves no trace at all: no
+    // success, no error, nothing to record. Waiting before asking
+    // again is the only way not to pester them on every open.
+    const when = Number(mark.slice(6)) || 0;
+    if (Date.now() - when < 7 * 24 * 3600 * 1000) return;
+  }
+
+  // Where the browser can tell us the answer without a prompt, use it —
+  // a previous refusal then costs the engineer nothing. Safari does not
+  // support this for location, which is why the marks above exist.
+  if (navigator.permissions && navigator.permissions.query) {
+    try {
+      const st = await navigator.permissions.query({ name: 'geolocation' });
+      if (st.state === 'denied') { locationDenied = true; geoWrite('no'); return; }
+    } catch (e) { /* not supported here; fall through and ask */ }
+  }
+
+  // Already have a fix from earlier in this session — same visit, same place.
+  if (locationAsked && visitLocation) return;
+  locationAsked = true;
+  if (mark !== 'ok') geoWrite('asked:' + Date.now());
+
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      visitLocation = {
+        lat: pos.coords.latitude,
+        lng: pos.coords.longitude,
+        accuracy: pos.coords.accuracy,
+      };
+      geoWrite('ok');          // granted: the browser will not prompt again
+    },
+    err => {
+      // 1 is PERMISSION_DENIED — remember it on the device, not just here.
+      if (err && err.code === 1) { locationDenied = true; geoWrite('no'); }
+    },
+    { enableHighAccuracy: false, timeout: 10000, maximumAge: 600000 }
+  );
+}
+
+// Picks the client the user actually tapped, by position in the rendered list.
+function selectClientAt(index) {
+  const c = visibleClients[index];
+  if (!c) { showToast('Could not open that client — please refresh', 'error'); return; }
+  selectClientObj(c);
+}
+
+function selectClient(code) {
+  const key = String(code).trim().toLowerCase();
+  const c = allClients.find(x => String(x.code).trim().toLowerCase() === key);
+  if (!c) { showToast('Client not found', 'error'); return; }
+  selectClientObj(c);
+}
+
+async function selectClientObj(client) {
+  if (!state.engineer) { showToast('Please sign in first', 'error'); return; }
+  state.client = client;
+  if (!state.client) return;
+  captureLocation();   // silent; result is attached at submit time
+
+  const chk = document.getElementById('sharedFeedChk');
+  if (chk) chk.checked = client.shared_feed !== false;
+
+  const now = new Date();
+  const dateStr = now.toISOString().slice(0,10).replace(/-/g,'');
+  const reg  = state.client.region.toUpperCase().replace(/\s/g,'').slice(0,4);
+  const eng  = state.engineer.code;
+  state.reportRef  = `SRV-${dateStr}-${reg}-${eng}-${String(Math.floor(Math.random()*99)+1).padStart(2,'0')}`;
+  state.timestamp  = now.toLocaleString('en-GB');
+
+  document.getElementById('reportHero').innerHTML = `
+    <div class="report-hero-title">${state.client.name}</div>
+    <div class="report-hero-sub">${state.reportRef} · ${state.timestamp}</div>
+    <div class="report-hero-badges">
+      <span class="hero-badge">👤 ${state.engineer.name}</span>
+      <span class="hero-badge">📍 ${state.client.region}</span>
+      <span class="hero-badge">🔄 ${state.client.freq}</span>
+      ${state.visitMode === 'free' ? '<span class="hero-badge" style="background:rgba(245,158,11,0.3)">🆓 Free Visit</span>' : ''}
+    </div>`;
+
+  // Reset systems
+  state.systems = [];
+  state.sysCounter = 0;
+  document.getElementById('sysTabs').innerHTML = '';
+  document.getElementById('sysPanels').innerHTML = '';
+
+  // The systems this plant has, from its first visit on. They open
+  // ready to fill in, under the names they were registered with.
+  registeredSystems = [];
+  const token = ++systemsLoadToken;
+  if (state.client.id) {
+    showLoading('Loading plant...');
+    const rows = await loadClientSystems(state.client.id);
+    hideLoading();
+    if (token !== systemsLoadToken) return;   // another client was picked meanwhile
+    registeredSystems = rows.filter(r => PARAMS[r.type]);
+    registeredSystems.forEach(r => addSystem(r.type, r));
+    if (state.systems.length) switchTab(state.systems[0].id);
+  }
+
+  // Show/hide free visit section
+  document.getElementById('freeVisitSection').style.display = state.visitMode === 'free' ? 'block' : 'none';
+  if (state.visitMode === 'free') document.getElementById('visitType').value = 'Free Water Analysis';
+
+  // Previous visits — only meaningful for existing clients
+  resetHistoryUI();
+  if (state.visitMode === 'service') {
+    document.getElementById('histSection').style.display = 'block';
+    loadClientHistory(state.client.id);
+  }
+
+  goScreen('report');
+}
+
+// ══════════════════════════════════════════
+// CLIENT HISTORY (previous visits)
+// ══════════════════════════════════════════
+let historyData = null;      // parsed previous reports for this client
+let historyLoaded = false;
+
+function resetHistoryUI() {
+  historyData = null;
+  historyLoaded = false;
+  document.getElementById('histSection').style.display = 'none';
+  document.getElementById('histCard').style.display = 'none';
+  document.getElementById('histToggleBtn').textContent = '📈 Show';
+  document.getElementById('histBody').innerHTML =
+    '<div class="hist-empty">Loading history…</div>';
+}
+
+function toggleHistory() {
+  const card = document.getElementById('histCard');
+  const btn  = document.getElementById('histToggleBtn');
+  const open = card.style.display !== 'none';
+  card.style.display = open ? 'none' : 'block';
+  btn.textContent = open ? '📈 Show' : '✕ Hide';
+}
+
+async function loadClientHistory(clientId) {
+  try {
+    // Ask only for this client's last three visits — the device no longer
+    // downloads every report and sifts through them.
+    const { data, error } = await sb
+      .from('reports')
+      .select('ref, engineer_name, systems, created_at, submitted_at')
+      .eq('client_id', clientId)
+      .order('created_at', { ascending: false })
+      .limit(3);
+    if (error) throw error;
+
+    if (!data || !data.length) {
+      document.getElementById('histBody').innerHTML =
+        '<div class="hist-empty">No previous visits recorded</div>';
+      return;
+    }
+
+    const rows = data.map(r => ({
+      ref: r.ref,
+      engName: r.engineer_name || '',
+      systemsRaw: r.systems,
+      createdAt: r.submitted_at || r.created_at,
+    }));
+
+    historyData = rows;
+    historyLoaded = true;
+    renderClientHistory();
+  } catch (e) {
+    document.getElementById('histBody').innerHTML =
+      '<div class="hist-empty">Could not load history — check your connection</div>';
+  }
+}
+
+function histDate(r) {
+  if (r.createdAt) {
+    const d = new Date(r.createdAt);
+    if (!isNaN(d.getTime())) return d;
+  }
+  if (r.timestamp) {
+    const m = String(r.timestamp).match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+    if (m) return new Date(+m[3], +m[2] - 1, +m[1]);
+    const d = new Date(r.timestamp);
+    if (!isNaN(d.getTime())) return d;
+  }
+  return new Date(0);
+}
+
+function renderClientHistory() {
+  const body = document.getElementById('histBody');
+  if (!historyData || historyData.length === 0) {
+    body.innerHTML = '<div class="hist-empty">No previous visits for this client</div>';
+    return;
+  }
+
+  // visits are newest-first; build a column per visit
+  const visits = historyData.map(r => ({
+    date: histDate(r),
+    ref: r.ref,
+    eng: r.engName || '',
+    systems: parseHistSystems(r.systemsRaw),
+  }));
+
+  // Collect systems across visits, keyed by name
+  const sysMap = {};
+  visits.forEach((v, vi) => {
+    v.systems.forEach(sys => {
+      const name = sys.name || (PARAMS[sys.type]?.label) || sys.type || 'System';
+      if (!sysMap[name]) sysMap[name] = { type: sys.type, rows: {}, recs: [] };
+      const entry = sysMap[name];
+      // per-section readings so duplicate labels keep their own limits
+      const sections = (sys.sections && Object.keys(sys.sections).length)
+        ? sys.sections
+        : { '': sys.readings || {} };
+      Object.entries(sections).forEach(([secTitle, readings]) => {
+        Object.entries(readings || {}).forEach(([label, val]) => {
+          const num = parseFloat(val);
+          if (isNaN(num)) return;
+          const rowKey = secTitle ? `${secTitle}||${label}` : label;
+          if (!entry.rows[rowKey]) {
+            entry.rows[rowKey] = {
+              label, section: secTitle,
+              def: findParamDefSec(sys.type, label, secTitle),
+              values: new Array(visits.length).fill(null),
+            };
+          }
+          entry.rows[rowKey].values[vi] = num;
+        });
+      });
+      if (sys.recommendations) {
+        entry.recs.push({ date: v.date, text: sys.recommendations });
+      }
+    });
+  });
+
+  const names = Object.keys(sysMap);
+  if (!names.length) {
+    body.innerHTML = '<div class="hist-empty">No readings in previous visits</div>';
+    return;
+  }
+
+  const dateHead = visits.map(v =>
+    `<th class="num hist-date-head">${v.date.toLocaleDateString('en-GB', { day:'2-digit', month:'short' })}</th>`
+  ).join('');
+
+  let html = '';
+  names.forEach(name => {
+    const entry = sysMap[name];
+    const rowKeys = Object.keys(entry.rows);
+    if (!rowKeys.length) return;
+
+    html += `<div class="hist-sys">
+      <div class="hist-sys-name">${name}</div>
+      <table class="hist-table">
+        <thead><tr><th>Parameter</th>${dateHead}<th class="num">Trend</th></tr></thead>
+        <tbody>`;
+
+    rowKeys.forEach(k => {
+      const row = entry.rows[k];
+      const def = row.def;
+      const label = row.section ? `${row.label} <span style="font-size:9px;color:var(--muted)">${row.section}</span>` : row.label;
+
+      const cells = row.values.map((v, i) => {
+        if (v === null || v === undefined) return `<td class="num" style="color:var(--muted)">—</td>`;
+        const bad = def && (v < def.min || v > def.max);
+        // i === 0 is the most recent visit — emphasise it
+        const cls = i === 0 ? (bad ? 'hist-val bad' : 'hist-val ok') : 'hist-val old';
+        return `<td class="num"><span class="${cls}">${fmtHist(v)}</span></td>`;
+      }).join('');
+
+      // Trend: most recent vs the previous one that has a value
+      let trend = '<span class="hist-trend flat">—</span>';
+      const latest = row.values[0];
+      const prev = row.values.slice(1).find(v => v !== null && v !== undefined);
+      if (latest !== null && prev !== null && prev !== undefined) {
+        const d = latest - prev;
+        if (Math.abs(d) < 1e-9) trend = '<span class="hist-trend flat">=</span>';
+        else if (d > 0) trend = `<span class="hist-trend up">▲ ${fmtHist(Math.abs(d))}</span>`;
+        else trend = `<span class="hist-trend down">▼ ${fmtHist(Math.abs(d))}</span>`;
+      }
+
+      html += `<tr>
+        <td class="hist-param">${label}</td>
+        ${cells}
+        <td class="num">${trend}</td>
+      </tr>`;
+    });
+
+    html += `</tbody></table>`;
+
+    // Last recommendation for this system
+    if (entry.recs.length) {
+      const last = entry.recs[0];
+      html += `<div class="hist-rec">
+        <div class="hist-rec-date">Last recommendation · ${last.date.toLocaleDateString('en-GB')}</div>
+        <div class="hist-rec-text">${escapeHistHtml(last.text)}</div>
+      </div>`;
+    }
+    html += `</div>`;
+  });
+
+  html += `<div style="font-size:10px;color:var(--muted);font-style:italic;margin-top:10px;text-align:center">
+    Showing the last ${visits.length} visit${visits.length > 1 ? 's' : ''} · newest first
+  </div>`;
+
+  body.innerHTML = html;
+}
+
+function parseHistSystems(raw) {
+  if (!raw) return [];
+  try { return typeof raw === 'string' ? JSON.parse(raw) : raw; } catch (e) { return []; }
+}
+
+function findParamDefSec(type, label, sectionTitle) {
+  const def = PARAMS[type];
+  if (!def) return null;
+  if (sectionTitle) {
+    const sec = def.sections.find(s => s.title === sectionTitle);
+    if (sec) {
+      const p = sec.params.find(p => p.label === label);
+      if (p) return p;
+    }
+  }
+  for (const sec of def.sections)
+    for (const p of sec.params)
+      if (p.label === label) return p;
+  return null;
+}
+
+function fmtHist(n) {
+  if (!isFinite(n)) return '—';
+  return Math.abs(n) >= 100 ? n.toFixed(0) : Math.abs(n) >= 10 ? n.toFixed(1) : n.toFixed(2);
+}
+
+function escapeHistHtml(s) {
+  return String(s).replace(/[&<>"']/g, c =>
+    ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+}
+
+// ══════════════════════════════════════════
+// ADD CLIENT
+// ══════════════════════════════════════════
+async function saveNewClient() {
+  const name   = document.getElementById('nc_name').value.trim();
+  const region = document.getElementById('nc_region').value;
+  const email  = document.getElementById('nc_email').value.trim();
+  if (!name) { showToast('Company name required', 'error'); return; }
+
+  showLoading('Saving client...');
+  try {
+    // A prospect code that will not collide with another engineer's:
+    // the database rejects a duplicate, so retry with the next number.
+    let saved = null, lastErr = null;
+    for (let attempt = 0; attempt < 5 && !saved; attempt++) {
+      const { count } = await sb.from('clients')
+        .select('id', { count: 'exact', head: true })
+        .like('code', 'PROS-%');
+      const code = 'PROS-' + String((count || 0) + 1 + attempt).padStart(3, '0');
+
+      const { data, error } = await sb.from('clients').insert({
+        code,
+        name,
+        region,
+        email: email || null,
+        engineer_id: me?.id || null,
+        is_prospect: true,
+      }).select().single();
+
+      if (!error) { saved = data; break; }
+      lastErr = error;
+      if (error.code !== '23505') break;   // not a duplicate — real failure
+    }
+    if (!saved) throw lastErr || new Error('Could not save');
+
+    allClients.push({
+      id: saved.id, code: saved.code, name: saved.name,
+      region: saved.region || '', email: saved.email || '',
+      freq: '', engineer: saved.engineer_id || '', isProspect: true,
+    });
+    allClients.sort((a, b) => a.name.localeCompare(b.name));
+    renderClients(allClients);
+    hideSheet('addClientSheet');
+    showToast('Client saved ✓', 'success');
+    ['nc_name', 'nc_email'].forEach(id => document.getElementById(id).value = '');
+  } catch (e) {
+    showToast(e.message || 'Error saving', 'error');
+  }
+  hideLoading();
+}
+
+// ══════════════════════════════════════════
+// SYSTEMS
+// ══════════════════════════════════════════
+// ══════════════════════════════════════════
+//  THE PLANT'S SYSTEMS
+// ══════════════════════════════════════════
+// Each client's systems are registered by the database the first time a
+// report analyses them (see krenos-systems.sql). From then on the app
+// opens every visit with them in place, under the names they were given,
+// so a plant's history is never split by a name typed two ways. The
+// engineer cannot rename one; the office can.
+//
+// Capacity and pressure belong to the boiler, not to the visit, so they
+// travel with the registered system and are asked once. Pressure in
+// particular decides which limits apply, so a report without it is a
+// report judged against a guess.
+
+const CACHE_SYSTEMS = 'krenos_systems';
+let registeredSystems = [];   // rows from client_systems for this client
+let systemsLoadToken = 0;
+
+function cacheSystems(clientId, rows) {
+  try {
+    const all = JSON.parse(localStorage.getItem(CACHE_SYSTEMS) || '{}');
+    all[clientId] = rows || [];
+    localStorage.setItem(CACHE_SYSTEMS, JSON.stringify(all));
+  } catch (e) {}
+}
+
+function cachedSystems(clientId) {
+  try {
+    const all = JSON.parse(localStorage.getItem(CACHE_SYSTEMS) || '{}');
+    return Array.isArray(all[clientId]) ? all[clientId] : null;
+  } catch (e) { return null; }
+}
+
+// Online, the register; offline or slow, what this phone saw last time.
+// Never throws: a plant whose list cannot be read opens empty, and the
+// engineer adds the systems as on a first visit.
+async function loadClientSystems(clientId) {
+  if (!clientId) return [];
+  if (navigator.onLine !== false) {
+    try {
+      const res = await Promise.race([
+        sb.from('client_systems')
+          .select('id, type, name, spec, sort_order')
+          .eq('client_id', clientId)
+          .eq('active', true)
+          .order('sort_order'),
+        new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 5000)),
+      ]);
+      if (res && !res.error && Array.isArray(res.data)) {
+        cacheSystems(clientId, res.data);
+        return res.data;
+      }
+    } catch (e) { /* fall through to what we remember */ }
+  }
+  return cachedSystems(clientId) || [];
+}
+
+const normName = (s) => String(s || '').trim().replace(/\s+/g, ' ').toLowerCase();
+
+// "Boiler #1", "Boiler #2" … the first number not already in use here.
+function nextDefaultName(type) {
+  const label = PARAMS[type].label;
+  const used = new Set(state.systems.map(s =>
+    normName(document.getElementById(`sysname-${s.id}`)?.value)));
+  registeredSystems.forEach(r => used.add(normName(r.name)));
+  let n = 1;
+  while (used.has(normName(`${label} #${n}`))) n++;
+  return `${label} #${n}`;
+}
+
+// Two blocks with one name would be filed as one system.
+function systemNameProblem() {
+  const seen = new Set();
+  for (const s of state.systems) {
+    const n = normName(document.getElementById(`sysname-${s.id}`)?.value);
+    if (!n) return 'Every system needs a name.';
+    if (seen.has(n)) return `Two systems are named "${document.getElementById(`sysname-${s.id}`).value.trim()}". Give each its own name.`;
+    seen.add(n);
+  }
+  return '';
+}
+
+function buildBoilerSpec(id) {
+  return `
+    <div class="subsection" id="spec-${id}">
+      <div class="subsection-title">Boiler Details</div>
+      <div style="display:flex;gap:8px">
+        <div style="flex:1">
+          <label style="font-size:10px;color:var(--muted);display:block;margin-bottom:3px">Capacity (ton/h)</label>
+          <input type="number" class="form-input" id="cap-${id}" step="0.1" placeholder="—"
+                 style="padding:7px 10px;font-size:13px">
+        </div>
+        <div style="flex:1">
+          <label style="font-size:10px;color:var(--muted);display:block;margin-bottom:3px">Pressure (bar)</label>
+          <input type="number" class="form-input" id="prs-${id}" step="0.1" placeholder="—"
+                 style="padding:7px 10px;font-size:13px">
+        </div>
+      </div>
+      <div id="spec-note-${id}" style="font-size:10px;color:var(--muted);margin-top:5px"></div>
+    </div>`;
+}
+
+// Fills the spec boxes from what is on record, and says so, so the
+// engineer knows the blanks are the ones he has to answer.
+function fillBoilerSpec(id, reg) {
+  const capEl  = document.getElementById(`cap-${id}`);
+  const prsEl  = document.getElementById(`prs-${id}`);
+  const noteEl = document.getElementById(`spec-note-${id}`);
+  if (!capEl || !prsEl) return;
+  const spec = (reg && reg.spec) || {};
+  if (spec.capacity_tph != null) capEl.value = spec.capacity_tph;
+  if (spec.pressure_bar != null) prsEl.value = spec.pressure_bar;
+  if (noteEl) noteEl.textContent = (spec.capacity_tph != null || spec.pressure_bar != null)
+    ? 'On record from a previous visit — change it if the plant has.'
+    : 'Entered once, then remembered for this boiler.';
+}
+
+// The shared-supply question is about the site, not a boiler, so it is
+// asked once and only when there is more than one boiler to share.
+function refreshSharedFeedRow() {
+  const row = document.getElementById('sharedFeedRow');
+  if (!row) return;
+  const boilerCount = state.systems.filter(s => s.type === 'boiler').length;
+  row.style.display = boilerCount > 1 ? 'block' : 'none';
+  applySharedFeedSections();
+}
+
+// The sample points the boilers share: taken once for the house.
+const SHARED_SECTIONS = ['Softener Water', 'Feed Water', 'Condensate Return'];
+
+// With a shared supply, only the first boiler asks for the softener,
+// the feed tank and the return. Asking the other boilers for the same
+// water again is work the engineer should not have to do, and it is how
+// one report ends up carrying two different answers for it.
+function applySharedFeedSections() {
+  const chk = document.getElementById('sharedFeedChk');
+  const shared = !chk || chk.checked;
+  const boilers = state.systems.filter(s => s.type === 'boiler');
+
+  boilers.forEach((sys, idx) => {
+    const panel = document.getElementById(`sys-panel-${sys.id}`);
+    if (!panel) return;
+    const hide = shared && boilers.length > 1 && idx > 0;
+    SHARED_SECTIONS.forEach(title => {
+      const el = panel.querySelector(`.subsection[data-sec="${CSS.escape(title)}"]`);
+      if (el) el.style.display = hide ? 'none' : '';
+    });
+    let note = panel.querySelector('.shared-note');
+    if (hide && !note) {
+      note = document.createElement('div');
+      note.className = 'shared-note';
+      note.style.cssText = 'font-size:11px;color:var(--muted);background:var(--surface);' +
+                           'border:1px solid var(--border);border-radius:8px;padding:9px 11px;margin-bottom:10px';
+      note.textContent = 'Softener, feed tank and condensate return are recorded once, on ' +
+                         (document.getElementById(`sysname-${boilers[0].id}`)?.value || 'the first boiler') + '.';
+      const first = panel.querySelector('.subsection');
+      if (first) first.parentNode.insertBefore(note, first);
+    } else if (!hide && note) {
+      note.remove();
+    }
+  });
+}
+
+// `reg` is the client's registered system this block stands for, or
+// nothing for a system being added for the first time.
+function addSystem(type, reg) {
+  const def  = PARAMS[type];
+  const name = reg ? reg.name : nextDefaultName(type);
+  const id   = ++state.sysCounter;
+  state.systems.push({ id, type, systemId: reg ? reg.id : null });
+
+  // Tab
+  const tab = document.createElement('button');
+  tab.className = 'sys-tab';
+  tab.id = `sys-tab-${id}`;
+  tab.textContent = `${def.icon} ${name}`;
+  tab.onclick = () => switchTab(id);
+  document.getElementById('sysTabs').appendChild(tab);
+
+  // Panel
+  const panel = document.createElement('div');
+  panel.className = 'sys-panel';
+  panel.id = `sys-panel-${id}`;
+
+  let sectionsHTML = '';
+  def.sections.forEach(sec => {
+    const rows = sec.params.map(p => {
+      if (p.calc) {
+        return `
+          <div class="param-row">
+            <div class="status-dot calc" id="dot-${id}-${p.id}"></div>
+            <div class="param-label">${p.label} <span style="font-size:9px;color:var(--blue)">(auto)</span></div>
+            <div class="param-unit">${p.unit}</div>
+            <input type="number" class="param-input" id="inp-${id}-${p.id}" readonly placeholder="auto" step="0.01">
+          </div>`;
+      }
+      return `
+        <div class="param-row">
+          <div class="status-dot" id="dot-${id}-${p.id}"></div>
+          <div class="param-label">${p.label}</div>
+          <div class="param-unit">${p.unit}</div>
+          <input type="number" class="param-input" id="inp-${id}-${p.id}"
+            placeholder="—" step="0.01"
+            data-min="${p.min}" data-max="${p.max}" data-nolimit="${p.noLimit ? 1 : 0}"
+            oninput="onParamInput(this,'${id}','${p.id}')">
+        </div>`;
+    }).join('');
+    sectionsHTML += `
+      <div class="subsection" data-sec="${escAttr(sec.title)}">
+        <div class="subsection-title">${sec.title}</div>
+        ${rows}
+      </div>`;
+  });
+
+  panel.innerHTML = `
+    <div class="card">
+      <div class="card-body">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:${reg ? 4 : 6}px">
+          <input type="text" class="form-input" id="sysname-${id}" value="${escAttr(name)}"
+            style="font-weight:600;font-size:13px;padding:7px 10px${reg ? ';background:var(--surface);color:var(--slate)' : ''}"
+            ${reg ? 'readonly title="Registered for this client. The office can rename it."'
+                  : `oninput="updateTabLabel(${id},this.value)"`}>
+          ${reg
+            ? '<span style="font-size:15px" title="Registered for this client">🔒</span>'
+            : `<button onclick="removeSystem(${id})" class="btn btn-danger btn-sm" style="width:auto;white-space:nowrap">🗑 Remove</button>`}
+        </div>
+        <div class="sys-reg-note" style="font-size:10px;color:var(--muted);margin-bottom:12px">${reg
+          ? 'Registered for this client. Not analysed today? Leave it empty — it will not appear on the report.'
+          : 'New system — it will be saved to this client when you submit. Name it the way the plant does.'}</div>
+        ${type === 'boiler' ? buildBoilerSpec(id) : ''}
+        ${sectionsHTML}
+        <div style="margin-top:12px">
+          <div class="subsection-title">Recommendations</div>
+          <textarea class="rec-textarea" id="rec-${id}" placeholder="Enter recommendations for this system..."></textarea>
+        </div>
+        <div style="margin-top:14px">
+          <div class="subsection-title">Treatment Program</div>
+          <div id="tp-${id}" style="display:flex;flex-direction:column;gap:8px"></div>
+          <button onclick="addTreatmentProduct(${id})" class="btn btn-secondary btn-sm" style="margin-top:8px;font-size:11px">+ Add Product</button>
+        </div>
+        ${buildTrendPicker(id, type)}
+      </div>
+    </div>`;
+
+  document.getElementById('sysPanels').appendChild(panel);
+  if (type === 'boiler') { fillBoilerSpec(id, reg); refreshSharedFeedRow(); }
+  switchTab(id);
+}
+
+function addTreatmentProduct(sysId) {
+  const container = document.getElementById(`tp-${sysId}`);
+  if (!container) return;
+  const idx = container.children.length;
+  const row = document.createElement('div');
+  row.style.cssText = 'background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px;position:relative';
+  row.innerHTML = `
+    <button onclick="this.parentElement.remove()" style="position:absolute;top:6px;right:8px;background:none;border:none;color:#ef4444;cursor:pointer;font-size:14px;font-weight:bold">✕</button>
+    <div style="display:grid;grid-template-columns:1fr;gap:6px">
+      <div>
+        <label style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.7px">Product</label>
+        <input type="text" class="form-input tp-product" placeholder="e.g. Product code" style="font-size:12px;padding:7px 9px;margin-top:2px">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+        <div>
+          <label style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.7px">Dosage (kg/day)</label>
+          <input type="number" step="0.01" class="form-input tp-dosage" placeholder="0" style="font-size:12px;padding:7px 9px;margin-top:2px">
+        </div>
+        <div>
+          <label style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.7px">Stock (kg)</label>
+          <input type="number" step="0.01" class="form-input tp-stock" placeholder="0" style="font-size:12px;padding:7px 9px;margin-top:2px">
+        </div>
+      </div>
+    </div>`;
+  container.appendChild(row);
+}
+
+function switchTab(id) {
+  document.querySelectorAll('.sys-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.sys-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById(`sys-tab-${id}`)?.classList.add('active');
+  document.getElementById(`sys-panel-${id}`)?.classList.add('active');
+}
+
+function updateTabLabel(id, val) {
+  const t = document.getElementById(`sys-tab-${id}`);
+  const sys = state.systems.find(s => s.id === id);
+  const def = PARAMS[sys?.type];
+  if (t && def) t.textContent = `${def.icon} ${val}`;
+}
+
+function removeSystem(id) {
+  if (!confirm('Remove this system?')) return;
+  document.getElementById(`sys-tab-${id}`)?.remove();
+  document.getElementById(`sys-panel-${id}`)?.remove();
+  state.systems = state.systems.filter(s => s.id !== id);
+  refreshSharedFeedRow();
+  if (state.systems.length) switchTab(state.systems[state.systems.length-1].id);
+}
+
+// jsPDF's built-in fonts quietly drop characters they cannot draw, so
+// "µS/cm" came out as "S/cm" on the report with nothing to show it had
+// failed. Anything printed through doc.text() goes through here first.
+// (Arabic takes a different route — it is drawn on a canvas.)
+const PDF_CHAR_FIXES = [
+  [/µ|μ/g, 'u'],   // micro sign and Greek mu
+  [/≥/g, '>='], [/≤/g, '<='],
+  [/×/g, 'x'],  [/÷/g, '/'],
+  [/₂/g, '2'],  [/₃/g, '3'], [/₄/g, '4'],
+  [/℃/g, 'C'],
+];
+function pdfSafe(s) {
+  let out = String(s == null ? '' : s);
+  for (const [re, to] of PDF_CHAR_FIXES) out = out.replace(re, to);
+  return out;
+}
+
+
+function onParamInput(input, sysId, paramId) {
+  const val  = parseFloat(input.value);
+  const min  = parseFloat(input.dataset.min);
+  const max  = parseFloat(input.dataset.max);
+  const dot  = document.getElementById(`dot-${sysId}-${paramId}`);
+
+  // A parameter with no limit is recorded, not judged — without this
+  // the comparison below runs against NaN, which is never true, and
+  // every chloride reading would come up red.
+  const noLimit = input.dataset.nolimit === '1' || (isNaN(min) && isNaN(max));
+
+  if (input.value === '') {
+    input.className = 'param-input';
+    dot.className   = 'status-dot';
+  } else if (noLimit) {
+    input.className = 'param-input';
+    dot.className   = 'status-dot';
+  } else if ((isNaN(min) || val >= min) && (isNaN(max) || val <= max)) {
+    input.className = 'param-input in-range';
+    dot.className   = 'status-dot ok';
+  } else {
+    input.className = 'param-input out-of-range';
+    dot.className   = 'status-dot bad';
+  }
+
+  // OH Alkalinity auto-calc: 2P - M
+  if (paramId === 'bw_palk' || paramId === 'bw_malk') {
+    calcOHAlk(sysId);
+  }
+  // LSI auto-calc (cooling tower)
+  if (['cw_ph','cw_ca','cw_alk','cw_tds','cw_temp'].includes(paramId)) {
+    calcLSI(sysId);
+  }
+  // Cycles of Concentration (boiler): Boiler Chloride ÷ Feed Chloride
+  if (paramId === 'bw_cl' || paramId === 'fw_cl') {
+    calcCycles(sysId);
+  }
+  // Estimated condensate return (boiler): from Softener vs Feed TDS
+  if (paramId === 'sw_tds' || paramId === 'fw_tds') {
+    calcCondReturn(sysId);
+  }
+}
+
+// Cycles of Concentration = Boiler Water Chloride ÷ Feed Water Chloride
+// Chloride is used because it does not precipitate, volatilise or react.
+function calcCycles(sysId) {
+  const bwCl = parseFloat(document.getElementById(`inp-${sysId}-bw_cl`)?.value);
+  const fwCl = parseFloat(document.getElementById(`inp-${sysId}-fw_cl`)?.value);
+  const out  = document.getElementById(`inp-${sysId}-bw_cyc`);
+  const dot  = document.getElementById(`dot-${sysId}-bw_cyc`);
+  if (!out) return;
+  if (isNaN(bwCl) || isNaN(fwCl) || fwCl <= 0) {
+    out.value = '';
+    if (dot) dot.className = 'status-dot calc';
+    return;
+  }
+  out.value = (bwCl / fwCl).toFixed(1);
+  if (dot) dot.className = 'status-dot calc';
+}
+
+// Estimated Condensate Return % from a TDS mass balance.
+// Assumes condensate TDS is negligible, so it is an estimate, not a measurement.
+//   Return % = (1 - Feed TDS / Softener TDS) x 100
+function calcCondReturn(sysId) {
+  const swTds = parseFloat(document.getElementById(`inp-${sysId}-sw_tds`)?.value);
+  const fwTds = parseFloat(document.getElementById(`inp-${sysId}-fw_tds`)?.value);
+  const out   = document.getElementById(`inp-${sysId}-fw_cret`);
+  const dot   = document.getElementById(`dot-${sysId}-fw_cret`);
+  if (!out) return;
+  if (isNaN(swTds) || isNaN(fwTds) || swTds <= 0) {
+    out.value = '';
+    if (dot) dot.className = 'status-dot calc';
+    return;
+  }
+  const pct = (1 - (fwTds / swTds)) * 100;
+  // Feed TDS above softener TDS means no dilution is happening — show nothing
+  // rather than a misleading negative number.
+  out.value = pct > 0 ? pct.toFixed(1) : '';
+  if (dot) dot.className = 'status-dot calc';
+}
+
+function calcLSI(sysId) {
+  const pH   = parseFloat(document.getElementById(`inp-${sysId}-cw_ph`)?.value);
+  const ca   = parseFloat(document.getElementById(`inp-${sysId}-cw_ca`)?.value);
+  const alk  = parseFloat(document.getElementById(`inp-${sysId}-cw_alk`)?.value);
+  const tds  = parseFloat(document.getElementById(`inp-${sysId}-cw_tds`)?.value);
+  const temp = parseFloat(document.getElementById(`inp-${sysId}-cw_temp`)?.value);
+  const out  = document.getElementById(`inp-${sysId}-cw_lsi`);
+  const dot  = document.getElementById(`dot-${sysId}-cw_lsi`);
+  if (!out) return;
+  if (isNaN(pH) || isNaN(ca) || isNaN(alk) || isNaN(temp) || ca <= 0 || alk <= 0) {
+    out.value = '';
+    if (dot) dot.className = 'status-dot calc';
+    return;
+  }
+  // pHs = (9.3 + A + B) - (C + D)
+  const A = (!isNaN(tds) && tds > 0) ? (Math.log10(tds) - 1) / 10 : 0;
+  const B = (() => {
+    const tbl = [[0,2.60],[5,2.50],[10,2.44],[15,2.34],[20,2.22],[25,2.10],[30,1.97],
+                 [35,1.84],[40,1.70],[45,1.55],[50,1.40],[55,1.25],[60,1.10],[70,0.83],[80,0.62]];
+    for (let i = 0; i < tbl.length - 1; i++) {
+      if (temp >= tbl[i][0] && temp <= tbl[i+1][0]) {
+        const t = (temp - tbl[i][0]) / (tbl[i+1][0] - tbl[i][0]);
+        return tbl[i][1] + t * (tbl[i+1][1] - tbl[i][1]);
+      }
+    }
+    return temp < 0 ? 2.60 : 0.62;
+  })();
+  const C = Math.log10(ca) - 0.4;
+  const D = Math.log10(alk);
+  out.value = (pH - ((9.3 + A + B) - (C + D))).toFixed(2);
+  if (dot) dot.className = 'status-dot calc';
+}
+
+function calcOHAlk(sysId) {
+  const pAlk = parseFloat(document.getElementById(`inp-${sysId}-bw_palk`)?.value) || 0;
+  const mAlk = parseFloat(document.getElementById(`inp-${sysId}-bw_malk`)?.value) || 0;
+  const ohInp = document.getElementById(`inp-${sysId}-bw_ohalk`);
+  const ohDot = document.getElementById(`dot-${sysId}-bw_ohalk`);
+  if (!ohInp) return;
+  if (pAlk > 0 || mAlk > 0) {
+    const oh = (2 * pAlk) - mAlk;
+    ohInp.value = oh >= 0 ? oh.toFixed(1) : 0;
+    ohDot.className = 'status-dot calc';
+  } else {
+    ohInp.value = '';
+  }
+}
+
+// ══════════════════════════════════════════
+// COLLECT DATA
+// ══════════════════════════════════════════
+// Writes what the engineer entered about the plant back to the client's
+// record, so the next visit starts with it filled in. Deliberately
+// separate from filing the report: if the engineer lacks permission on
+// this client, or the site is offline, the report still stands.
+// The systems themselves, and the boilers' details, are registered by
+// the database as the report arrives. What is left to remember here is
+// the one answer that belongs to the whole site.
+async function rememberSite() {
+  if (!state.client?.id) return;
+
+  // The shared-supply answer belongs to the site. Only send it when the
+  // engineer actually saw the question — with one boiler the checkbox is
+  // hidden, and a hidden control must not overwrite a real answer.
+  const row = document.getElementById('sharedFeedRow');
+  const chk = document.getElementById('sharedFeedChk');
+  if (row && chk && row.style.display !== 'none') {
+    const want = chk.checked;
+    if (want !== (state.client.shared_feed !== false)) {
+      const { error } = await sb.from('clients')
+        .update({ shared_feed: want })
+        .eq('id', state.client.id);
+      if (!error) state.client.shared_feed = want;
+    }
+  }
+}
+
+// ══════════════════════════════════════════
+//  THE READINGS TABLE
+// ══════════════════════════════════════════
+// Sample points run across the top and parameters down the side, so pH
+// is written once instead of once per sample point, and the four points
+// can be compared along a single line. A boiler drops from twenty rows
+// to twelve, which is what makes room for a second system on the page.
+
+// Turns one system's readings into columns (the sample points that were
+// actually filled in) and rows (every parameter that appears in any of
+// them, in the order the form asks for them).
+function buildSystemMatrix(sys) {
+  const def = PARAMS[sys.type];
+  if (!def) return null;
+
+  const cols = [];
+  def.sections.forEach(sec => {
+    const data = sys.sections && sys.sections[sec.title];
+    if (data && Object.keys(data).length) cols.push({ title: sec.title, data, sec });
+  });
+  if (!cols.length) return null;
+
+  const order = [];
+  const seen = new Set();
+  def.sections.forEach(sec => sec.params.forEach(p => {
+    if (!seen.has(p.label)) { seen.add(p.label); order.push(p.label); }
+  }));
+
+  const rows = [];
+  order.forEach(label => {
+    const cells = cols.map(c => {
+      const v = c.data[label];
+      if (v === undefined || v === '') return null;
+      const p = c.sec.params.find(pp => pp.label === label);
+      return { value: String(v), mark: paramMark(p || {}, parseFloat(v)) };
+    });
+    if (cells.every(c => c === null)) return;
+
+    // Unit and the calculated flag come from the first section that
+    // defines the parameter; they do not differ between sample points.
+    let unit = '', calc = false;
+    for (const c of cols) {
+      const p = c.sec.params.find(pp => pp.label === label);
+      if (p) { unit = p.unit || ''; calc = !!p.calc; break; }
+    }
+    rows.push({ label, unit, calc, cells });
+  });
+
+  return rows.length ? { cols, rows } : null;
+}
+
+// Draws one matrix. Kept separate from building it so the boiler house,
+// whose columns are boilers rather than sample points, can use the same
+// table rather than a second one that drifts out of step.
+function drawMatrix(doc, cols, rows, M, CW, y) {
+  if (!cols.length || !rows.length) return y;
+
+  const LABEL_W = 62;                                   // mm
+  const colW    = (CW - LABEL_W) / cols.length;
+  const ROW_H   = 6.0;
+  const anySub  = cols.some(c => c.sub);
+  const HEAD_H  = anySub ? 9.5 : 7;
+
+  const header = () => {
+    doc.setFillColor(235, 235, 232);
+    doc.rect(M, y, CW, HEAD_H, 'F');
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(6.5);
+    doc.setTextColor(51, 51, 51);
+    doc.text('PARAMETER', M + 3, y + 4.6);
+    cols.forEach((c, i) => {
+      const cx = M + LABEL_W + colW * i + colW / 2;
+      drawCellText(doc, String(c.title).toUpperCase(), cx, y + 4.6, colW - 2,
+                   6.5, [51, 51, 51], true, [235, 235, 232], 'center');
+      if (c.sub) {
+        drawCellText(doc, c.sub, cx, y + 7.8, colW - 2,
+                     5.4, [110, 110, 110], false, [235, 235, 232], 'center');
+      }
+    });
+    doc.setDrawColor(20, 20, 20); doc.setLineWidth(0.4);
+    doc.line(M, y + HEAD_H, M + CW, y + HEAD_H);
+    doc.setLineWidth(0.2);
+    y += HEAD_H;
+  };
+
+  header();
+
+  rows.forEach(r => {
+    if (y + ROW_H > PAGE_BOTTOM) {
+      doc.addPage(); y = 16;
+      header();
+    }
+
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(7.6);
+    doc.setTextColor(20, 20, 20);
+    doc.text(pdfSafe(r.label), M + 3, y + 4.3);
+
+    // A calculated figure is marked so nobody reads it as a measurement.
+    let after = M + 3 + doc.getTextWidth(pdfSafe(r.label));
+    if (r.calc) {
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(6.5);
+      doc.setTextColor(110, 110, 110);
+      doc.text('f', after + 1.2, y + 4.3);
+      after += 3;
+    }
+    if (r.unit) {
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(6.3);
+      doc.setTextColor(110, 110, 110);
+      doc.text(pdfSafe(r.unit), after + 1.6, y + 4.3);
+    }
+
+    r.cells.forEach((cell, i) => {
+      const cx = M + LABEL_W + colW * i + colW / 2;
+      if (!cell) {
+        // Not measured at this sample point — said with a dot, not a gap,
+        // so an empty cell cannot be mistaken for a missed reading.
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
+        doc.setTextColor(201, 201, 197);
+        doc.text('.', cx, y + 3.6, { align: 'center' });
+        return;
+      }
+      const bad = cell.mark.glyph !== '';
+      if (bad) { doc.setFillColor(253, 246, 238); doc.rect(M + LABEL_W + colW * i, y, colW, ROW_H, 'F'); }
+
+      doc.setFont('courier', 'bold'); doc.setFontSize(8);
+      if (bad) doc.setTextColor(138, 58, 8); else doc.setTextColor(20, 20, 20);
+      const txt = pdfSafe(cell.value);
+      doc.text(txt, cx, y + 4.3, { align: 'center' });
+
+      if (bad) {
+        const tx = cx + doc.getTextWidth(txt) / 2 + 2.4;
+        const cy = y + 3.1, rr = 1.5;
+        doc.setFillColor(138, 58, 8);
+        if (cell.mark.glyph === '▲') {
+          doc.triangle(tx, cy - rr, tx - rr, cy + rr, tx + rr, cy + rr, 'F');
+        } else {
+          doc.triangle(tx, cy + rr, tx - rr, cy - rr, tx + rr, cy - rr, 'F');
+        }
+      }
+    });
+
+    doc.setDrawColor(230, 230, 227);
+    doc.line(M, y + ROW_H, M + CW, y + ROW_H);
+    y += ROW_H;
+  });
+
+  return y + 3;
+}
+
+function drawSystemMatrix(doc, sys, M, CW, y) {
+  const mx = buildSystemMatrix(sys);
+  if (!mx) return y;
+  return drawMatrix(doc, mx.cols, mx.rows, M, CW, y);
+}
+
+// ── The boiler house ──
+// Several boilers usually draw on one softener and one feed tank, so
+// those readings are taken once and belong to the house, not to any one
+// boiler. Printing them per boiler invites two different answers for the
+// same water in the same report. The structure holds for a single boiler
+// too, so the client sees the same document shape every month.
+const BOILER_SHARED_SECTIONS = ['Softener Water', 'Feed Water', 'Condensate Return'];
+const BOILER_UNIT_SECTION    = 'Boiler Water';
+
+function buildBoilerHouse(boilers) {
+  const def = PARAMS.boiler;
+
+  // Common: one column per shared sample point that anyone recorded.
+  const commonCols = [];
+  BOILER_SHARED_SECTIONS.forEach(title => {
+    const sec = def.sections.find(s => s.title === title);
+    if (!sec) return;
+    const owner = boilers.find(b => b.sections && b.sections[title] &&
+                                    Object.keys(b.sections[title]).length);
+    if (owner) commonCols.push({ title, data: owner.sections[title], sec });
+  });
+
+  const commonRows = [];
+  commonCols.forEach(() => {});
+  const seen = new Set();
+  BOILER_SHARED_SECTIONS.forEach(title => {
+    const sec = def.sections.find(s => s.title === title);
+    if (!sec) return;
+    sec.params.forEach(p => {
+      if (seen.has(p.label)) return;
+      seen.add(p.label);
+      const cells = commonCols.map(c => {
+        const v = c.data[p.label];
+        if (v === undefined || v === '') return null;
+        const pp = c.sec.params.find(q => q.label === p.label) || p;
+        return { value: String(v), mark: paramMark(pp, parseFloat(v)) };
+      });
+      if (cells.every(c => c === null)) return;
+      commonRows.push({ label: p.label, unit: p.unit || '', calc: !!p.calc, cells });
+    });
+  });
+
+  // Per unit: one column per boiler.
+  const unitSec  = def.sections.find(s => s.title === BOILER_UNIT_SECTION);
+  const unitCols = boilers.map(b => {
+    const bits = [];
+    if (b.spec?.capacity_tph) bits.push(b.spec.capacity_tph + ' t/h');
+    if (b.spec?.pressure_bar) bits.push(b.spec.pressure_bar + ' bar');
+    return {
+      title: b.name,
+      sub: bits.join(' · '),
+      data: (b.sections && b.sections[BOILER_UNIT_SECTION]) || {},
+      sec: unitSec,
+    };
+  });
+
+  const unitRows = [];
+  if (unitSec) {
+    unitSec.params.forEach(p => {
+      const cells = unitCols.map(c => {
+        const v = c.data[p.label];
+        if (v === undefined || v === '') return null;
+        return { value: String(v), mark: paramMark(p, parseFloat(v)) };
+      });
+      if (cells.every(c => c === null)) return;
+      unitRows.push({ label: p.label, unit: p.unit || '', calc: !!p.calc, cells });
+    });
+  }
+
+  return { commonCols, commonRows, unitCols, unitRows };
+}
+
+function drawBoilerHouse(doc, boilers, M, CW, y) {
+  const h = buildBoilerHouse(boilers);
+
+  const bar = (text) => {
+    if (y > PAGE_BOTTOM - 26) { doc.addPage(); y = 16; }
+    doc.setFillColor(20, 20, 20);
+    doc.rect(M, y, CW, 7.5, 'F');
+    drawCellText(doc, text, M + 3, y + 5.2, CW - 6, 8.5,
+                 [255, 255, 255], true, [20, 20, 20], 'left');
+    y += 8.5;
+  };
+
+  if (h.commonRows.length) {
+    bar('BOILER HOUSE — COMMON');
+    y = drawMatrix(doc, h.commonCols, h.commonRows, M, CW, y);
+  }
+  if (h.unitRows.length) {
+    bar('BOILER WATER — PER UNIT');
+    y = drawMatrix(doc, h.unitCols, h.unitRows, M, CW, y);
+  }
+  return y;
+}
+
+// A system with no readings, no recommendation and no chemicals is a
+// tab the engineer opened and thought better of. It is kept in the
+// stored record — the engineer's own notes may still matter — but it
+// has nothing to say to the client.
+function isEmptySystem(sys) {
+  if (!sys) return true;
+  const hasReadings  = sys.readings && Object.keys(sys.readings).length > 0;
+  const hasRec       = !!(sys.recommendations && sys.recommendations.trim());
+  const hasTreatment = !!(sys.treatment && sys.treatment.length);
+  return !hasReadings && !hasRec && !hasTreatment;
+}
+
+function collectSystems() {
+  return state.systems.map(sys => {
+    const def     = PARAMS[sys.type];
+    const name    = (document.getElementById(`sysname-${sys.id}`)?.value || '').trim() || def.label;
+    const rec     = document.getElementById(`rec-${sys.id}`)?.value || '';
+    // Collect readings per section to avoid mixing
+    const sections = {};
+    def.sections.forEach(sec => {
+      const secReadings = {};
+      sec.params.forEach(p => {
+        const el = document.getElementById(`inp-${sys.id}-${p.id}`);
+        const v  = el?.value;
+        if (v !== '' && v !== undefined && v !== null) {
+          secReadings[p.label] = v;
+        }
+      });
+      if (Object.keys(secReadings).length > 0) {
+        sections[sec.title] = secReadings;
+      }
+    });
+    // Flatten for email/sheets compatibility
+    const readings = {};
+    Object.values(sections).forEach(sr => Object.assign(readings, sr));
+    // Collect treatment program
+    const treatment = [];
+    const tpContainer = document.getElementById(`tp-${sys.id}`);
+    if (tpContainer) {
+      tpContainer.querySelectorAll(':scope > div').forEach(row => {
+        const product = row.querySelector('.tp-product')?.value?.trim() || '';
+        const dosage  = row.querySelector('.tp-dosage')?.value || '';
+        const stock   = row.querySelector('.tp-stock')?.value || '';
+        if (product) {
+          treatment.push({ product, dosage, stock });
+        }
+      });
+    }
+    const trends = getSelectedTrends(sys.id);
+
+    // The boiler's own details travel with the report, so a report read
+    // in two years still says what the readings were judged against,
+    // even if the plant has changed since.
+    let spec = null;
+    if (sys.type === 'boiler') {
+      const cap = parseFloat(document.getElementById(`cap-${sys.id}`)?.value);
+      const prs = parseFloat(document.getElementById(`prs-${sys.id}`)?.value);
+      if (!isNaN(cap) || !isNaN(prs)) {
+        spec = {
+          capacity_tph: isNaN(cap) ? null : cap,
+          pressure_bar: isNaN(prs) ? null : prs,
+        };
+      }
+    }
+
+    return { id: sys.id, system_id: sys.systemId || null, type: sys.type, stype: def, name,
+             sections, readings, recommendations: rec, treatment, trends, spec };
+  });
+}
+
+// ══════════════════════════════════════════
+// REVIEW
+// ══════════════════════════════════════════
+function buildReview() {
+  const systemsData = collectSystems();
+  const visitType   = document.getElementById('visitType').value;
+  const visitNotes  = document.getElementById('visitNotes').value;
+
+  const sysSummary = systemsData.map(sys => {
+    // Counted per section, and judged by the same rule that colours the
+    // fields. The flat readings map is keyed by label alone, so the four
+    // pH fields collapse into one entry: counting from it under-reported
+    // how many readings were taken and judged condensate pH against the
+    // softener's limits.
+    let filled = 0;
+    const outNames = [];
+    const sectionVals = sys.sections && Object.keys(sys.sections).length
+      ? sys.sections
+      : { '': sys.readings || {} };          // reports written before sections
+    Object.entries(sectionVals).forEach(([secTitle, vals]) => {
+      Object.entries(vals || {}).forEach(([label, v]) => {
+        if (v === '' || v === null || v === undefined) return;
+        filled++;
+        const p = secTitle
+          ? findParamDefSec(sys.type, label, secTitle)
+          : findParamDef(sys.type, label);
+        if (p && paramMark(p, parseFloat(v)).glyph) outNames.push(label);
+      });
+    });
+    const outRange = outNames.length;
+    return `
+      <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border)">
+        <span style="font-size:18px">${sys.stype.icon}</span>
+        <div style="flex:1">
+          <div style="font-weight:600;font-size:12px">${sys.name}</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px">${filled} readings · ${outRange > 0 ? `<span style="color:var(--red)">${outRange} out of range: ${outNames.join(', ')}</span>` : '<span style="color:var(--green)">All in range</span>'}</div>
+          ${sys.recommendations ? `<div style="font-size:10px;color:var(--slate);margin-top:3px;font-style:italic">"${sys.recommendations.slice(0,55)}${sys.recommendations.length>55?'...':''}"</div>` : ''}
+        </div>
+      </div>`;
+  }).join('');
+
+  document.getElementById('reviewCard').innerHTML = `
+    <div class="card-body">
+      <div style="display:flex;justify-content:space-between;margin-bottom:10px">
+        <div>
+          <div style="font-weight:700;font-size:14px">${state.client?.name || 'Free Visit'}</div>
+          <div style="font-size:10px;color:var(--muted);font-family:'ui-monospace, SF Mono, Consolas',monospace;margin-top:2px">${state.reportRef}</div>
+        </div>
+        <span class="chip-pending">Pending</span>
+      </div>
+      <div style="font-size:11px;color:var(--slate);margin-bottom:10px"><strong>Visit:</strong> ${visitType}${visitNotes ? ' — '+visitNotes : ''}</div>
+      ${sysSummary || '<div style="color:var(--muted);font-size:12px;text-align:center;padding:16px">No systems added</div>'}
+    </div>`;
+
+  // Recipients
+  const eng = state.engineer;
+  const cli = state.client;
+  document.getElementById('emailRecipients').innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:7px">
+      <div style="display:flex;gap:8px;font-size:11px;color:var(--slate);align-items:center">
+        <span>📧</span><strong>Office:</strong> <span style="font-family:'ui-monospace, SF Mono, Consolas',monospace;font-size:10px">${MANAGEMENT_EMAIL}</span>
+      </div>
+      <div style="display:flex;gap:8px;font-size:11px;color:var(--slate);align-items:center">
+        <span>📧</span><strong>Client:</strong> <span style="font-family:'ui-monospace, SF Mono, Consolas',monospace;font-size:10px">${cli?.email || '—'}</span>
+      </div>
+      <div style="display:flex;gap:8px;font-size:11px;color:var(--slate);align-items:center">
+        <span>📧</span><strong>Engineer:</strong> <span style="font-family:'ui-monospace, SF Mono, Consolas',monospace;font-size:10px">${eng?.email || '—'}</span>
+      </div>
+    </div>`;
+}
+
+// ══════════════════════════════════════════
+// SUBMIT
+// ══════════════════════════════════════════
+async function submitReport() {
+  // The id is minted here, on the device, BEFORE anything is sent. If the
+  // connection drops and the app retries, the database rejects the second
+  // insert on this primary key — so a visit can never be filed twice.
+  const reportId = (crypto.randomUUID
+    ? crypto.randomUUID()
+    : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+        const r = Math.random() * 16 | 0;
+        return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+      }));
+
+  showLoading('Saving report...');
+  try {
+    const systemsData = collectSystems();
+    const visitType   = document.getElementById('visitType').value;
+    const visitNotes  = document.getElementById('visitNotes').value;
+    const clientEmail = state.client?.email || '';
+    const engEmail    = state.engineer?.email || '';
+
+    const prospectName    = document.getElementById('prospectName')?.value || '';
+    const prospectContact = document.getElementById('prospectContact')?.value || '';
+    const prospectPhone   = document.getElementById('prospectPhone')?.value || '';
+    const prospectRegion  = document.getElementById('prospectRegion')?.value || '';
+
+    // ── 1. Write the record first, so the visit is never lost ──
+    const reportRow = {
+      id:            reportId,
+      ref:           state.reportRef,
+      client_id:     state.client?.id || null,
+      engineer_id:   me.id,
+      client_name:   state.client?.name   || prospectName || 'Free Visit',
+      client_code:   state.client?.code   || 'FREE-VISIT',
+      engineer_name: state.engineer?.name || '',
+      region:        state.client?.region || prospectRegion || '',
+      visit_mode:    state.visitMode,
+      visit_type:    visitType,
+      notes:         visitNotes,
+      systems:       systemsData,
+      prospect_contact: prospectContact || null,
+      prospect_phone:   prospectPhone   || null,
+      gps_lat:       visitLocation?.lat      ?? null,
+      gps_lng:       visitLocation?.lng      ?? null,
+      gps_accuracy:  visitLocation?.accuracy ?? null,
+      submitted_at:  new Date().toISOString(),
+    };
+
+    // A visit written up in a plant room with no signal is still a
+    // finished visit. Rather than losing it, the whole thing — record
+    // and PDF — is held on the phone and sent on its own later.
+    let offline = !navigator.onLine;
+    if (!offline) {
+      const { error: insErr } = await sb.from('reports').insert(reportRow);
+      if (insErr) {
+        if (insErr.code === '23505') throw new Error('This report was already submitted.');
+        if (looksOffline(insErr)) offline = true;
+        else throw insErr;
+      }
+    }
+
+    // Remember the plant for next time. This is a convenience, not part
+    // of the report, so a failure here must never cost the engineer the
+    // visit he has just finished writing up.
+    if (!offline) {
+      await rememberSite().catch(() => {});
+      // The report has just registered any new systems; fetch the list
+      // now so this phone has it for the next visit, signal or not.
+      loadClientSystems(state.client?.id).catch(() => {});
+    }
+
+    // ── 2. Trend charts, if the engineer asked for them ──
+    // Trends need the client's history, which lives on the server.
+    let trendSeries = {};
+    if (!offline && systemsData.some(sy => sy.trends && sy.trends.length)) {
+      showLoading('Building performance trends...');
+      trendSeries = await buildTrendSeries(systemsData);
+    }
+
+    // ── 3. The PDF ──
+    showLoading('Generating PDF...');
+    const pdfResult = await generatePDF(systemsData, visitType, visitNotes,
+                                        prospectName, prospectContact, trendSeries);
+
+    // ── 4. Hand off to the server: upload to Drive, send the emails ──
+    showLoading('Sending reports...');
+    const emailBody = buildEmailBody(systemsData, visitType, visitNotes,
+                                     prospectName, prospectContact, prospectPhone, '');
+    const delivery = {
+      report_id:   reportId,
+      ref:         state.reportRef,
+      client_name: state.client?.name || prospectName || 'Free Visit',
+      pdf_base64:  pdfResult.base64Clean,
+      email_html:  emailBody,
+      recipients: {
+        management: MANAGEMENT_EMAIL,
+        client:     state.visitMode === 'free' ? '' : clientEmail,
+        engineer:   engEmail,
+      },
+    };
+
+    let delivered = false;
+    let queued    = false;
+
+    if (offline) {
+      await queueReport({ id: reportId, row: reportRow, delivery });
+      queued = true;
+    } else try {
+      const { data: fnData, error: fnErr } = await sb.functions.invoke('deliver-report', {
+        body: delivery,
+      });
+      if (fnErr) throw fnErr;
+      // Trust `success` when the function sends it, but fall back to the
+      // delivery counts so an older deployment of the function does not
+      // make a report that was in fact emailed look like a failure.
+      delivered = !!(fnData && (
+        fnData.success === true ||
+        (fnData.sent > 0 && (!fnData.failed || fnData.failed.length === 0))
+      ));
+    } catch (e) {
+      console.error('Delivery failed:', e);
+      // The record is filed but the emails did not go. Hold the delivery
+      // so it is retried rather than left to the office to notice.
+      if (looksOffline(e)) {
+        await queueReport({ id: reportId, row: reportRow, delivery });
+        queued = true;
+      }
+    }
+
+    if (typeof refreshOfflineBar === 'function') refreshOfflineBar();
+
+    downloadPDF(pdfResult.dataUri, state.reportRef);
+    hideLoading();
+
+    // ── 5. Confirmation ──
+    document.getElementById('successRef').textContent = state.reportRef;
+    const rows = [
+      { label: 'Technical Office', email: MANAGEMENT_EMAIL },
+      { label: 'Client',           email: state.visitMode === 'free'
+                                            ? 'Not sent (free visit)'
+                                            : (clientEmail || 'No email on file') },
+      { label: 'Engineer',         email: engEmail || 'No email on file' },
+    ];
+    // Three different things can have happened, and the engineer has to
+    // be able to tell which: it went, it is waiting on this phone, or
+    // it is filed but the emails failed for a reason that is not signal.
+    document.getElementById('emailsSent').innerHTML =
+      delivered
+        ? rows.map(r => `<div class="email-sent-row">✓ <strong>${r.label}:</strong> ${r.email}</div>`).join('')
+      : queued
+        ? `<div class="email-sent-row" style="color:#1e3a8a;background:#dbeafe;border-radius:8px;padding:10px 12px">
+             <strong>Saved on this phone.</strong><br>
+             No signal right now — it will send on its own the moment you are back
+             online. You can close the app; it will not be lost.
+           </div>`
+        : `<div class="email-sent-row" style="color:#92400e">
+           ⚠ Report saved, but the emails could not be sent just now.
+           The office can resend it from the dashboard.
+         </div>`;
+
+    goScreen('success');
+  } catch (err) {
+    hideLoading();
+    showToast('Error: ' + (err.message || 'Could not submit'), 'error');
+    console.error(err);
+  }
+}
+
+// ══════════════════════════════════════════
+// EMAIL BODY
+// ══════════════════════════════════════════
+function buildEmailBody(systemsData, visitType, visitNotes, prospectName, prospectContact, prospectPhone, pdfLink) {
+  let body = '';
+
+  if (visitNotes) {
+    body += `<p style="font-size:12px;color:#666;font-style:italic;margin:0 0 14px;padding:8px 12px;background:#f8fafc;border-radius:6px">📝 ${visitNotes}</p>`;
+  }
+
+  if (prospectName) {
+    body += `
+      <div style="margin-bottom:16px;padding:12px 14px;background:#fff8e1;border:1px solid #fde68a;border-radius:8px;font-size:12px">
+        <strong style="color:#92400e">🆓 Free Water Analysis Visit</strong><br>
+        <span style="color:#78350f">Prospect: ${prospectName}</span><br>
+        ${prospectContact ? `<span style="color:#78350f">Contact: ${prospectContact}</span><br>` : ''}
+        ${prospectPhone   ? `<span style="color:#78350f">Phone: ${prospectPhone}</span>` : ''}
+      </div>`;
+  }
+
+  systemsData.forEach(sys => {
+    const def = PARAMS[sys.type];
+    if (!def) return;
+    if (isEmptySystem(sys)) return;   // nothing was entered for it
+
+    body += `<div style="margin-bottom:18px;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden">`;
+    body += `<div style="font-size:13px;font-weight:700;color:#fff;padding:9px 14px;background:#1a56db">${def.icon} ${sys.name}</div>`;
+
+    // Iterate through DEFINED sections in order — strict isolation per section
+    def.sections.forEach(sec => {
+      // Get this section's data only (no fallback to flat readings)
+      const secData = (sys.sections && sys.sections[sec.title]) || null;
+      if (!secData) return; // Skip section if no data for it
+
+      const rows = [];
+      sec.params.forEach(p => {
+        const v = secData[p.label];
+        if (v !== undefined && v !== '' && v !== null) {
+          rows.push({ p, v });
+        }
+      });
+
+      if (rows.length === 0) return;
+
+      // Section sub-header — bold, consistent styling
+      body += `<div style="background:#f1f5f9;padding:7px 14px;font-size:11px;font-weight:700;color:#1e293b;text-transform:uppercase;letter-spacing:0.8px;border-top:1px solid #e2e8f0">${sec.title}</div>`;
+
+      // Table
+      body += `<table style="width:100%;border-collapse:collapse">`;
+      rows.forEach((row, i) => {
+        const p = row.p;
+        const v = row.v;
+        const numV = parseFloat(v);
+        // Only exceptions are marked, and the mark says which way the
+        // reading went wrong. Everything else — in range, or no range
+        // set — simply reads as a plain black number.
+        const mark = paramMark(p, numV);
+        const bg = i % 2 === 0 ? '#ffffff' : '#f8fafc';
+        body += `<tr style="background:${bg}">
+          <td style="padding:7px 14px;font-size:12px;color:#334155;border-top:1px solid #e2e8f0;width:50%">${p.label}</td>
+          <td style="padding:7px 12px;font-size:12px;font-weight:700;color:${mark.color};border-top:1px solid #e2e8f0;font-family:monospace">${v}</td>
+          <td style="padding:7px 12px;font-size:10px;color:#94a3b8;border-top:1px solid #e2e8f0;font-family:monospace">${p.unit}</td>
+          <td style="padding:7px 10px;border-top:1px solid #e2e8f0;text-align:center;width:30px;font-size:12px;font-weight:700;color:${mark.color}">${mark.glyph}</td>
+        </tr>`;
+      });
+      body += `</table>`;
+    });
+
+    if (sys.recommendations) {
+      body += `<div style="padding:10px 14px;background:#eff6ff;border-top:1px solid #bfdbfe;font-size:12px;color:#1e3a5f"><strong>Recommendations:</strong> ${sys.recommendations}</div>`;
+    }
+
+    // Treatment Program
+    if (sys.treatment && sys.treatment.length > 0) {
+      body += `<div style="background:#f1f5f9;padding:7px 14px;font-size:11px;font-weight:700;color:#1e293b;text-transform:uppercase;letter-spacing:0.8px;border-top:1px solid #e2e8f0">TREATMENT PROGRAM</div>`;
+      body += `<table style="width:100%;border-collapse:collapse">`;
+      body += `<tr style="background:#f8fafc">
+        <td style="padding:6px 14px;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.6px;border-top:1px solid #e2e8f0">Product</td>
+        <td style="padding:6px 14px;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.6px;border-top:1px solid #e2e8f0">Dosage (kg/day)</td>
+        <td style="padding:6px 14px;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.6px;border-top:1px solid #e2e8f0">Stock (kg)</td>
+      </tr>`;
+      sys.treatment.forEach((t, i) => {
+        const bg = i % 2 === 0 ? '#ffffff' : '#f8fafc';
+        body += `<tr style="background:${bg}">
+          <td style="padding:7px 14px;font-size:12px;font-weight:600;color:#0a1628;border-top:1px solid #e2e8f0">${t.product}</td>
+          <td style="padding:7px 14px;font-size:12px;color:#334155;border-top:1px solid #e2e8f0;font-family:monospace">${t.dosage || '—'}</td>
+          <td style="padding:7px 14px;font-size:12px;color:#334155;border-top:1px solid #e2e8f0;font-family:monospace">${t.stock || '—'}</td>
+        </tr>`;
+      });
+      body += `</table>`;
+    }
+
+    body += `</div>`;
+  });
+
+  // Trend charts live in the PDF only — point the reader there
+  if (systemsData.some(sy => sy.trends && sy.trends.length)) {
+    body += `<div style="margin-top:16px;padding:10px 14px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;font-size:11px;color:#1e3a5f">📈 Performance trend charts for the last visits are included in the attached PDF report.</div>`;
+  }
+
+  // The PDF is attached to this email and filed on Drive by the
+  // delivery function, which also adds the download button below —
+  // so no note about the engineer's device belongs here any more.
+
+  // PDF Download Button (if link available)
+  if (pdfLink) {
+    body += `
+      <div style="margin-top:24px;padding:20px;background:linear-gradient(135deg,#1a56db,#3b82f6);border-radius:12px;text-align:center">
+        <div style="color:rgba(255,255,255,0.85);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1.2px;margin-bottom:10px">Full Report Available</div>
+        <a href="${pdfLink}" target="_blank" style="display:inline-block;background:white;color:#1a56db;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;box-shadow:0 4px 12px rgba(0,0,0,0.15)">📄 Download PDF Report</a>
+        <div style="color:rgba(255,255,255,0.7);font-size:11px;margin-top:10px">Click to view or download the complete service report</div>
+      </div>`;
+  }
+
+  return body;
+}
+
+// ══════════════════════════════════════════
+// PDF GENERATION
+// ══════════════════════════════════════════
+// Helper: render Arabic or mixed text to image and add to PDF
+// Draws text that may be Arabic, Latin, or mixed.
+//
+// IMPORTANT: `y` is the TOP of the text block in BOTH branches, and the
+// returned value is the block's height in mm. Latin text goes through jsPDF
+// (which positions by baseline, so we add the ascent); Arabic is rendered to a
+// canvas and placed as an image (positioned by its top). Keeping one
+// convention is what stops headings from sitting above their coloured bars.
+const PT_TO_MM = 0.3528;
+// The lowest a block may start and still sit inside the page frame.
+const PAGE_BOTTOM = 279;
+const ARABIC_RE = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
+
+// Embedded rather than fetched: an engineer in a boiler house with no
+// signal still gets a report with the company's mark on it.
+const PWT_LOGO = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAQDAwQDAwQEBAQFBQQFBwsHBwYGBw4KCggLEA4RERAOEA8SFBoWEhMYEw8QFh8XGBsbHR0dERYgIh8cIhocHRz/2wBDAQUFBQcGBw0HBw0cEhASHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBz/wAARCACkAPADASIAAhEBAxEB/8QAHQAAAQUBAQEBAAAAAAAAAAAAAAQFBgcIAQMCCf/EAFsQAAECBQAEBQsOCQoEBwAAAAECAwAEBQYRBxIhMQgTFEGTFRYiUVNUYXGBktEJFzI1NlVydJGUoaKxsjNCUnOCs7TB0iMkJTc5RGJ14fAmNEO1Jyk4ZHbC8f/EABsBAQACAwEBAAAAAAAAAAAAAAAFBgEDBAcC/8QAPxEAAQMBAwYKCQMEAwEAAAAAAQACAwQFEZESITFBcdEGExZRUlNhscHhFCIzNFRygaHSMkLwFSM1kiSCwvH/2gAMAwEAAhEDEQA/AN+mIDfelGQtEqk5dAnKtjPEhWENdorP7ht8Ueuk69zZ9GCZVSeqk5lDAO3UA9ksjwZGPCRGZ0ImKjNao13pp9ZJJOVLUdpJP74n7IskVA4+f9Hf5KpcIbfdSO9FpfaHSebzT5X76r9yLVy6ou8SdzDJ4tsfojf5cxHkBTmdRKlfBGYkpk6ZbuBPp5bPkZ4hJ7BHj/1+SPFV3zyexlm5eXb5kobziLTEQ1uTAy4YBUOcOe7KqpCXYnvu+6Y+Id7i55hg4h7uTnmGHnrvq3d0dGIOu+rd3R0YjblTdEY+S05FP0jgN6ZuIe7k55hg4h0/9JzzDDz131bu6OjEHXfVu7o6MQypuiMfJMmn6RwG9M3EO9yc8wx3iHe5OeYYeOu+rd3R0Yg676t3dHRiGVN0Rj5JkU/SOA3pm4h3uTnmGDiHe5OeYYeeu+rd3R0YjnXfVu7o6MQypuiMfJMin6RwG9M/Evdyc8wwcQ93FzzDDz131bu6OjEHXfVu7o6MQypuiMfJMin6RwG9M3EPdyc8wwcQ93FzzDDz131bu6OjEHXfVu7o6MQypuiMfJMin6RwG9M3EPdyc8wwcS93JzzDDz131bu6OjEHXfVu7o6MQypuiMfJMin6RwG9M3EOn/pOeYYOId7k55hh5676t3dHRiDrvq3d0dGIZU3RGPkmRT9I4DembiHe5OeYY6GHe5OeYYeOvCrd3R0Yg676t3dHRiGVN0Rj5JkU/SOA3pm4h3uTnmGDiHu5OeYYeeu+rd3R0Yg676t3dHRiGVN0Rj5JkU/SOA3pm4h7uTnmGDiHu5OeYYeeu+rd3R0Yg68Kt3dHRiGVL0Rj5JkU/SOA3pjWlSPZpUn4QxDjSLiqtBdDlNqExLK3kNr7FXjSdh8ohci8KiexfTLvtnelbe/5I9Uy1JuAasqnkFRO5sn+TcPg/wB+Qx8PfmumZmxH1WyNgDsqnkudgfob/FWlZGmlufdbkLhS3LvrwlE4jsW1H/GPxfHu8UW+CCMg5BjFs1KvST62H0FDqNhSf97RF16GL8cmSm26i6VLQkmTcUdpSN7Z8Q2jwZHMIrlrWOxjDUU2jWPEK5cH+EUkkgo6w5zmB138x8CoBpOrqq7edRXr5YlVclZGdgSjYflVrGEkjq0GidUMDl85lDOR7BHb/f8AJEedWqamFrUcrdWST4VH/WH68VhFRYlU7G5ZhKUjx/8A4IsDYgxkdONAHdvKqTqh0sktW7STm2ncNCjy1qcUpS1FSlHJJOSTHIVU2nzNWnmJGUQFzL6tVCSoJBOM7zsG6JanRJd6hlNLQodsTLR/+0bpKmGE5MjwNpAXNDR1NQC6GMuHYCVCIMxODoivD3qT85b/AIo560V4e9SfnLf8UavT6XrW4hb/AOk13UO/1O5QiCJo5onvBpOTRyodpD7ZP3oj1VtusUQZqNMm5VH5bjRCfO3fTGyOqgkNzHgnsIWmWhqoRlSxuaO0EJsgJ2RzZEioFjV26JVyapUkl9htZbUovIRhWAdxIPOI2SSsiblSEAdq1QwSTuyImlx5gL1HoIm/rQ3h70p+ct/xR31orw96k/OW/wCKOf0+l61uIXX/AEmu6h/+p3KDxyJFX7HrtsyqJmqSaGGVrDYIeQs6xBO4EnmMR2OiOVkrcqMgjsXHNBJC7IlaWnmIuXYII6lJUcJBJ34AzH2ta5AYAcwQREcMPtv2fWLpS+qlSqXwwQleXUIIJGR7IjO6Hv1obw96k/OW/wCKOd9ZTxuyXyAHtIXZFZ1XK0PjicQdYBIUGju+Huq2jWKJU5Smz0oGp2b1eKbDqVa2Vao2g4G3tw++tDeHvSn5y3/FB1XA0BzngA6M4zrDLPq3lzWROJGnMc21QiCJuNEN4e9SfnLf8Ud9aK8PepPzlv8Aij49PpetbiFt/pNd1Dv9TuUHjhicetFePvUn5y3/ABQetFeHvUn5y3/FD0+l61uIT+k13UO/1O5QiBJIIIJBG0EHdE39aK8PelPzlv8Aihpr9jV215VuaqskGGHF8WlQdQvKsE4wCeYGPplZTvIa2QEntC+JLOrIml74nADWQQvV9XXHRFzC9tRp47M87jfb/wB9o9uGKnzz1Ln5adll6r8s4l1CvCDmHWz3tWspZPsJhtTah29mf3QyvtcS861+Qsp+Q4jMbQHOiOjwOpYleXNZOP1aCe0XXFcZ/DNfDT9oh6vL2+d+Aj7IZWfw7Xw0/aIeryP9PO/AR9kfTvbN2HwXyz3d+0dxTCImWjCtzlKvKltMPrEvOPBh5rWOqsK2bR2wcHMQ3MSGxPdrb/x1v7Y+atgdA8OF+Y9y+rPe6Oqic03HKHetbjdFcaYrjqluUinPUqbVKuuzJQtSUpOU6hONoPOIscCKj0+7KDSfjZ/Vqih2Wxr6tjXC8Xr1a3ZHx2fK9hIIGkZjpCi1sabavJTbTdc4udkVEBbiWwh1sdsY2Kx2seWL/bcYnpZC0FDsu+gKSd6VpI2eMERiyNSaJppc3YNILhJU0lbQJ7SVqA+jETFvUEULGzxC7PcblXeClqz1Ej6ad2VmvBOnSARfr0qD6U9F0rKyT9dojIZDPZzMqgdhq860jmxvI3Y2+OoKXVZyizzM7IPrZmWVBSVJVgHwHtg84jZLrSH2ltOJCm3AUqSdxB2ERi+bYEtNzLCfYtOrbHiCiP3R12FVuqYnQzZ8nn5jqUfwpoGUU8dRT+rlX6M1xF2cYrYFu1lm4aJI1NjY3NNBer+SrcU+Q5HkhwdClNLDZCVkEJPaPNFOaBrh4yWn6E6rsmTyljP5JOFjyHB/Si5sRWK6m9FqHRaho2ald7KrBW0jJ9ZGfaMxWL57lPLpkTqnFTaXFJeLhJUVgkHJPhhPFiaZrf6j3aqcbTiXqaOOGNwcGxY+w/pRXceg0szZ4Wyt1heR19M6lqXwv0tOPMfqM6It/Qda6J+YqNZm2gthtBlWgobFFQ7M+aQP0jFRNtuPOobbQVuuKCUpG9RJwB8sa7tGgItm3afTE41mGxxih+M4dqj8pMRVvVfE0/FtOd3dr3Kd4KUHpNXxzx6rM/1Ojf8ARZXueiLt24KhS1g4lnSlBPOg7UnzSIaoubT1b/FzFOrjSNjg5K+QOcZKCfJrDyCKYiQs+p9Jp2S69e0aVE2tRehVkkOoHNsOcL6StSFBSVKQpO0KSSCPLGiatd89b2immz77qurE5LNNNLXtVrqTnXPhCRnxxRdrUVdxXDTqYgEiYdAcI5mxtWfNBicaba2ibuCVo8vgS9LaAKRuDigDjyJCR5THHXxMqamKAi+69x2DeVIWTPJRUVRVNN19zBtOcnaBnUJt55yYuqkOvOLddXPMlS1qKlKPGDaSY0fpAvyXsintqDaZiozJIYYJwNm9Su0kfSdkZot99uVr9KfeWlDLU00ta1HYlIWCSfJD5pJuBFx3hPzTLwelG9VhhSTlJQkbx4CSo+WFbQCqqow8eqAScdC+rMtV1BQTOjPrucAMDef5rSyc0u3dNulaammXTnY2wwgJHygn6YuLRHXqjcVsPzdTmlTMwmbW2FqABCQlJA2AdsxmWNE6CdtnTPx5z7qI5bbpYYqS+NgBvGgBdvBmuqZ7QyZZHOFxzEkjBWfGbbp0j3TIXLWJWWrDrcuxNuttoDaCEpCiANqY0liMiXp7sK/8ee++YjuD8McsrxI0HNrF+tTPC6olggjMTy286iRq7FPrS021CXnGpe4eLmZNZCVTKEBDjXhIGxQ7ewHxxJtO60uWrTFoUFIVOJIUDkEcWuM+xPq1czNW0X0SnOTKFVCRnC2Wirs+KSlQSrHawQPJEvPZscVTFPC27PcQNGjT2Ku01tSz0M9LUvv9W8E6dIzX6+z6qOWr7fyfjV90w31A/wA/m/zy/vGF9q+38n41fdMN9Q/5+b/PL+8Ylh7Y7B3lQJ92HzHuC8mfwzXw0/bDzeXt878BH2Qys/h2u1rp+2Hu8fb134CPsg72zdh8EZ7u/aO4pgiQ2H7tbf8Ajrf2xHokVh+7W3/jjf2wqfYv2HuWKL3mP5h3ha3zFR6ffaGk/Gz+rVFuCIfpCo1ArUhJtXBUuQS7b2s2vjkt6ytUjGVA82Y8/s6URVLHu0DmXrlsQOnopImkAkazcNI1rK6UqUoJSkqUTgJSMkntARraw6K5b1o0qnvp1X2mtZ0dpaiVKHkJx5Ihtv07Rraj4nGKtIvzTe1D0xNpcUjwpA2A+EDMOFZ002zTmlckddqL2NiGEEJz4VKwPkzEzalRNaGTFBG64G/ONardh0lPZGVUVUzcoi64G+4adpOwKW3RX5e2aFO1OYUAGEEoSfx1n2KR4ScRj9S1OLUtZytZKlHtk7TEkvG+apek2lycUlqVaJLUq0ewR4T+UrwnyYiMxL2RZxo4yX/qdp7OxV/hDbDbSmaIv0N0dt+kp+syvqtm5qdUskNNuajw7bativoOfJGukqC0hSSCkjII54xOfDGn9EtxdXrPlUuL1pqQPJXcnadUdifKnHyGI7hHS3tbUDVmPgpfgbXZL30jjp9YePhgvLTBb3Vuz332ka01TjylGBtKQMLHm5PkEZlzG13G0OtrQtIUhYIUk7iDvEZBu2hqtm4qjTFAhEu4eLJ52ztSfkI+SM8HKrKY6nOrOPH+dqxwyocmRlW0acx2jR9u5SvQ5b6arc5qEwkcjpSOPUpW7jDnU+TBV+jGiaXU5as06Wn5NzjJWZQFtq7YMUrOjrB0RtSv4KrV85XzKSlQyfkRgeNUPegi4OVUacoziv5SRXxrQJ/6a94HiVnzhHJasTqpr6sfpackbBpOK77BnZQyR2e4es9uUfmOcD6NCnl60AXNbFRpwALrjZU0TzOJ2p+kY8sZFOUkhQKSNhB5j2o2zvjLmlW3+oN5TgbQRLz386ZAH5R7ID9LPyiNvBypuc6nOvOPH+di08MqLKYyraNHqnw8cVJtC8gzTpeuXVOjEtJMqaQo+AayyPIEjyxVtSqD1WqM3PzBy9NOqdX4Co5x5N3ki3L4xZWjKj20nCZ2fwqYxvwCFufWKU+IRTWImLP/ALz5Ko/uNw2DeVXLX/48UNAP2C93zOz/AGFy5HY5HYlFBIjROgk/8HTPx5z7qIzqY0VoI9x0z8ec+6iIW3/c/qFZuCX+RHynwVnxkO9dl4V/48998xrzMZEvX3YV/wCPPffMRXBv2r9nip7hp7vF8x7kxb4I5HfHFvXnaeLV9v5Pxq+6YQT/APz83+eX94wvtX3QSfjV90wgqB/n83+eX94xpHtjsHeV1H3YfMe4LxZ/DtfDT9oh6vH29d/No+yGVn8O18NP2w93j7eu/AR9kHe2bsPgjPd37R3FMESKw/drb/xxv7YjsSGw/drb/wAcb+2FT7F+w9yUXvMXzDvC1wBFR6fvaGk/Gz+rVFuZio9PvtDSfjZ/Vqih2R75Ht8F6rwg/wAbNs8QqCxBBBHoS8gRBugggiIsnQrcPUm6TT3V4l6mjixk7A6nJT8o1h5RFbR6y0y7JTLMzLqKH2FpcbUOZQOQflEaKqAVELojrH/xddBVOpKllQ39p+2sfULam+K7vjR6Lmuq36ilAMu2rUnf8TaezT8pyn9KJlb9Yar9Ekamz7CaaS5gfinnHkOR5IQ3tcIti2ahUcjjkI1WQfxnFbE/Sc+SPPqZ00M+TFmdoxzL12tZTVFKXzZ2C530GdUFpduPq7dzzLSsytNHJkY3FWcrPy7P0Yb9Gtf63bwp8wterLPq5M9t2aq9gJ8StU+SIopSlqUpaipajkqO8k7zHDtEX5tGwU3o2q67z8V5O+0JHVnpv7sq/wAsMy2zmIxdVmS1z1ChTbxAVTZnjlAj8IjGdXzgg+Qx2wLg65bTp08tWtMBHFP7dvGJ2H5cZ8sKbxrwtu2alUsgOMtENA87h2JHykR5+xksM/FszOvu8F61LJT1FJx0meMgO+gzrPOlav8AV68pzUVmXkf5q3jcdU9kfKon5BEKAgUpSlFSlFSiclR3k85g2x6LBCIY2xN0AXLx2rqHVMz5n6XElG6OQQRtWhcJjRWgjbZ0z8ec+6iM64jRegj3GzPx5z7qIhLf9z+oVm4Jf5EfKVZ4jIl6+7Gv/HnvvmNdxkO9T/xjX/jz33zEXwb9q/Z4qe4ae7xbT3JjxBHIIt687Tzavt/J+NX3TDfUPbCb/Or+8YcLV9v5Pxq+6Yb6h7YTf55f3jGge2Owd5XSfdh8x7gvJj8M18NP2w93j7eu/m0fZDIUmXmClQwppeCPEf8ASH28k/0wHB7F1lCknt7xB3tWnsPgssH9h47R4qPHZEz0XUSbq140t5hlapaUeD7zwT2CAkEgE7sk4GIi9MqExSZ5idlSgTDCtZBWgLGcEbQdh3xMEaYLtaSENzsslI5kyqAPsjVWCd7DHCBnF15Phd4rfZzqWOVstS53qkG4AG+7PpJHctPDZFa6a6JNVe1mXpNlby5KYDq0IGVahSQSBz4yD4oq3147v7/l/mqPRB68d4D+/sfNUeiK5TWJWU8rZWlt47TuVxreE1n1dO+ncHgOF2gb1AtmSOcc0ESOv3xWrnlRLVJ1hbQcDmUS6EK1gCN4GecxHcRbIy8tvkFx7Df4BUGZsYddE4kdou+1571yCCO4j7WpcgjuI5BFeuga4eNkp+huryuXVyhgH8hRwoeRWD+lDTp2uPlNSk6Gyv8Ak5RPHvgd0UOxHkTk/pRXFrXFM2rW5eqSyEuLa1kqbUcBaSMEH7fJCSr1N+tVScqMyQX5p1TqsbhnmHgAwPJEOyzA2vNT+26/66PNWOS2y6yW0N/rX3H5RnG7YEigjuIMRMKuK39A9f5PUZ+iOr7CZTyhkE/jp2KA8acH9GFmnuvgmm0Npf8A7p4DypQPvH5IqShVd+gVmSqcsAXpVwOBJOAobik+AgkeWPW5a7MXPW5uqzKQhyYIwhJyEJAACR4gIhzZt9oCq1XX/XR57VY221dZJof3X3f9dPfm2JpjuYMQYiYVdQYN0EGILC4OyUEjao8w3xprQ7RpqjWahM4ytl2afXMBtwYUEkADI5shOfLFGUO/q5bcmiUpz0u2yhRUnXlkLUCTk9kRmHb147wP9/Y+bI9EQ1p01VWM4pgAF+m87syslh11DZ8vpEhcXXXXBouF+nPlZ8AtOZjKukuiTdIvCrOTDC0sTT6n2XSk6i0q27DuyCSMeCF3rx3h3+x81R6I+F6X7teSULnZZaTzKlEEfZHHZ1m1dFIXjJIIu0ncpK2bas+04RGctpBvBuB/9KC5yNkEKqjPPVSefnZkoL76tdZQgJGfABsG6EuIsgvuF6pbgATknMnm1fb+T8avumG+oe2E3+eX94w52i0V16XPM2lSj4sY/fDTNuB2bmHBuW4pQ8pMaR7Y7B3ldJ92b8x7gpNpJoaqDedTZ1NVh9fKWdmwoXt2eI6w8keTqOrtusut9lO04ai086kdv6PoMXppTsc3bSEvyaAarJZU0O6pPskeXePCPDGcZGdmaPO8a2FIdbJSttYIzt2pI/3iI2zqkVdO0tPrs/n3CmbYoTZ9Y9rx/bkvI78QfttSLMd3RKHadT6+C/TXkS84rauVcOAT4P8ATZ4oaXqBU2FYXIvHwoGsPoiTZO05jmPMVCSU0jc7ReOcZ02R9Qs6kz/eUz0Zg6kz/eMz0Zj7y28618W/onBIjBC3qTP95THRmDqTP95THRmM5bedY4p/ROCRQYhb1Jn+8pjozB1Jn+8pjozDLbzpxb+icEigxC3qTP8AeUx0Zg6kz/eUx0Zhlt504p/ROCRxwiFvUmf7ymOjMHUmf7ymOjMOMbzpxT+icEjjkLepM/3lMdGYOpM/3jM9GYcY3nTin9E4JFjEG+FvUmf7xmOjMHUmod4zHRmMZbedOLf0TgkWINsLepM/3lMdGYOpM/3lMdGYzlt504t/ROCRYg2wt6kz/eUx0Zg6kz/eUx0ZhxjedOKf0TgkQjhhd1Jn+8ZjozB1In+8pjozGMtvOs8W/onBIY7uhb1JqHeMx0Zg6kz/AHlM9GYzlt51jipOiUi2wZhxaoNTeOESL36SdUfTDszR5CipExV30OPDaiUbOST4f948cfDp2N0G88wW1lNI/ORcOc5gint9Q6FMT7nYzU4nimEneE9v9/kHbiOyco9PTbEpLoK331pbbSOdROAIUVSqPVWaLzuAkDCEDcgdqLc0MWG5xyLlqDRSkAiSbUNqs7C54sbB4ye1HJUVAo4XTSfqOrt1Bd9HSOtGpZTQj1RpPZrP11fQK74r6+9FchdilzsotMlVjvdCcod+GBz/AOIbfHFgwRQoKiSneJIjcV6vVUkNXGYp23j+aOZZLrdhXDbq1cspj5bSdj7ALjZ8Osnd5cQ1tVyoyw1ETz6cfiqVnHyxsjEeS5RhxWstltSu2UAxPM4REi6aMH6+RVTk4HNDr6ectHaL/uCFkDrkqnvg59X0QdctU98F/V9Ea85DLd7M9GPRByCV72Z6MeiPvlBF1AxG5fHJKf4k4H8lkPrkqnvgv6vog65an3+v6vojXnIZbvZnox6IOQSvezPRj0Q5QRdQMRuTklUfEnA/ksh9ctU7/X9Hog65ap3+v6vojXnIZbvZnox6IOQSvezPRj0Q5QRdQMRuTkjP8ScD+SyH1yVQ/wB/c+r6IOuWqd/ufV9Ea8MjK97M9GPRAJCV72Z6MeiHKCLqBiNyckaj4k4H8lkPrlqnvg58qfRHeuWqd/ufV9Ea75DK97M9GPRByCW72Z6MeiHKCLqBiNyckqj4k4H8lkPrlqnf7n1fRB1y1T3wc+r6I15yGV72Z6MeiDkEt3sz0Y9EOUEXUDEbk5Iz/EnA/ksh9clU98F/R6IOuSqe+C/o9Ea85DK97M9GPRByGW72Z6MeiHKCLqBiNyckZ/iTgfyWQ+uWqe+C/o9EHXJVO/1/V9Ea85DK97M9GPRByGW72Z6MeiHKCLqPuNyckp/iTgfyWQ+uWqc0+59X0QdclU98F/R6I15yCVH93Z6MeiDkMt3sz0Y9EOUEXUDEbk5JVHxJwP5LInXLU/fBz6PRB1y1T3wX9X0RrvkEr3sz0Y9EHIZbvZnox6IcoIuoGI3JySqPiTgfyWQ+uSqD+/r+r6IOuWqe+Dn0eiNecglu9mejHog5DLd7M9GPRDlBF1AxG5OSU/xJwP5LIDtfqL6dVc+8QeYLx9ketLtqs153Vp9Nm5lSjtWGzq+VR2fTGuhIywIIl2QfgCPfGNg3Rh3CPJF0UQB2+QWW8Dsp1885I2eJJ7lTtlaFG5NxuduJbb7ieyTJNnLYP+M/jeIbPHFxJSEAJSAEgYAHNHYOeIKqrJap+XKb+4K00NnU9BHxcDbuc6ztKpWv8LDRXak4iTr9aqVJmlp10sz9DnmFKT2wFsjI8IiU2DpptDSctBteZqU9LuBZTNmkzbUsrV3gPLbCCebGcxlj1Shhs23YL5QC6icm0JXzgFtBI+UD5I1FoCYbltCGjptpCUI6gySsJGBkspJPlJJ8scy7lY2YIQTdaptPnZSSm6hKS85OqKZZh55KHHyBkhCScqOAd0JKpd9v0ScZkqnXaXIzb+OKYmpttpxzO7VSognyQRPWY7HNmMxly9uEfJ1PhG2Bo4tqqpVIy0867XJph4BpaxLu6ksVA4UEnslDdrao3pIgi1JnEG+PCWmmJxGuw+26kHBU2sKGfGIQVu6KHbLaHK1WadTW3NiFzs0hkK8RURmCJ1zBnMIqVWKfXJRM3TJ+VnpVRIS9KvJdQT8JJIj0qFSk6TJvTk/NsSkoyNZx+YcS22gdsqJAEESrMczDRPXTQqZLSU1PVqmy0tPavJXn5ptCH8gEaiicKyCCMZ3wtqFSkqTJuzs/Ny8pJsjWcfmHEttoHbKiQBBErjmYbJ646PTaW3VZ2rSEtS3EpUicemEIZUlQykhZOqQRtG3bHvTKrIVqSbnabOy07Ju+wflnUuNr8SkkgwRLIMx8uOJbQpa1BKEglSicAAc5iNyekSz6jP8AU+TuqhTM/ravJmaiyt3Pa1QrOYIpNBmORlurcI+SubhQ2RYNt1gGh05U65WJlp4BiafEq5qM62cKS2Rk8xXjnTBFqF55Eu0464rVbbSVKPaAGTFM6EeE5aWnar1ymUCUqctMUpIdHLWkpD7JVqhadVRxtxsVg7R4cXIxMszTfGMOtut5xrIUFDPkiH2VatgWrWK7L2lTqDIVZ5aXakzTg2l4Ek6vGJScpGdbAIA34EEU2gzATEbmNINpSlRNNmLoobNRB1TKuVBlLue1qFWfogikmcx3MfIUFAKSQQRkEc8IqrWabQpNc7VahKSEmjYp+beS02nxqUQIIl2Y7DVWLko1uSzczWKtIU6WcOEOzkyhlCj2gVEAwskp2WqMq1NSkw1MSzydZt5lYWhY7YUNhEESjMEeUzMMyjDj8w6hplsay3HFBKUjtknYIYaVf1p12c5HS7nok/N5xxErPtOuZ7WqlRMET3UKhKUqRmZ6emWpWSlW1PPPvLCENISMqUpR2AADJJii6VwvNHly6TaNYluPT1Ynqk8pkzrDOpKtKShSjlSyFK9iR2KSPDF9qQlaVJUApKhggjOY/Py6GGmPVHqSW20o4x2XWrVGNZRp5yT4dkEUg9Un9ylifH5n9UmNOaFJflegiwZfjXWeOtySRxrKtVaMy6RrJPMRvBjMfqk3uUsT4/M/qkxqLQR/Uno6/wDj8h+oRBFhC+rLqVp8Nuh0m1azMGpzS5dyWn6685PKYW4woKWSo6y9XslBJOM4B2RdWmzgb2UnRldlyom61O3rIyL1SXWahPKecm3G0Fag4g9hhQSR2IGNmN0QzSR/aFWb4pP9Q5Gw9MX9UF/f5BP/ALOuCKi+BFcs1pM4P05RricdnpenTb9HBdcVrLlS0hSUFQOtsDikg5yAAOaM81/RRZklw5aZYzFvyibTeLIXTcr4pWtJFZ/Gz7Pbv3xdPqcX9UNy/wCfL/ZmIhF0/wBo/RvhS/8A28wRaSvd21OCxoauit2nQZSntNYeak2yrUfm3NVpsqyScZ1c4O5JigNEl16A562WLh0p3FRLl0g1xvlFTmK5LrmTLFWSlhtKkFDaUA4wjnzg4wBbPDmo81VeDxWHZZC1inzcrNvJQMkthzVUfENcE+KHPgeaRKXf2hC3ZSXda6qW9Lopc9LbNdstjVbURv1VICSDuzrDeDBFjqkaQKDoX4TkrN6KKuuc0eVmYl0TkmwXFMBDqglxGFAbWyddB3jIGSM5tP1Q6yWZC2qLdIq9YfmJuq8kVJzE6pco2gsrUOLZ9iggt7xtOsck7MbFvy+aTo/pcnO1Bpb709Oy9Pk5SXCS9MvvOBCUIBIBIyVHbsSkmMx+qO7dEls49/k/sz0ETe3wSHtO+iu1K/c9zTVOut6nyvIksp46TkJENJDUuGSRklAC1LCgddR5hEP4cGiiVsTRZZE23Xa7UX5OYYpBE9PLcZLaJVWFJZJ1UKy1nI2nWOSdmNraI/6qbF/yOR/Z0Rmr1R3+qG2v8/R+zPwRPtmcGWjaVtH1qVnSdUJ6tzK6PKiQkZSaclpOmS/Ep1EtoScqc1cFa1Z1lcwAAipOCeZ/RLwoL40WS8+/M28RNJQ26fx2SlTTuBsC+LJSrGM58AjaWiQ/+E1i/wCQyP7OiMa6NP7Qm8PHPfqUQRWdwuLT0i6Q7p0f2pQqdUpmxJ6aSa0qRVqpP8qkEPKB7FCW8kZ2Ek7yBCDhd6JdFtt6Dqm9JUO3KDXKeGl0pcs01LTDyw4kKQMYU7lBVkHPb3jMOnCQ053NTdJNp6IbFmmaXXrjUyJqtPICzKNurKEhtJ2a2EqUT4gNpyEenLQVaNg6AL9q7cu9WbrXT08dcFZdM1POK4xAJC154sHJ2ICRBFMOCvU39KPBposvdbjlTS83M02YU84rWfZQ4pCQpQIJOphOc5OIypKaKLMXw737EVb8obRBUBTCV8UP6O4z8rPs+y3740/wFv8A060P45O/r1RSUkf/ADLJj4Sv+1QRa3Og20pOy3bQoLdQtuiPzCpl1uhzrkqtxak6pysEqwQE5GcHVGdmQciepzsql7s0nMqWVqbblUFat6iHXhk+GP0CHNGA/U8/dvpV8Uv+ufginfCq0o1yu6R7Q0IWnVHqW/cLzAq9QllarrbLq8BtJG0dgFLVjeNUZwSDcDvBa0SPWgbaNk0kS3E8Xy1LCRO5xjjOUY1yvnyTv5sbIyHp7m16O+HRblz1XWbpU1MU2aS8v2KWNUMOHP8AhKVkx+jo9j4BBFgzgy6Rrg0RacqxoIuSpPVCjImHpelvTCiVS60pLjernchxvbq7gojGMnMW9UKseXtyrWjXG6pWJ16suznHMz86t9prULakhpB2NpAcIwkYwBz5Jdq5SV3b6ou0mlpKkUx+Wmpt1A2IDMmgrJPj1UeMgQ5+qVjFO0a9vjZ/7rEEVxTnBKt7SVIisaTapUq/dU4yP5xLTK5eWp4IGGpVkbEoT/j1iogk7TFQ8AqtVa3b70jaNJqdcmKbSFLeZQo9i060+WXFJHNr5SSO2mNzU7/kJT80j7BGD+B7s4VOmXxz/wD3AQRWJwgbEvzSfp+sC3pikT85onZ4mZnwysplXFhay7x5BG3VShIB5idXaTEX4bujnRzamjSn1Kh0ugW9dcjOsGTRTkNSkw80SQsBCMFQTsVnBKdXeMmJPpf00XRdunulaDLHqwt8vFJq1cQkKmEDiS8ptnOxJDY9lvKlY2AHLHwq9DFm6N+D3XZuj0vja09OSYmKzUHDNT8wS8nJW+vKtvOE4Hggi0Lwd7pqN66ErJrlWfVMVKap6A++rap1aCUFZ8J1cnwkxk67f7R2ifDlv2Axprgnvrf4PFgrcIKuQEbABsDqwN3gEZlu3+0donw5b9gMEVM8MDTFcOka6aVRqq3Is0+jtF5huVbUnWW7gKUoqUrOxAA3Y29uNM8DrTXcdw6P5ShT7UguWoMg8xLOhpYcUhhH8mFnWwcDA2AbAOfbBBBFk6+tMtxzfCaRfCkSKatTagw0w0lpXEBDYCAkpKtYggnPZZ2nGNkbQ4SWmGv0ng/cslWJBD9xyD8rMktrIbQtQaVqdlsOqs787YIIIqP9T60iVanVuq2U23Kqo87MJnFFaFcahwtlJ1VBQGCG07wd0eHDqcmdHOnu17ztubfkbgfp7c0ZhJCglxpam0qAIxtQACDkEDdvgggi1JwZZZV/6GlXPdkw9W6reiXVVUzhBaW2kqZSyhtICUNhAPYgbSpRJJMfnTpUlZvQLpwuel2HWqtSW6dMFph5maUl0NqAVqFScayRnGDncM5O2CCCLTfAjbndMF6Vu9b6rNVuCt2wlpqlmfmS41LF0LC1pQdgVhOARs2k4zgiM+qB6R6vUq5S7LcblEUeRmFzaChCuNW4EBA1lFRGAFq2ADfBBBFf3Am0p12/dHMpS6wmUU3QpZEnLvNIUlxbbZ1Ea51iCQkAZAG6KD9UF0jVepV2l2U63Kpo8jMKnElCFcatwNhI1lFRGAHFbgN8EEEV58GzTHcFb0CcsnGKep+3aexLSxDaxxiEEtJ1+y2nVQN2NsYtsjTJcUlwmnL4QiRVVqlUn2n2lNK4gocygpCQrWAAAx2WcgZztgggiuzh+09unVfRrfki49J3HOSxQt+XWUhBZKHG1J5wpKnVbc7gO1EXtW9rq4RuibSjN6QLlqM81aVGM1IycsW5Vhb4CiHXktpHGqGpsCjgZJxnBBBBFL/U9qlVrjq1SpU9WqgaJa6DOyNNacCGOOmCpC1uADK8DOqlR1QVE4zgiL8NOcndFfCWpl42rOvSFfmaezPKmBqqCXUhbOxJGMFtABByDk9uCCCLQlq6Qa9Z3Bib0mpmzVbuuIKqM7M1PK0FzUWlKUIQUhCEpaSAkYG/eTmMjcDrShXLM0pTMtIplXmbgaCJsTKFHalesFJ1VDBypXbG3dBBBFuThiaMrevjQ/WaxVJZfVW25ZyckJplQStB2ayCSDlCsDI8AIwYyNo64Zmkyg6L6hIldJqDtGaSxKzs9LrW+EYwnWIWAspGMFQJ2bcwQQRak4GFl01Oj9WkaaU/PXleDjsxU6lNKClqw6ewRgDVSSNYjnOOYADJvDs0iVe69Islb06iVRTqAH+TBlCgpRcXqqUslRycNJ3YG+CCMItcWBp0uSraAkXhNS1MVVpZllIAaWG15RtKk6+c7OYgeCMPcGfS5cFvadZmtS6ZN2buflCJ9LzZKDxi+OJSAoEHXTs27iYIIyisjh1yqtHWni3bxtqamKfX5+SbnXJlpQ7F5pRaStIxzoSkEHION205aalclwae+DdpCvm+q/UKhVLZmpRimyrKkS8m0VuthThZbSkLWQpQ1lZwDsxBBBFa3ASrdYq9j3JUahV52aZs2WXJ0mnrcCZVlDqVPLUpCQCtWskAFROqkkDGYzBeOme5XeEk9pAxJJrclUm0tNpaVxGo0A0ElOtnBQMHss7TtEEEEX//2Q==';
+
+
+function addTextToPDF(doc, text, x, y, maxWidth, fontSize, color, bold, bgColor) {
+  text = String(text == null ? '' : text);
+  if (!text) return 0;
+
+  const hasArabic = ARABIC_RE.test(text);
+  const lineH = fontSize * PT_TO_MM * 1.15;   // mm per line
+
+  if (!hasArabic) {
+    doc.setFontSize(fontSize);
+    doc.setTextColor(color[0], color[1], color[2]);
+    doc.setFont('helvetica', bold ? 'bold' : 'normal');
+    const lines = doc.splitTextToSize(text, maxWidth);
+    // jsPDF draws from the baseline — drop by roughly the cap height so the
+    // caller's y behaves as the top of the block.
+    const firstBaseline = y + fontSize * PT_TO_MM * 0.82;
+    doc.text(lines, x, firstBaseline);
+    return lines.length * lineH;
+  }
+
+  // ── Arabic (or mixed) — render to canvas, place as image ──
+  const scale  = 4;              // supersample for a crisp PDF image
+  const mmToPx = 3.7795;
+  const maxPx  = maxWidth * scale * mmToPx;
+  // Arabic sits lower in the em square than Latin, so the same point
+  // size reads noticeably smaller beside an English line. A fifth more
+  // brings the two to the same apparent size on the page.
+  const fontPx = fontSize * scale * 1.2;
+  const linePx = fontPx * 1.35;  // tighter than before; was 2x and left big gaps
+
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  const fontSpec = `${bold ? 'bold ' : ''}${fontPx}px Arial, sans-serif`;
+  ctx.font = fontSpec;
+
+  // Word wrap
+  const words = text.split(/\s+/).filter(Boolean);
+  const lines = [];
+  let line = '';
+  for (const word of words) {
+    const test = line ? line + ' ' + word : word;
+    if (ctx.measureText(test).width > maxPx && line) {
+      lines.push(line);
+      line = word;
+    } else {
+      line = test;
+    }
+  }
+  if (line) lines.push(line);
+  if (!lines.length) return 0;
+
+  // Size the canvas to the actual text, not the full column, so the block can
+  // be placed at x without a wide empty gap beside it.
+  let widestPx = 0;
+  for (const l of lines) widestPx = Math.max(widestPx, ctx.measureText(l).width);
+  const padPx = fontPx * 0.25;
+  const canvasW = Math.min(Math.ceil(widestPx + padPx * 2), Math.ceil(maxPx));
+  const canvasH = Math.ceil(linePx * lines.length + padPx);
+
+  canvas.width  = canvasW;
+  canvas.height = canvasH;
+
+  // Resizing the canvas resets the context — re-apply everything.
+  ctx.font = fontSpec;
+  const bg = bgColor || [255,255,255];
+  ctx.fillStyle = `rgb(${bg[0]},${bg[1]},${bg[2]})`;
+  ctx.fillRect(0, 0, canvasW, canvasH);
+  ctx.fillStyle = `rgb(${color[0]},${color[1]},${color[2]})`;
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'alphabetic';
+  try { ctx.direction = 'rtl'; } catch (e) {}
+
+  lines.forEach((l, i) => {
+    ctx.fillText(l, canvasW - padPx, linePx * (i + 1) - linePx * 0.28);
+  });
+
+  const imgW = canvasW / scale / mmToPx;
+  const imgH = canvasH / scale / mmToPx;
+
+  // The glyphs inside the image already run right to left, but the image
+  // itself was being pinned to the left of the column, so a short Arabic
+  // line floated away from the margin it should have started at. An
+  // Arabic line begins at the right edge of the space it was given.
+  const drawX = x + Math.max(0, maxWidth - imgW);
+
+  doc.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', drawX, y, imgW, imgH);
+  return imgH;
+}
+
+// A single line in a cell — a column heading, a product name, a bar title.
+// The engineer types these by hand on site, and half our plants have Arabic
+// names, so the line has to survive either script. Latin goes straight to
+// jsPDF; Arabic is drawn to a canvas and placed, because the base fonts
+// cannot draw it at all. Unlike addTextToPDF this honours an alignment, so
+// a centred column heading stays centred whichever language it is in, and
+// it never wraps — a cell is one line.
+// `w` is the space the line has: for 'left' it starts at x, for 'right' it
+// ends at x, for 'center' x is the middle.
+function drawCellText(doc, text, x, y, w, fontSize, color, bold, bg, align) {
+  text = String(text == null ? '' : text);
+  if (!text) return;
+  align = align || 'left';
+
+  if (!ARABIC_RE.test(text)) {
+    doc.setFont('helvetica', bold ? 'bold' : 'normal');
+    doc.setFontSize(fontSize);
+    doc.setTextColor(color[0], color[1], color[2]);
+    doc.text(pdfSafe(text), x, y, { align });
+    return;
+  }
+
+  const scale = 4, mmToPx = 3.7795;
+  const fontPx = fontSize * scale * 1.2;
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  const fontSpec = `${bold ? 'bold ' : ''}${fontPx}px Arial, sans-serif`;
+  ctx.font = fontSpec;
+
+  const maxPx = Math.max(1, (w || 40) * scale * mmToPx);
+  const padPx = fontPx * 0.18;
+  const canvasW = Math.min(Math.ceil(ctx.measureText(text).width + padPx * 2), Math.ceil(maxPx));
+  const canvasH = Math.ceil(fontPx * 1.45);
+  canvas.width = canvasW; canvas.height = canvasH;
+
+  ctx.font = fontSpec;                       // resizing resets the context
+  const b = bg || [255, 255, 255];
+  ctx.fillStyle = `rgb(${b[0]},${b[1]},${b[2]})`;
+  ctx.fillRect(0, 0, canvasW, canvasH);
+  ctx.fillStyle = `rgb(${color[0]},${color[1]},${color[2]})`;
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'alphabetic';
+  try { ctx.direction = 'rtl'; } catch (e) {}
+  ctx.fillText(text, canvasW - padPx, canvasH * 0.76);
+
+  const imgW = canvasW / scale / mmToPx;
+  const imgH = canvasH / scale / mmToPx;
+
+  // jsPDF's y is a baseline; the image's is its top edge. Line them up so a
+  // mixed Arabic and Latin row sits on one line.
+  const top = y - imgH * 0.76;
+  const left = align === 'center' ? x - imgW / 2
+             : align === 'right'  ? x - imgW
+             :                      x;
+  doc.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', left, top, imgW, imgH);
+}
+
+// Same wrapping maths as addTextToPDF but draws nothing — lets a caller size
+// a background box before the text goes on top of it.
+function measureTextHeight(doc, text, maxWidth, fontSize, bold) {
+  text = String(text == null ? '' : text);
+  if (!text) return 0;
+  const hasArabic = /[؀-ۿݐ-ݿࢠ-ࣿﭐ-﷿ﹰ-﻿]/.test(text);
+  const lineH = fontSize * PT_TO_MM * 1.15;
+
+  if (!hasArabic) {
+    doc.setFontSize(fontSize);
+    doc.setFont('helvetica', bold ? 'bold' : 'normal');
+    return doc.splitTextToSize(text, maxWidth).length * lineH;
+  }
+
+  const scale = 4, mmToPx = 3.7795;
+  const maxPx = maxWidth * scale * mmToPx;
+  const fontPx = fontSize * scale;
+  const linePx = fontPx * 1.35;
+  const ctx = document.createElement('canvas').getContext('2d');
+  ctx.font = `${bold ? 'bold ' : ''}${fontPx}px Arial, sans-serif`;
+
+  const words = text.split(/\s+/).filter(Boolean);
+  let lines = 0, line = '';
+  for (const word of words) {
+    const test = line ? line + ' ' + word : word;
+    if (ctx.measureText(test).width > maxPx && line) { lines++; line = word; }
+    else line = test;
+  }
+  if (line) lines++;
+  const padPx = fontPx * 0.25;
+  return (linePx * lines + padPx) / scale / mmToPx;
+}
+
+// Vertically centres a single line of text inside a bar of height `barH`
+// whose top edge is at `y`. Returns the bar height so callers can advance.
+function addTextCentered(doc, text, x, y, barH, maxWidth, fontSize, color, bold, bgColor) {
+  const approxH = fontSize * PT_TO_MM * 1.15;
+  return addTextToPDF(doc, text, x, y + Math.max((barH - approxH) / 2, 0),
+                      maxWidth, fontSize, color, bold, bgColor);
+}
+
+// Everything that hangs off one system: what the engineer said, what
+// is dosed, and the trends he asked for. Pulled out of the loop so a
+// boiler can be drawn as part of the house and still carry its own.
+function drawSystemExtras(doc, sys, labelIt, M, CW, y, trendSeries) {
+  trendSeries = trendSeries || {};
+
+  // With one boiler the heading would be stating the obvious; with
+  // three the reader has to be told which one this is about.
+  const tag = labelIt ? ' — ' + sys.name : '';
+
+    // ── Performance trends ──
+    // Three across, the way the eye compares them: one story told by
+    // three pictures, not three unrelated figures down a page.
+    const seriesList = trendSeries[sys.id] || [];
+    if (seriesList.length) {
+      const PADX = 3;
+      const GAP  = 5;
+      const cols = Math.min(seriesList.length, 3);
+      const colW = (CW - PADX * 2 - GAP * (cols - 1)) / cols;
+      const chartH = colW * (300 / 560);
+      const CAP_H = 5.6;
+      const NOTE_H = 10;          // a two-line note needs no chart's worth
+
+      // A row of nothing but "not enough history yet" is two lines of
+      // text; reserving a chart's height for it left a third of the page
+      // blank and pushed the rest of the visit onto another sheet.
+      const anyChart = seriesList.some(sr => !sr.tooShort);
+      const blockH = 8 + (anyChart ? chartH + CAP_H : NOTE_H);
+
+      if (y + blockH > PAGE_BOTTOM) { doc.addPage(); y = 16; }
+
+      doc.setDrawColor(20,20,20); doc.setLineWidth(0.4);
+      doc.line(M, y, M+CW, y); doc.setLineWidth(0.2);
+      doc.setFont('helvetica','bold'); doc.setFontSize(6);
+      doc.setTextColor(20,20,20);
+      doc.text(pdfSafe('PERFORMANCE TRENDS — LAST SIX VISITS' + tag.toUpperCase()), M+3, y+4.6);
+      y += 7;
+
+      let rowTop = y, inRow = 0, rowHasChart = false;
+      const rowH = () => (rowHasChart ? chartH + CAP_H : NOTE_H);
+
+      seriesList.forEach((series) => {
+        if (inRow === cols) {
+          y = rowTop + rowH() + 3;
+          if (y + rowH() > PAGE_BOTTOM) { doc.addPage(); y = 16; }
+          rowTop = y; inRow = 0; rowHasChart = false;
+        }
+        if (!series.tooShort) rowHasChart = true;
+        const x = M + PADX + (colW + GAP) * inRow;
+
+        if (series.tooShort) {
+          doc.setFont('helvetica','bold'); doc.setFontSize(6.4);
+          doc.setTextColor(51,51,51);
+          doc.text(pdfSafe(series.label), x, rowTop + 5);
+          doc.setFont('helvetica','italic'); doc.setFontSize(5.6);
+          doc.setTextColor(110,110,110);
+          doc.splitTextToSize('Not enough history yet — a trend needs two visits.', colW)
+             .forEach((ln, k) => doc.text(ln, x, rowTop + 9.6 + k * 3));
+        } else {
+          try {
+            drawTrendVector(doc, series, x, rowTop, colW, chartH);
+          } catch (e) { console.error('Trend chart failed:', e); }
+          doc.setFont('helvetica','bold'); doc.setFontSize(6);
+          doc.setTextColor(20,20,20);
+          doc.splitTextToSize(pdfSafe(series.label.toUpperCase()), colW)
+             .slice(0, 2)
+             .forEach((ln, k) => doc.text(ln, x, rowTop + chartH + 3.4 + k * 3));
+        }
+        inRow++;
+      });
+
+      y = rowTop + rowH() + 2;
+
+      // Say where the condensate figure comes from, once.
+      if (seriesList.some(sr => sr.pid === 'fw_cret' && !sr.tooShort)) {
+        doc.setFont('helvetica','italic'); doc.setFontSize(5.6);
+        doc.setTextColor(110,110,110);
+        doc.text('Condensate return is estimated from a TDS mass balance and is approximate.', M+3, y+2);
+        y += 4;
+      }
+      y += 1;
+    }
+
+    // ── Treatment programme ──
+    // What is dosed and what is on site. Days of cover are deliberately
+    // left out: that is the office's reorder signal, not the client's.
+    if (sys.treatment && sys.treatment.length > 0) {
+      if (y + 10 + sys.treatment.length * 6 > PAGE_BOTTOM) { doc.addPage(); y = 16; }
+
+      doc.setDrawColor(20,20,20); doc.setLineWidth(0.4);
+      doc.line(M, y, M+CW, y); doc.setLineWidth(0.2);
+      doc.setFont('helvetica','bold'); doc.setFontSize(6);
+      doc.setTextColor(20,20,20);
+      doc.text(pdfSafe('TREATMENT PROGRAMME' + tag.toUpperCase()), M+3, y+4.6);
+      y += 7;
+
+      const DOSE_X = M + CW - 72, STOCK_X = M + CW - 3;
+      doc.setFillColor(235,235,232); doc.rect(M, y, CW, 6, 'F');
+      doc.setFont('helvetica','bold'); doc.setFontSize(5.8);
+      doc.setTextColor(51,51,51);
+      doc.text('PRODUCT', M+3, y+4);
+      doc.text('DAILY DOSE', DOSE_X, y+4, { align: 'right' });
+      doc.text('STOCK ON SITE', STOCK_X, y+4, { align: 'right' });
+      doc.setDrawColor(20,20,20); doc.setLineWidth(0.4);
+      doc.line(M, y+6, M+CW, y+6); doc.setLineWidth(0.2);
+      y += 6;
+
+      sys.treatment.forEach(t => {
+        if (y + 6 > PAGE_BOTTOM) { doc.addPage(); y = 16; }
+        drawCellText(doc, t.product || '-', M+3, y+4.1, DOSE_X - M - 10, 7.6,
+                     [20,20,20], false, [255,255,255], 'left');
+        doc.setFont('courier','normal'); doc.setFontSize(7.6);
+        doc.text(t.dosage ? t.dosage + ' kg/day' : '-', DOSE_X, y+4.1, { align: 'right' });
+        doc.text(t.stock  ? t.stock  + ' kg'     : '-', STOCK_X, y+4.1, { align: 'right' });
+        doc.setDrawColor(230,230,227);
+        doc.line(M, y+6, M+CW, y+6);
+        y += 6;
+      });
+      y += 3;
+    }
+
+    // ── Observations ──
+    // Numbered, on hairlines, in the same quiet language as the tables.
+    // The number sits on the side the line reads from, so an Arabic
+    // observation is numbered on the right and an English one on the
+    // left, in the same block.
+    const recLines = String(sys.recommendations || '')
+      .split(/\n/).map(l => l.trim()).filter(Boolean);
+
+    if (recLines.length) {
+      const NUM_W = 7, GAP = 2.4;
+      const measured = recLines.map(l =>
+        measureTextHeight(doc, l, CW - NUM_W - 8, 8, false)
+      );
+      const bodyH  = measured.reduce((a, b) => a + b, 0) + GAP * recLines.length;
+      const totalH = 7 + bodyH + 2;
+
+      if (y + totalH > PAGE_BOTTOM) { doc.addPage(); y = 16; }
+
+      doc.setDrawColor(20,20,20); doc.setLineWidth(0.4);
+      doc.line(M, y, M+CW, y); doc.setLineWidth(0.2);
+      doc.setFont('helvetica','bold'); doc.setFontSize(6);
+      doc.setTextColor(20,20,20);
+      doc.text(pdfSafe('OBSERVATIONS & RECOMMENDED ACTION' + tag.toUpperCase()), M+3, y+4.6);
+
+      let ty = y + 7;
+      recLines.forEach((rline, i) => {
+        const num = String(i + 1).padStart(2, '0');
+        const rtl = ARABIC_RE.test(rline);
+
+        doc.setFont('courier','bold'); doc.setFontSize(7);
+        doc.setTextColor(20,20,20);
+        if (rtl) doc.text(num, M + CW - 3, ty + 3.2, { align: 'right' });
+        else     doc.text(num, M + 3, ty + 3.2);
+
+        const tx = rtl ? M + 3 : M + 3 + NUM_W;
+        ty += addTextToPDF(doc, rline, tx, ty, CW - NUM_W - 8, 8,
+                           [20,20,20], false, [255,255,255]) + GAP;
+      });
+
+      y = ty + 2;
+    }
+
+  return y;
+}
+
+async function generatePDF(systemsData, visitType, visitNotes, prospectName, prospectContact, trendSeries) {
+  trendSeries = trendSeries || {};
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
+  const W = 210, M = 14, CW = W - M*2;
+  let y = 0;
+
+  // The frame is closed at the end, around whatever was drawn, so a
+  // light visit reads as a short document rather than a full page with
+  // its lower half missing. Every page break records where that page's
+  // content stopped.
+  const pageEnd = {};
+  const _addPage = doc.addPage.bind(doc);
+  doc.addPage = function (...args) {
+    pageEnd[doc.getNumberOfPages()] = y;
+    return _addPage(...args);
+  };
+
+  // ── Title block, after an engineering drawing ──
+  const INK = [20,20,20], HAIR = [201,201,197], SOFT = [110,110,110];
+  const line = (x1,yy1,x2,yy2,wdt,col) => {
+    doc.setDrawColor((col||HAIR)[0],(col||HAIR)[1],(col||HAIR)[2]);
+    doc.setLineWidth(wdt||0.2); doc.line(x1,yy1,x2,yy2); doc.setLineWidth(0.2);
+  };
+
+  const TOP = 12;
+  y = TOP;
+
+  // Left: who made the report. Right: which report it is.
+  const TB_H = 15;
+  try {
+    doc.addImage(PWT_LOGO, 'JPEG', M+3, y+2.4, 14.6, 10);
+  } catch (e) { /* a missing logo must not cost the report */ }
+  line(M+21, y+2, M+21, y+TB_H-2);
+
+  doc.setTextColor(INK[0],INK[1],INK[2]);
+  doc.setFont('helvetica','bold'); doc.setFontSize(9.5);
+  doc.text('Krenos', M+24, y+7);
+  // Measure the word at the size it was actually drawn. Shrinking the
+  // font first and then measuring put the mark on top of the final "n".
+  const nameW = doc.getTextWidth('Krenos');
+  doc.setFontSize(5);
+  doc.text('TM', M+24+nameW+0.7, y+4.2);
+  doc.setFont('helvetica','normal'); doc.setFontSize(5.8);
+  doc.setTextColor(SOFT[0],SOFT[1],SOFT[2]);
+  doc.text('WATER MANAGEMENT SYSTEM', M+24, y+10.6);
+
+  const RX = M + CW*0.56;
+  line(RX, y, RX, y+TB_H);
+  doc.setTextColor(INK[0],INK[1],INK[2]);
+  doc.setFont('helvetica','bold'); doc.setFontSize(8);
+  doc.text('WATER TREATMENT SERVICE REPORT', RX+3, y+6);
+  doc.setFont('courier','normal'); doc.setFontSize(7);
+  doc.setTextColor(51,51,51);
+  doc.text(state.reportRef, RX+3, y+10.5);
+  if (visitType) {
+    doc.setFont('helvetica','normal'); doc.setFontSize(6);
+    doc.setTextColor(SOFT[0],SOFT[1],SOFT[2]);
+    doc.text(pdfSafe(visitType), M+CW-3, y+10.5, { align: 'right' });
+  }
+
+  line(M, y, M+CW, y, 0.5, INK);          // frame top
+  line(M, y+TB_H, M+CW, y+TB_H, 0.5, INK);
+  y += TB_H;
+
+  // ── Who, where, when ──
+  const META = [
+    ['CLIENT',   state.client?.name   || prospectName || 'Free Visit'],
+    ['CODE',     state.client?.code   || 'FREE VISIT'],
+    ['REGION',   state.client?.region || '-'],
+    ['DATE',     new Date().toLocaleDateString('en-GB')],
+    ['ENGINEER', state.engineer?.name || '-'],
+  ];
+  const MW = CW / META.length, META_H = 11;
+  META.forEach(([k,v], i) => {
+    const x = M + MW*i;
+    if (i) line(x, y, x, y+META_H);
+    doc.setFont('helvetica','normal'); doc.setFontSize(5.2);
+    doc.setTextColor(SOFT[0],SOFT[1],SOFT[2]);
+    doc.text(k, x+2.5, y+4);
+    // One line, left under its label, whichever script it is in — a client
+    // or an engineer may well have an Arabic name.
+    drawCellText(doc, String(v), x+2.5, y+7.2, MW-4, 7, INK, true, [255,255,255], 'left');
+  });
+  line(M, y+META_H, M+CW, y+META_H);
+  y += META_H;
+
+  // ── Where the limits come from, and what a mark means ──
+  const LEG_H = 7;
+  doc.setFillColor(247,247,245); doc.rect(M, y, CW, LEG_H, 'F');
+  doc.setFont('helvetica','normal'); doc.setFontSize(5.6);
+  doc.setTextColor(82,82,82);
+  doc.text('Control limits per the', M+3, y+4.4);
+  const lx = M+3 + doc.getTextWidth('Control limits per the ');
+  doc.setFont('helvetica','bold'); doc.setTextColor(INK[0],INK[1],INK[2]);
+  doc.text('PWT treatment programme', lx, y+4.4);
+
+  // The legend is drawn, not typed — the base fonts have no triangles.
+  let gx = M + CW - 52;
+  doc.setFillColor(138,58,8);
+  doc.triangle(gx, y+2.6, gx-1.3, y+5.0, gx+1.3, y+5.0, 'F');
+  doc.setFont('helvetica','normal'); doc.setFontSize(5.4);
+  doc.setTextColor(82,82,82);
+  doc.text('above limit', gx+2.4, y+4.5);
+  gx += 20;
+  doc.setFillColor(138,58,8);
+  doc.triangle(gx, y+5.0, gx-1.3, y+2.6, gx+1.3, y+2.6, 'F');
+  doc.text('below limit', gx+2.4, y+4.5);
+  gx += 20;
+  doc.setFont('helvetica','bold'); doc.setTextColor(INK[0],INK[1],INK[2]);
+  doc.text('f', gx, y+4.5);
+  doc.setFont('helvetica','normal'); doc.setTextColor(82,82,82);
+  doc.text('calculated', gx+2.2, y+4.5);
+
+  line(M, y+LEG_H, M+CW, y+LEG_H, 0.5, INK);
+  y += LEG_H;
+
+  // Free visit banner
+  if (prospectName) {
+    doc.setFillColor(255, 248, 225);
+    doc.rect(M, y, CW, 20, 'F');
+    doc.setDrawColor(253, 230, 138);
+    doc.rect(M, y, CW, 20, 'S');
+    doc.setTextColor(146,64,14);
+    doc.setFontSize(9); doc.setFont('helvetica','bold');
+    doc.text('FREE WATER ANALYSIS VISIT', M+3, y+7);
+    // A sales visit: the engineer typed this name at the gate, and in the
+    // Delta and the countryside it is as likely to be Arabic as not. The
+    // English label is drawn on its own — put an Arabic name in the same
+    // string and the two scripts reorder around each other.
+    doc.setFontSize(8); doc.setFont('helvetica','normal');
+    doc.setTextColor(146,64,14);
+    const PLBL = 'Prospect: ';
+    doc.text(PLBL, M+3, y+12.4);
+    const px = M + 3 + doc.getTextWidth(PLBL);
+    const prospectFull = `${prospectName}${prospectContact ? ' - '+prospectContact : ''}`;
+    drawCellText(doc, prospectFull, px, y+12.4, CW - 6 - (px - M - 3), 8,
+                 [146,64,14], false, [255,248,225], 'left');
+    y += 24;
+  }
+
+
+  if (visitNotes) {
+    const notesH = addTextToPDF(doc, 'Notes: ' + visitNotes, M, y, CW, 8, [100,116,139], false, [255,255,255]);
+    y += notesH + 4;   // advance by real height — a long Arabic note is taller
+  }
+
+  // ── Systems ──
+  // The boilers are one block: the house they share, then the units.
+  // Everything else starts on a sheet of its own, so a cooling tower is
+  // never half a page under the end of a boiler table.
+  const live    = systemsData.filter(s => !isEmptySystem(s));
+  const boilers = live.filter(s => s.type === 'boiler');
+  const others  = live.filter(s => s.type !== 'boiler');
+
+  if (boilers.length) {
+    y = drawBoilerHouse(doc, boilers, M, CW, y);
+    boilers.forEach(sys => { y = drawSystemExtras(doc, sys, boilers.length > 1, M, CW, y, trendSeries); });
+  }
+
+  others.forEach(sys => {
+    doc.addPage(); y = 16;
+
+    doc.setFillColor(20,20,20);
+    doc.rect(M, y, CW, 7.5, 'F');
+    drawCellText(doc, sys.name, M+3, y+5.3, CW-6, 8.5,
+                 [255,255,255], true, [20,20,20], 'left');
+    y += 9.5;
+
+    y = drawSystemMatrix(doc, sys, M, CW, y);
+    y = drawSystemExtras(doc, sys, false, M, CW, y, trendSeries);
+  });
+
+  // ── Frame and footer, drawn last so every page gets them ──
+  // The border has to be closed after the content is laid out, because
+  // only now is it known how many pages there are.
+  const pages = doc.getNumberOfPages();
+  pageEnd[pages] = y;                       // the last page ends here
+
+  for (let p = 1; p <= pages; p++) {
+    doc.setPage(p);
+
+    // Close the frame just under the content, within sensible bounds:
+    // never so short that the title block looks cramped, never past the
+    // paper's bottom margin.
+    const content = pageEnd[p] || 12;
+    const bottom  = Math.max(70, Math.min(content + 4, 278));
+
+    doc.setDrawColor(20,20,20); doc.setLineWidth(0.5);
+    doc.rect(M, 12, CW, bottom - 12, 'S');
+    doc.setLineWidth(0.2);
+
+    doc.setFont('helvetica','normal'); doc.setFontSize(5.4);
+    doc.setTextColor(138,138,138);
+    doc.text('KRENOS™ WATER MANAGEMENT SYSTEM', M, bottom + 4);
+    doc.text(`SHEET ${p} OF ${pages}`, M + CW, bottom + 5.5, { align: 'right' });
+  }
+
+  // Return both: data URI (for download) and clean base64 (for email attachment)
+  const blob = doc.output('blob');
+  const arrayBuffer = await blob.arrayBuffer();
+  const bytes = new Uint8Array(arrayBuffer);
+  let binary = '';
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  const base64Clean = btoa(binary);
+  const dataUri = 'data:application/pdf;base64,' + base64Clean;
+  // Attach clean base64 as property so submit function can access it
+  dataUri.__cleanBase64 = base64Clean;
+  return { dataUri, base64Clean };
+}
+
+function findParamDef(type, label) {
+  const def = PARAMS[type];
+  if (!def) return null;
+  for (const sec of def.sections)
+    for (const p of sec.params)
+      if (p.label === label) return p;
+  return null;
+}
+
+function downloadPDF(dataUri, ref) {
+  const a = document.createElement('a');
+  a.href     = dataUri;
+  a.download = `${ref}.pdf`;
+  a.click();
+}
+
+// ══════════════════════════════════════════
+// NAVIGATION
+// ══════════════════════════════════════════
+function goScreen(name) {
+  if (name === 'review') {
+    const problem = systemNameProblem();
+    if (problem) { showToast(problem, 'error'); return; }
+  }
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(`screen-${name}`).classList.add('active');
+  window.scrollTo(0,0);
+  if (name === 'review') buildReview();
+}
+
+function resetApp() {
+  state = { engineer:null, client:null, visitMode:'service', systems:[], sysCounter:0, reportRef:'', timestamp:'' };
+  document.querySelectorAll('.eng-btn').forEach(b => b.classList.remove('selected'));
+  document.getElementById('clientSearch').value = '';
+  renderClients(allClients);
+  goScreen('client');
+}
+
+// ══════════════════════════════════════════
+// UI HELPERS
+// ══════════════════════════════════════════
+function showSheet(id) { document.getElementById(id).classList.add('show'); }
+function hideSheet(id) { document.getElementById(id).classList.remove('show'); }
+function showLoading(text='Please wait...') {
+  document.getElementById('loadingText').textContent = text;
+  document.getElementById('loadingOverlay').classList.add('show');
+}
+function hideLoading() { document.getElementById('loadingOverlay').classList.remove('show'); }
+function showToast(msg, type='') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className   = `toast show ${type}`;
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+function updateClock() {
+  const n = new Date();
+  document.getElementById('appBarTime').innerHTML =
+    `${n.toLocaleDateString('en-GB')}<br>${n.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}`;
+}
+
+// Close bottom sheet on backdrop click
+document.querySelectorAll('.bottom-sheet').forEach(el => {
+  el.addEventListener('click', e => { if (e.target === el) el.classList.remove('show'); });
+});
+
+// ══════════════════════════════════════════
+// INIT — Defer data loading to let UI paint first
+// ══════════════════════════════════════════
+updateClock();
+setInterval(updateClock, 30000);
+
+// ─── VERSION CHECK — refresh cached lists when a new build ships ───
+const APP_VERSION = '3.0.0';
+const storedVer = localStorage.getItem('krenos_app_version');
+if (storedVer && storedVer !== APP_VERSION) {
+  localStorage.removeItem('krenos_clients_cache');
+  localStorage.setItem('krenos_app_version', APP_VERSION);
+  window.location.reload(true);
+} else {
+  localStorage.setItem('krenos_app_version', APP_VERSION);
+}
+
+// ─── START ───
+// A stored session keeps the engineer signed in between visits; without
+// one the login screen is already on top and simply stays there.
+(async () => {
+  let session = null;
+  try {
+    session = (await sb.auth.getSession()).data.session || null;
+  } catch (e) {
+    session = null;      // offline: the token could not be refreshed
+  }
+  // Fall back to what the device stored. An expired token is still
+  // proof of who signed in, and nothing is sent to the server until
+  // there is a connection to send it over.
+  if (!session || !session.user) session = storedSession();
+  if (session && session.user) await afterLogin(session.user);
+})();
+
+sb.auth.onAuthStateChange((event) => {
+  if (event === 'SIGNED_OUT') showLogin();
+});
+
+// ─── WORKING WITHOUT A SIGNAL ───
+// Keep a copy of the app on the device, and watch for anything waiting
+// to be sent. Registered after start-up so a failure here can never
+// stop the engineer getting to the form.
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./krenos-sw.js')
+      .catch(err => console.warn('Offline support unavailable:', err));
+  });
+}
+
+if (typeof startOfflineWatch === 'function') {
+  try { startOfflineWatch(sb); }
+  catch (e) { console.warn('Offline queue unavailable:', e); }
+}
+</script>
+</body>
+</html>
