@@ -622,6 +622,7 @@ function getSelectedTrends(sysId) {
 // trend. Reads live from Sheets — nothing is stored on the device.
 async function buildTrendSeries(systemsData) {
   const wanted = systemsData.filter(s => s.trends && s.trends.length);
+  const countOfType = (list, type) => list.filter(s => s.type === type).length;
   if (!wanted.length) return {};
 
   if (!state.client?.id) return {};
@@ -657,9 +658,16 @@ async function buildTrendSeries(systemsData) {
       const points = [];
       past.forEach(rep => {
         const systems = parseHistSystems(rep.systemsRaw);
-        // match the same system by name, falling back to type
-        const match = systems.find(s => (s.name && s.name === sys.name)) ||
-                      systems.find(s => s.type === sys.type);
+        if (!Array.isArray(systems)) return;
+        // The same system: by its registered id, then by name. Only when
+        // both visits have a single system of this type is the type alone
+        // enough — with two boilers it would chart one boiler's readings
+        // as the other's.
+        const match =
+          (sys.system_id && systems.find(s => s.system_id === sys.system_id)) ||
+          systems.find(s => s.name && normName(s.name) === normName(sys.name)) ||
+          (countOfType(systems, sys.type) === 1 && countOfType(systemsData, sys.type) === 1
+            ? systems.find(s => s.type === sys.type) : null);
         if (!match) return;
         const v = readHistValue(match, t, sys.type);
         if (v !== null) points.push({ date: rep.date, value: v });
@@ -1184,19 +1192,12 @@ function selectClient(code) {
   selectClientObj(c);
 }
 
-function selectClientObj(client) {
+async function selectClientObj(client) {
   if (!state.engineer) { showToast('Please sign in first', 'error'); return; }
   state.client = client;
   if (!state.client) return;
   captureLocation();   // silent; result is attached at submit time
 
-  // What we already know about this site's boilers, so the engineer is
-  // not asked twice for something that does not change.
-  loadBoilers(client.id)
-    .then(() => {
-      state.systems.filter(s => s.type === 'boiler').forEach(s => syncBoilerSpec(s.id));
-    })
-    .catch(() => {});
   const chk = document.getElementById('sharedFeedChk');
   if (chk) chk.checked = client.shared_feed !== false;
 
@@ -1222,6 +1223,20 @@ function selectClientObj(client) {
   state.sysCounter = 0;
   document.getElementById('sysTabs').innerHTML = '';
   document.getElementById('sysPanels').innerHTML = '';
+
+  // The systems this plant has, from its first visit on. They open
+  // ready to fill in, under the names they were registered with.
+  registeredSystems = [];
+  const token = ++systemsLoadToken;
+  if (state.client.id) {
+    showLoading('Loading plant...');
+    const rows = await loadClientSystems(state.client.id);
+    hideLoading();
+    if (token !== systemsLoadToken) return;   // another client was picked meanwhile
+    registeredSystems = rows.filter(r => PARAMS[r.type]);
+    registeredSystems.forEach(r => addSystem(r.type, r));
+    if (state.systems.length) switchTab(state.systems[0].id);
+  }
 
   // Show/hide free visit section
   document.getElementById('freeVisitSection').style.display = state.visitMode === 'free' ? 'block' : 'none';
@@ -1515,44 +1530,85 @@ async function saveNewClient() {
 // SYSTEMS
 // ══════════════════════════════════════════
 // ══════════════════════════════════════════
-//  WHAT THE BOILER IS
+//  THE PLANT'S SYSTEMS
 // ══════════════════════════════════════════
+// Each client's systems are registered by the database the first time a
+// report analyses them (see krenos-systems.sql). From then on the app
+// opens every visit with them in place, under the names they were given,
+// so a plant's history is never split by a name typed two ways. The
+// engineer cannot rename one; the office can.
+//
 // Capacity and pressure belong to the boiler, not to the visit, so they
-// are asked once and remembered. Pressure in particular decides which
-// limits apply — a 20 bar boiler does not share a 10 bar boiler's TDS
-// ceiling — so a report without it is a report judged against a guess.
+// travel with the registered system and are asked once. Pressure in
+// particular decides which limits apply, so a report without it is a
+// report judged against a guess.
 
-let knownBoilers = [];   // rows from the boilers table for this client
+const CACHE_SYSTEMS = 'krenos_systems';
+let registeredSystems = [];   // rows from client_systems for this client
+let systemsLoadToken = 0;
 
-async function loadBoilers(clientId) {
-  knownBoilers = [];
-  if (!clientId) return;
-  // Knowing the plant is a convenience. If the lookup fails — offline,
-  // or the table is not there yet — the engineer types the figures in
-  // as he would on a first visit, and the report is unaffected.
+function cacheSystems(clientId, rows) {
   try {
-    const { data, error } = await sb
-      .from('boilers')
-      .select('id, name, capacity_tph, pressure_bar')
-      .eq('client_id', clientId);
-    if (!error && data) {
-      knownBoilers = data;
-      cacheBoilers(clientId, data);
-      return;
-    }
-  } catch (e) { /* fall through to what we remember */ }
-
-  // No signal: a boiler's capacity and pressure do not change between
-  // visits, so last month's answer is this month's answer.
-  knownBoilers = cachedBoilers(clientId);
+    const all = JSON.parse(localStorage.getItem(CACHE_SYSTEMS) || '{}');
+    all[clientId] = rows || [];
+    localStorage.setItem(CACHE_SYSTEMS, JSON.stringify(all));
+  } catch (e) {}
 }
 
-// Matching is by name, trimmed and case-folded, because the engineer
-// retypes it each visit rather than picking from a list.
-function findKnownBoiler(name) {
-  const key = String(name || '').trim().toLowerCase();
-  if (!key) return null;
-  return knownBoilers.find(b => String(b.name).trim().toLowerCase() === key) || null;
+function cachedSystems(clientId) {
+  try {
+    const all = JSON.parse(localStorage.getItem(CACHE_SYSTEMS) || '{}');
+    return Array.isArray(all[clientId]) ? all[clientId] : null;
+  } catch (e) { return null; }
+}
+
+// Online, the register; offline or slow, what this phone saw last time.
+// Never throws: a plant whose list cannot be read opens empty, and the
+// engineer adds the systems as on a first visit.
+async function loadClientSystems(clientId) {
+  if (!clientId) return [];
+  if (navigator.onLine !== false) {
+    try {
+      const res = await Promise.race([
+        sb.from('client_systems')
+          .select('id, type, name, spec, sort_order')
+          .eq('client_id', clientId)
+          .eq('active', true)
+          .order('sort_order'),
+        new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 5000)),
+      ]);
+      if (res && !res.error && Array.isArray(res.data)) {
+        cacheSystems(clientId, res.data);
+        return res.data;
+      }
+    } catch (e) { /* fall through to what we remember */ }
+  }
+  return cachedSystems(clientId) || [];
+}
+
+const normName = (s) => String(s || '').trim().replace(/\s+/g, ' ').toLowerCase();
+
+// "Boiler #1", "Boiler #2" … the first number not already in use here.
+function nextDefaultName(type) {
+  const label = PARAMS[type].label;
+  const used = new Set(state.systems.map(s =>
+    normName(document.getElementById(`sysname-${s.id}`)?.value)));
+  registeredSystems.forEach(r => used.add(normName(r.name)));
+  let n = 1;
+  while (used.has(normName(`${label} #${n}`))) n++;
+  return `${label} #${n}`;
+}
+
+// Two blocks with one name would be filed as one system.
+function systemNameProblem() {
+  const seen = new Set();
+  for (const s of state.systems) {
+    const n = normName(document.getElementById(`sysname-${s.id}`)?.value);
+    if (!n) return 'Every system needs a name.';
+    if (seen.has(n)) return `Two systems are named "${document.getElementById(`sysname-${s.id}`).value.trim()}". Give each its own name.`;
+    seen.add(n);
+  }
+  return '';
 }
 
 function buildBoilerSpec(id) {
@@ -1575,23 +1631,19 @@ function buildBoilerSpec(id) {
     </div>`;
 }
 
-// Fills the spec boxes from what is already on record, and says so, so
-// the engineer knows the blanks are the ones he has to answer.
-function syncBoilerSpec(id) {
-  const nameEl = document.getElementById(`sysname-${id}`);
+// Fills the spec boxes from what is on record, and says so, so the
+// engineer knows the blanks are the ones he has to answer.
+function fillBoilerSpec(id, reg) {
   const capEl  = document.getElementById(`cap-${id}`);
   const prsEl  = document.getElementById(`prs-${id}`);
   const noteEl = document.getElementById(`spec-note-${id}`);
-  if (!nameEl || !capEl || !prsEl) return;
-
-  const known = findKnownBoiler(nameEl.value);
-  if (known) {
-    if (!capEl.value && known.capacity_tph != null) capEl.value = known.capacity_tph;
-    if (!prsEl.value && known.pressure_bar != null) prsEl.value = known.pressure_bar;
-    if (noteEl) noteEl.textContent = 'On record from a previous visit — change it if the plant has.';
-  } else if (noteEl) {
-    noteEl.textContent = 'First visit to this boiler — entered once, then remembered.';
-  }
+  if (!capEl || !prsEl) return;
+  const spec = (reg && reg.spec) || {};
+  if (spec.capacity_tph != null) capEl.value = spec.capacity_tph;
+  if (spec.pressure_bar != null) prsEl.value = spec.pressure_bar;
+  if (noteEl) noteEl.textContent = (spec.capacity_tph != null || spec.pressure_bar != null)
+    ? 'On record from a previous visit — change it if the plant has.'
+    : 'Entered once, then remembered for this boiler.';
 }
 
 // The shared-supply question is about the site, not a boiler, so it is
@@ -1640,16 +1692,19 @@ function applySharedFeedSections() {
   });
 }
 
-function addSystem(type) {
-  const id   = ++state.sysCounter;
+// `reg` is the client's registered system this block stands for, or
+// nothing for a system being added for the first time.
+function addSystem(type, reg) {
   const def  = PARAMS[type];
-  state.systems.push({ id, type });
+  const name = reg ? reg.name : nextDefaultName(type);
+  const id   = ++state.sysCounter;
+  state.systems.push({ id, type, systemId: reg ? reg.id : null });
 
   // Tab
   const tab = document.createElement('button');
   tab.className = 'sys-tab';
   tab.id = `sys-tab-${id}`;
-  tab.innerHTML = `${def.icon} ${def.label} #${id}`;
+  tab.textContent = `${def.icon} ${name}`;
   tab.onclick = () => switchTab(id);
   document.getElementById('sysTabs').appendChild(tab);
 
@@ -1691,12 +1746,18 @@ function addSystem(type) {
   panel.innerHTML = `
     <div class="card">
       <div class="card-body">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
-          <input type="text" class="form-input" id="sysname-${id}" value="${def.label} #${id}"
-            style="font-weight:600;font-size:13px;padding:7px 10px"
-            oninput="updateTabLabel(${id},this.value)">
-          <button onclick="removeSystem(${id})" class="btn btn-danger btn-sm" style="width:auto;white-space:nowrap">🗑 Remove</button>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:${reg ? 4 : 6}px">
+          <input type="text" class="form-input" id="sysname-${id}" value="${escAttr(name)}"
+            style="font-weight:600;font-size:13px;padding:7px 10px${reg ? ';background:var(--surface);color:var(--slate)' : ''}"
+            ${reg ? 'readonly title="Registered for this client. The office can rename it."'
+                  : `oninput="updateTabLabel(${id},this.value)"`}>
+          ${reg
+            ? '<span style="font-size:15px" title="Registered for this client">🔒</span>'
+            : `<button onclick="removeSystem(${id})" class="btn btn-danger btn-sm" style="width:auto;white-space:nowrap">🗑 Remove</button>`}
         </div>
+        <div class="sys-reg-note" style="font-size:10px;color:var(--muted);margin-bottom:12px">${reg
+          ? 'Registered for this client. Not analysed today? Leave it empty — it will not appear on the report.'
+          : 'New system — it will be saved to this client when you submit. Name it the way the plant does.'}</div>
         ${type === 'boiler' ? buildBoilerSpec(id) : ''}
         ${sectionsHTML}
         <div style="margin-top:12px">
@@ -1713,7 +1774,7 @@ function addSystem(type) {
     </div>`;
 
   document.getElementById('sysPanels').appendChild(panel);
-  if (type === 'boiler') { syncBoilerSpec(id); refreshSharedFeedRow(); }
+  if (type === 'boiler') { fillBoilerSpec(id, reg); refreshSharedFeedRow(); }
   switchTab(id);
 }
 
@@ -1756,8 +1817,6 @@ function updateTabLabel(id, val) {
   const sys = state.systems.find(s => s.id === id);
   const def = PARAMS[sys?.type];
   if (t && def) t.textContent = `${def.icon} ${val}`;
-  // Renaming a boiler may make it match one already on record.
-  if (sys?.type === 'boiler') syncBoilerSpec(id);
 }
 
 function removeSystem(id) {
@@ -1923,25 +1982,11 @@ function calcOHAlk(sysId) {
 // record, so the next visit starts with it filled in. Deliberately
 // separate from filing the report: if the engineer lacks permission on
 // this client, or the site is offline, the report still stands.
-async function rememberBoilers(systemsData) {
+// The systems themselves, and the boilers' details, are registered by
+// the database as the report arrives. What is left to remember here is
+// the one answer that belongs to the whole site.
+async function rememberSite() {
   if (!state.client?.id) return;
-
-  const boilers = systemsData.filter(s => s.type === 'boiler' && s.spec);
-  for (const b of boilers) {
-    const known = findKnownBoiler(b.name);
-    const row = {
-      client_id:    state.client.id,
-      name:         b.name,
-      capacity_tph: b.spec.capacity_tph,
-      pressure_bar: b.spec.pressure_bar,
-      updated_at:   new Date().toISOString(),
-    };
-    if (known) {
-      await sb.from('boilers').update(row).eq('id', known.id);
-    } else {
-      await sb.from('boilers').insert(row);
-    }
-  }
 
   // The shared-supply answer belongs to the site. Only send it when the
   // engineer actually saw the question — with one boiler the checkbox is
@@ -2223,7 +2268,7 @@ function isEmptySystem(sys) {
 function collectSystems() {
   return state.systems.map(sys => {
     const def     = PARAMS[sys.type];
-    const name    = document.getElementById(`sysname-${sys.id}`)?.value || def.label;
+    const name    = (document.getElementById(`sysname-${sys.id}`)?.value || '').trim() || def.label;
     const rec     = document.getElementById(`rec-${sys.id}`)?.value || '';
     // Collect readings per section to avoid mixing
     const sections = {};
@@ -2273,8 +2318,8 @@ function collectSystems() {
       }
     }
 
-    return { id: sys.id, type: sys.type, stype: def, name, sections, readings,
-             recommendations: rec, treatment, trends, spec };
+    return { id: sys.id, system_id: sys.systemId || null, type: sys.type, stype: def, name,
+             sections, readings, recommendations: rec, treatment, trends, spec };
   });
 }
 
@@ -2414,7 +2459,12 @@ async function submitReport() {
     // Remember the plant for next time. This is a convenience, not part
     // of the report, so a failure here must never cost the engineer the
     // visit he has just finished writing up.
-    if (!offline) await rememberBoilers(systemsData).catch(() => {});
+    if (!offline) {
+      await rememberSite().catch(() => {});
+      // The report has just registered any new systems; fetch the list
+      // now so this phone has it for the next visit, signal or not.
+      loadClientSystems(state.client?.id).catch(() => {});
+    }
 
     // ── 2. Trend charts, if the engineer asked for them ──
     // Trends need the client's history, which lives on the server.
@@ -3236,6 +3286,10 @@ function downloadPDF(dataUri, ref) {
 // NAVIGATION
 // ══════════════════════════════════════════
 function goScreen(name) {
+  if (name === 'review') {
+    const problem = systemNameProblem();
+    if (problem) { showToast(problem, 'error'); return; }
+  }
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById(`screen-${name}`).classList.add('active');
   window.scrollTo(0,0);
