@@ -145,6 +145,8 @@ body { font-family: 'IBM Plex Sans', sans-serif; background: var(--surface); col
 .add-sys-row { display: flex; gap: 7px; flex-wrap: wrap; margin-top: 10px; }
 .add-sys-btn { padding: 6px 11px; border: 1.5px dashed var(--border); border-radius: 20px; background: transparent; font-family: 'IBM Plex Sans', sans-serif; font-size: 10px; font-weight: 600; color: var(--muted); cursor: pointer; transition: all 0.15s; }
 .add-sys-btn:hover { border-color: var(--sky); color: var(--sky); border-style: solid; }
+.setup-row { margin-top: 14px; padding: 12px; border: 1px dashed var(--border); border-radius: 12px; }
+.setup-hint { font-size: 10px; color: var(--muted); margin-top: 6px; line-height: 1.45; }
 
 /* FREE VISIT BADGE */
 .free-visit-badge { background: linear-gradient(135deg, #f59e0b, #f97316); color: white; padding: 3px 10px; border-radius: 20px; font-size: 10px; font-weight: 700; }
@@ -428,6 +430,11 @@ body { font-family: 'IBM Plex Sans', sans-serif; background: var(--surface); col
     <button class="add-sys-btn" onclick="addSystem('closed')">🔄 Add Closed Loop</button>
     <button class="add-sys-btn" onclick="addSystem('pool')">🏊 Add Swimming Pool</button>
     <button class="add-sys-btn" onclick="addSystem('raw')">🚰 Add Raw Water</button>
+  </div>
+
+  <div id="setupRow" class="setup-row" style="display:none">
+    <button class="btn btn-secondary" id="setupBtn" onclick="saveSystemsSetup()">💾 Save systems to this client</button>
+    <div class="setup-hint">No report is sent. Use it in the office to set up a plant before the first visit — the systems will be ready when you get there.</div>
   </div>
 
   <div style="margin-top:20px">
@@ -1237,6 +1244,7 @@ async function selectClientObj(client) {
     registeredSystems.forEach(r => addSystem(r.type, r));
     if (state.systems.length) switchTab(state.systems[0].id);
   }
+  refreshSetupRow();
 
   // Show/hide free visit section
   document.getElementById('freeVisitSection').style.display = state.visitMode === 'free' ? 'block' : 'none';
@@ -1611,6 +1619,113 @@ function systemNameProblem() {
   return '';
 }
 
+// ── Setting up a plant from the office ──
+// The engineer often knows a plant's systems before he visits it. He
+// opens the client as for a visit, adds the systems, and saves them to
+// the client without filing a report. They then open, locked, on the
+// first visit like on any other.
+
+function refreshSetupRow() {
+  const row = document.getElementById('setupRow');
+  if (!row) return;
+  const anyNew = !!state.client?.id && state.systems.some(s => !s.systemId);
+  row.style.display = anyNew ? 'block' : 'none';
+}
+
+// Turns a block the engineer just added into a registered one.
+function lockSystemBlock(id, systemId) {
+  const sys = state.systems.find(s => s.id === id);
+  if (!sys) return;
+  sys.systemId = systemId;
+  const nm = document.getElementById(`sysname-${id}`);
+  if (nm) {
+    nm.readOnly = true;
+    nm.oninput = null;
+    nm.removeAttribute('oninput');
+    nm.title = 'Registered for this client. The office can rename it.';
+    nm.style.background = 'var(--surface)';
+    nm.style.color = 'var(--slate)';
+  }
+  const rm = document.getElementById(`sysremove-${id}`);
+  if (rm) {
+    const lock = document.createElement('span');
+    lock.style.fontSize = '15px';
+    lock.title = 'Registered for this client';
+    lock.textContent = '🔒';
+    rm.replaceWith(lock);
+  }
+  const note = document.querySelector(`#sys-panel-${id} .sys-reg-note`);
+  if (note) note.textContent = 'Registered for this client. Not analysed today? Leave it empty — it will not appear on the report.';
+}
+
+async function saveSystemsSetup() {
+  if (!state.client?.id) return;
+  const problem = systemNameProblem();
+  if (problem) { showToast(problem, 'error'); return; }
+
+  const fresh = state.systems.filter(s => !s.systemId);
+  if (!fresh.length) { showToast('Every system here is already saved to this client.'); return; }
+  if (navigator.onLine === false) {
+    showToast('Saving systems needs a signal. Try again when you are connected.', 'error');
+    return;
+  }
+
+  const payload = fresh.map(s => {
+    const name = document.getElementById(`sysname-${s.id}`).value.trim().replace(/\s+/g, ' ');
+    let spec = null;
+    if (s.type === 'boiler') {
+      const cap = parseFloat(document.getElementById(`cap-${s.id}`)?.value);
+      const prs = parseFloat(document.getElementById(`prs-${s.id}`)?.value);
+      spec = { capacity_tph: isNaN(cap) ? null : cap, pressure_bar: isNaN(prs) ? null : prs };
+    }
+    return { block: s.id, type: s.type, name, spec };
+  });
+
+  const clientId = state.client.id;
+  showLoading('Saving systems...');
+  let res;
+  try {
+    res = await sb.rpc('register_client_systems', {
+      p_client: clientId,
+      p_systems: payload.map(({ type, name, spec }) => ({ type, name, spec })),
+    });
+  } catch (e) {
+    res = { error: e };
+  }
+  hideLoading();
+
+  if (res.error || !Array.isArray(res.data)) {
+    const msg = String(res.error?.message || '');
+    showToast(/not your client/i.test(msg)
+      ? 'This client is not assigned to you, so its systems cannot be saved.'
+      : /could not find|does not exist|schema cache/i.test(msg)
+        ? 'Could not save — the database has not been updated for this yet. Tell the office.'
+        : 'Could not save the systems. Check the connection and try again.', 'error');
+    return;
+  }
+  if (state.client?.id !== clientId) return;   // he left this client meanwhile
+
+  let saved = 0;
+  res.data.forEach(r => {
+    if (!r.id || (r.status !== 'added' && r.status !== 'exists')) return;
+    const p = payload.find(x => normName(x.name) === normName(r.name));
+    if (!p) return;
+    lockSystemBlock(p.block, r.id);
+    saved++;
+  });
+
+  // Keep this phone's copy current, so the plant opens set up even
+  // if the first visit is made with no signal.
+  registeredSystems = await loadClientSystems(clientId);
+  refreshSetupRow();
+
+  if (saved === fresh.length) {
+    showToast(`${saved} system${saved > 1 ? 's' : ''} saved to ${state.client.name}. No report was sent.`, 'success');
+  } else {
+    showToast(`${saved} of ${fresh.length} systems saved. Check the names of the others.`, 'error');
+  }
+}
+
 function buildBoilerSpec(id) {
   return `
     <div class="subsection" id="spec-${id}">
@@ -1753,7 +1868,7 @@ function addSystem(type, reg) {
                   : `oninput="updateTabLabel(${id},this.value)"`}>
           ${reg
             ? '<span style="font-size:15px" title="Registered for this client">🔒</span>'
-            : `<button onclick="removeSystem(${id})" class="btn btn-danger btn-sm" style="width:auto;white-space:nowrap">🗑 Remove</button>`}
+            : `<button id="sysremove-${id}" onclick="removeSystem(${id})" class="btn btn-danger btn-sm" style="width:auto;white-space:nowrap">🗑 Remove</button>`}
         </div>
         <div class="sys-reg-note" style="font-size:10px;color:var(--muted);margin-bottom:12px">${reg
           ? 'Registered for this client. Not analysed today? Leave it empty — it will not appear on the report.'
@@ -1775,6 +1890,7 @@ function addSystem(type, reg) {
 
   document.getElementById('sysPanels').appendChild(panel);
   if (type === 'boiler') { fillBoilerSpec(id, reg); refreshSharedFeedRow(); }
+  refreshSetupRow();
   switchTab(id);
 }
 
@@ -1825,6 +1941,7 @@ function removeSystem(id) {
   document.getElementById(`sys-panel-${id}`)?.remove();
   state.systems = state.systems.filter(s => s.id !== id);
   refreshSharedFeedRow();
+  refreshSetupRow();
   if (state.systems.length) switchTab(state.systems[state.systems.length-1].id);
 }
 
