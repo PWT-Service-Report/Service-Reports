@@ -148,6 +148,38 @@ table.inv-table td { padding: 12px 14px; border-bottom: 1px solid var(--border);
 table.inv-table tr:last-child td { border-bottom: none; }
 table.inv-table tr:hover td { background: #f8fafc; }
 
+/* ── Quality tab ── */
+.qa-note { background: #eff6ff; border: 1px solid #bfdbfe; color: #1e3a5f; border-radius: 10px; padding: 10px 14px; font-size: 12px; margin-bottom: 16px; line-height: 1.5; }
+.qa-note.qa-warn { background: #fffbeb; border-color: #fde68a; color: #78350f; }
+.qa-legend { font-size: 11px; color: var(--muted); }
+.qa-table td { white-space: nowrap; }
+.qa-row { cursor: pointer; }
+.qa-pill { display: inline-block; min-width: 38px; text-align: center; padding: 3px 9px; border-radius: 20px; font-weight: 700; font-size: 12px; }
+.qa-good { background: #dcfce7; color: #166534; }
+.qa-mid  { background: #fef3c7; color: #92400e; }
+.qa-bad  { background: #fee2e2; color: #991b1b; }
+.qa-none { background: var(--surface); color: var(--muted); }
+.qa-trend { font-size: 11px; margin-left: 6px; font-weight: 600; }
+.qa-up { color: #16a34a; } .qa-down { color: #dc2626; } .qa-flat { color: var(--muted); }
+.qa-detail td { background: #f8fafc !important; white-space: normal; padding: 14px 18px; font-size: 12px; }
+.qa-detail h4 { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin: 0 0 6px; }
+.qa-detail ul { margin: 0 0 12px 16px; padding: 0; }
+.qa-item { border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; margin-bottom: 12px; }
+.qa-item-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 13px; }
+.qa-item-head .ref { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--muted); }
+.qa-flags { list-style: none; margin: 10px 0; padding: 0; font-size: 12px; }
+.qa-flags li { padding: 3px 0; }
+.qa-sev { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 7px; vertical-align: middle; }
+.qa-sev-high { background: #dc2626; } .qa-sev-medium { background: #f59e0b; } .qa-sev-low { background: #94a3b8; } .qa-sev-info { background: #cbd5e1; }
+.qa-sampled { font-size: 11px; color: var(--muted); font-style: italic; }
+.qa-actions { display: flex; gap: 8px; align-items: flex-start; flex-wrap: wrap; }
+.qa-actions textarea { flex: 1; min-width: 220px; min-height: 38px; border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font: inherit; font-size: 12px; resize: vertical; }
+.qa-btn { border: 1px solid var(--border); background: white; border-radius: 8px; padding: 8px 14px; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
+.qa-btn.ok { border-color: #86efac; color: #166534; } .qa-btn.ok:hover { background: #dcfce7; }
+.qa-btn.warn { border-color: #fca5a5; color: #991b1b; } .qa-btn.warn:hover { background: #fee2e2; }
+.qa-verdict { font-size: 12px; padding: 8px 10px; border-radius: 8px; background: var(--surface); }
+.qa-toggle { font-size: 12px; color: var(--muted); display: flex; gap: 6px; align-items: center; cursor: pointer; }
+
 .days-bar-wrap { display: flex; align-items: center; gap: 8px; }
 .days-bar-track { flex: 1; height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; min-width: 60px; }
 .days-bar-fill { height: 100%; border-radius: 4px; }
@@ -336,6 +368,10 @@ table.inv-table tr:hover td { background: #f8fafc; }
     🧪 Chemical Inventory
     <span class="tab-badge" id="inv-badge">0</span>
   </button>
+  <button class="tab-btn" onclick="switchTab('quality')" id="tab-quality">
+    ✅ Quality
+    <span class="tab-badge" id="qa-badge">0</span>
+  </button>
 </div>
 
 <div class="main">
@@ -402,6 +438,43 @@ table.inv-table tr:hover td { background: #f8fafc; }
         <div class="section-body">
           <div class="client-grid" id="visitedClientsGrid"><div class="empty-state" style="grid-column:1/-1">No clients visited yet</div></div>
         </div>
+      </div>
+    </div>
+
+    <!-- ══ TAB: QUALITY ══ -->
+    <!-- Management only. Nothing on this tab reaches the engineers' app,
+         their reports or their emails. -->
+    <div class="tab-panel" id="panel-quality">
+      <div class="qa-note">
+        <b>Management only.</b> Engineers never see scores, warnings or reviews.
+        The first three months are calibration — rules and weights will be tuned as real reports come in.
+      </div>
+      <div class="qa-note qa-warn" id="qaMissing" style="display:none">
+        Reviews are not switched on yet: run <b>krenos-audit.sql</b> in Supabase → SQL Editor, then refresh.
+      </div>
+
+      <div class="section-card">
+        <div class="section-header">
+          <div class="section-title">Engineer Scorecard <span class="badge" id="qaMonthBadge">—</span></div>
+          <div class="qa-legend">Overall = 40% visits on schedule · 40% report quality · 20% review results</div>
+        </div>
+        <div class="section-body" style="padding:0;overflow-x:auto">
+          <table class="inv-table qa-table">
+            <thead><tr>
+              <th>Engineer</th><th>Reports</th><th>Visits</th><th>On schedule</th>
+              <th>Quality</th><th>High warnings</th><th>Copied</th><th>Reviews</th><th>Overall</th>
+            </tr></thead>
+            <tbody id="qaScoreBody"><tr><td colspan="9" class="empty-state">No data</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="section-card">
+        <div class="section-header">
+          <div class="section-title">Review Queue <span class="badge" id="qaQueueBadge">0</span></div>
+          <label class="qa-toggle"><input type="checkbox" id="qaShowReviewed" onchange="renderQuality()"> Show reviewed</label>
+        </div>
+        <div class="section-body" id="qaQueue"><div class="empty-state">Nothing to review</div></div>
       </div>
     </div>
 
@@ -613,6 +686,7 @@ table.inv-table tr:hover td { background: #f8fafc; }
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="krenos-params.js"></script>
+<script src="krenos-audit.js"></script>
 <script>
 // ══════════════════════════════════════════
 //  Krenos Dashboard — reads from Supabase.
@@ -636,6 +710,11 @@ let allReports   = [];
 let allClients   = [];
 let allEngineers = [];
 let allTeams     = [];
+let allTeamsWithMembers = [];
+let allClientsRaw = [];   // clients as the database has them, for the scorecard
+let allReviews   = {};   // report id -> management's verdict
+let reviewsMissing = false;
+let qaOpen = null;       // engineer whose scorecard row is open
 let invData      = []; // processed inventory rows
 let invFilter    = 'all';
 let activeTab    = 'overview';
@@ -708,7 +787,7 @@ async function admitCurrentUser() {
 
   const { data: row } = await sb
     .from('engineers')
-    .select('name, code, role, active')
+    .select('id, name, code, role, active')
     .eq('id', user.id)
     .single();
 
@@ -764,17 +843,30 @@ async function loadAll() {
   document.getElementById('loadingState').style.display = 'block';
   document.getElementById('dashboardContent').style.display = 'none';
   try {
-    const [repRes, cliRes, engRes, teamRes] = await Promise.all([
+    const [repRes, cliRes, engRes, teamRes, memRes, revRes] = await Promise.all([
       sb.from('reports').select('*').order('created_at', { ascending: false }),
       sb.from('clients').select('*').order('code'),
       sb.from('engineers').select('*').order('code'),
       sb.from('teams').select('id, code, name, active').order('code'),
+      sb.from('team_members').select('team_id, engineer_id'),
+      sb.from('report_reviews').select('*'),
     ]);
     const firstError = repRes.error || cliRes.error || engRes.error;
     if (firstError) throw firstError;
     // Teams arrived later than the rest of the system; a dashboard
     // opened against a database without them should still work.
     allTeams = teamRes.error ? [] : (teamRes.data || []);
+    const members = memRes.error ? [] : (memRes.data || []);
+    allTeamsWithMembers = allTeams.map(t => ({
+      id: t.id, members: members.filter(m => m.team_id === t.id).map(m => m.engineer_id),
+    }));
+    // Reviews arrive with krenos-audit.sql; until then the tab says so.
+    reviewsMissing = !!revRes.error;
+    allReviews = Object.fromEntries((revRes.error ? [] : (revRes.data || [])).map(v => [v.report_id, v]));
+    allClientsRaw = (cliRes.data || []).map(c => ({
+      id: c.id, code: c.code, name: c.name, engineer_id: c.engineer_id, team_id: c.team_id,
+      frequency: c.frequency, active: c.active, is_prospect: c.is_prospect,
+    }));
 
     allEngineers = (engRes.data || []).map(e => ({
       id: e.id, code: e.code, name: e.name, email: e.email,
@@ -801,7 +893,13 @@ async function loadAll() {
       };
     });
 
+    const roleById = Object.fromEntries(allEngineers.map(e => [e.id, e.role]));
     allReports = (repRes.data || []).map(r => ({
+      id: r.id,
+      engineer_id: r.engineer_id,
+      client_id: r.client_id,
+      role: roleById[r.engineer_id] || '',
+      submitted_at: r.submitted_at,
       ref: r.ref,
       timestamp: r.submitted_at || r.created_at,
       visit_mode: r.visit_mode,
@@ -923,6 +1021,7 @@ function renderDashboard() {
   renderCriticalReports(monthReports);
   buildInventory();
   populateHistClients();
+  renderQuality();
 }
 
 // Normalize an engineer code so "1", 1, "001", " 001 " all match
@@ -1540,6 +1639,140 @@ function renderHistRecs(sysName, cutoff) {
         <div class="rec-text">${escapeHtml(r.rec)}</div>
       </div>
     </div>`).join('');
+}
+
+
+// ══════════════════════════════════════════
+//  QUALITY — scorecard and review queue
+// ══════════════════════════════════════════
+// The rules live in krenos-audit.js. Nothing here is visible to the
+// engineers: the app never loads it, and the verdicts are kept in a
+// table only admins can read.
+
+function qaPill(v) {
+  if (v === null || v === undefined) return '<span class="qa-pill qa-none">—</span>';
+  const cls = v >= 85 ? 'qa-good' : v >= 70 ? 'qa-mid' : 'qa-bad';
+  return `<span class="qa-pill ${cls}">${v}</span>`;
+}
+
+function qaTrend(now, before) {
+  if (now === null || before === null || before === undefined) return '';
+  const d = now - before;
+  if (Math.abs(d) < 2) return '<span class="qa-trend qa-flat">=</span>';
+  return d > 0 ? `<span class="qa-trend qa-up">▲ ${d}</span>` : `<span class="qa-trend qa-down">▼ ${-d}</span>`;
+}
+
+function qaDate(r) {
+  const d = new Date(r.submitted_at || r.created_at);
+  return isNaN(d) ? '' : d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) + ' ' +
+    d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+}
+
+function qaFlagList(flags) {
+  if (!flags.length) return '';
+  return '<ul class="qa-flags">' + flags.map(f =>
+    `<li><span class="qa-sev qa-sev-${f.sev}"></span>${escapeHtml(f.text)}` +
+    (f.system ? ` — <b>${escapeHtml(f.system)}</b>` : '') +
+    (f.detail ? ` <span style="color:var(--muted)">(${escapeHtml(f.detail)})</span>` : '') +
+    (f.cost ? ` <span style="color:var(--muted)">−${f.cost}</span>` : '') + '</li>').join('') + '</ul>';
+}
+
+function renderQuality() {
+  if (!document.getElementById('panel-quality') || typeof scorecard !== 'function') return;
+  document.getElementById('qaMissing').style.display = reviewsMissing ? 'block' : 'none';
+  document.getElementById('qaMonthBadge').textContent = `${MONTH_NAMES[currentMonth]} ${currentYear}`;
+
+  const base = { reports: allReports, clients: allClientsRaw, engineers: allEngineers,
+                 teams: allTeamsWithMembers, reviews: allReviews };
+  const sc = scorecard({ ...base, year: currentYear, month: currentMonth });
+  const pm = currentMonth === 0 ? 11 : currentMonth - 1, py = currentMonth === 0 ? currentYear - 1 : currentYear;
+  const before = Object.fromEntries(scorecard({ ...base, year: py, month: pm }).map(x => [x.id, x]));
+
+  const monthReports = getMonthReports();
+  const audits = new Map(monthReports.map(r => [r, auditReport(r, allReports)]));
+
+  document.getElementById('qaScoreBody').innerHTML = sc.length ? sc.map(e => {
+    const b = before[e.id] || {};
+    const row = `<tr class="qa-row" onclick="qaToggle('${e.id}')">
+      <td><b>${escapeHtml(e.name)}</b> <span style="color:var(--muted);font-size:11px">${escapeHtml(e.code || '')}${e.role === 'office' ? ' · office' : ''}</span></td>
+      <td>${e.reports}</td>
+      <td>${e.due ? `${e.done} / ${e.due}` : '—'}</td>
+      <td>${qaPill(e.coverage)}${qaTrend(e.coverage, b.coverage)}</td>
+      <td>${qaPill(e.quality)}${qaTrend(e.quality, b.quality)}</td>
+      <td>${e.highFlagged ? `<b style="color:#b91c1c">${e.highFlagged}</b>` : '0'}</td>
+      <td>${e.copied ? `<b style="color:#b91c1c">${e.copied}</b>` : '0'}</td>
+      <td>${e.approved || e.attention ? `✓ ${e.approved} · ⚠ ${e.attention}` : '—'}</td>
+      <td>${qaPill(e.overall)}${qaTrend(e.overall, b.overall)}</td>
+    </tr>`;
+    if (qaOpen !== e.id) return row;
+    const mine = monthReports.filter(r => (r.engineer_id || r.eng_code) === (e.id || e.code))
+      .map(r => ({ r, a: audits.get(r) })).sort((x, y) => x.a.score - y.a.score);
+    return row + `<tr class="qa-detail"><td colspan="9">
+      <h4>Visits not on schedule (${e.overdue.length})</h4>
+      ${e.overdue.length ? '<ul>' + e.overdue.map(n => `<li>${escapeHtml(n)}</li>`).join('') + '</ul>' : '<p style="margin:0 0 12px">None — every client on schedule.</p>'}
+      <h4>Reports this month</h4>
+      ${mine.length ? mine.map(({ r, a }) => `<div style="margin-bottom:8px">${qaPill(a.score)}
+          <b style="margin-left:8px">${escapeHtml(r.client_name || '—')}</b>
+          <span class="ref" style="color:var(--muted);font-size:11px;margin-left:6px">${escapeHtml(r.ref)} · ${qaDate(r)}</span>
+          ${reportChips({ pdf: r.pdf_url, lat: r.gps_lat, lng: r.gps_lng })}
+          ${qaFlagList(a.flags)}</div>`).join('') : '<p style="margin:0">No reports.</p>'}
+    </td></tr>`;
+  }).join('') : '<tr><td colspan="9" class="empty-state">No engineers with clients or reports this month</td></tr>';
+
+  // The queue: anything the rules worry about, plus a fixed one-in-ten
+  // sample of the rest, so a clean record is checked now and then too.
+  const showReviewed = document.getElementById('qaShowReviewed').checked;
+  const queue = monthReports
+    .map(r => ({ r, a: audits.get(r), v: allReviews[r.id] }))
+    .filter(x => needsReview(x.a, x.r) && (showReviewed || !x.v))
+    .sort((x, y) => (!!x.v - !!y.v) || (x.a.score - y.a.score));
+  const pending = monthReports.filter(r => needsReview(audits.get(r), r) && !allReviews[r.id]).length;
+
+  document.getElementById('qaQueueBadge').textContent = pending;
+  const badge = document.getElementById('qa-badge');
+  badge.textContent = pending;
+  badge.classList.toggle('show', pending > 0);
+
+  document.getElementById('qaQueue').innerHTML = queue.length ? queue.map(({ r, a, v }) => {
+    const why = a.flags.some(f => f.cost) ? '' : '<div class="qa-sampled">Picked at random for a routine check.</div>';
+    const verdict = v
+      ? `<div class="qa-verdict">${v.status === 'approved' ? '✓ <b>Approved</b>' : '⚠ <b>Needs attention</b>'}
+           by ${escapeHtml(v.reviewer_name || '—')} · ${qaDate({ submitted_at: v.reviewed_at })}
+           ${v.note ? `<div style="margin-top:4px">${escapeHtml(v.note)}</div>` : ''}</div>`
+      : '';
+    return `<div class="qa-item" id="qa-${r.id}">
+      <div class="qa-item-head">${qaPill(a.score)}
+        <b>${escapeHtml(r.client_name || '—')}</b>
+        <span>${escapeHtml(r.eng_name || '—')}</span>
+        <span class="ref">${escapeHtml(r.ref)} · ${qaDate(r)}</span>
+        ${reportChips({ pdf: r.pdf_url, lat: r.gps_lat, lng: r.gps_lng })}
+      </div>
+      ${qaFlagList(a.flags)}${why}
+      ${verdict}
+      ${reviewsMissing ? '' : `<div class="qa-actions" style="margin-top:10px">
+        <textarea id="qa-note-${r.id}" placeholder="Note for management (optional) — the engineer never sees it">${v && v.note ? escapeHtml(v.note) : ''}</textarea>
+        <button class="qa-btn ok" onclick="saveReview('${r.id}','approved')">✓ Approved</button>
+        <button class="qa-btn warn" onclick="saveReview('${r.id}','attention')">⚠ Needs attention</button>
+      </div>`}
+    </div>`;
+  }).join('') : `<div class="empty-state">${showReviewed ? 'Nothing in the queue this month' : 'Nothing waiting for review this month ✓'}</div>`;
+}
+
+function qaToggle(id) {
+  qaOpen = qaOpen === id ? null : id;
+  renderQuality();
+}
+
+async function saveReview(reportId, status) {
+  if (!me || !me.id) return;
+  const note = (document.getElementById(`qa-note-${reportId}`)?.value || '').trim() || null;
+  const row = { report_id: reportId, status, note, reviewed_by: me.id,
+                reviewer_name: me.name, reviewed_at: new Date().toISOString() };
+  const { error } = await sb.from('report_reviews').upsert(row);
+  if (error) { showToast('Could not save the review: ' + error.message, 'error'); return; }
+  allReviews[reportId] = row;
+  renderQuality();
+  showToast(status === 'approved' ? 'Marked approved' : 'Marked as needing attention', 'success');
 }
 
 function escapeHtml(s) {
